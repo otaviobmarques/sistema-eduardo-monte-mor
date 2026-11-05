@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Aviso } from '@/components/ui';
 import { CAMPOS_TECNICOS, ROTULO_CAMPO, valorLegivel } from '@/lib/auditoria';
-import { dataHora, ETAPA_LABEL, moeda, PAGAMENTO_LABEL, STATUS_LABEL, telefone } from '@/lib/formato';
+import { data as fmtDataCurta, dataHora, ETAPA_LABEL, moeda, PAGAMENTO_LABEL, STATUS_LABEL, telefone } from '@/lib/formato';
 import { carregarConfigSla, slaDaOs } from '@/lib/os-leitura';
 import { formatarDuracao } from '@/lib/regras/sla';
 import { createClient } from '@/lib/supabase/server';
@@ -10,6 +10,9 @@ import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './fic
 import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
 import { AcoesLoja, CancelarOs, Pendencias, type PendenciaVista } from './operacoes';
 import { MarcarVistas } from '@/components/notificacoes';
+import { BotaoPagamento } from '@/components/financeiro/baixa';
+import { SeloPagamento } from '@/components/financeiro/tabela';
+import { rotuloForma, valorDaOs } from '@/lib/regras/financeiro';
 import { Placa } from './placa';
 import { StatusSelo } from './status';
 
@@ -98,7 +101,8 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
   }
 
   const laudoAtual = (anexos ?? []).find((a) => a.tipo === 'laudo' && a.atual);
-  const outrosAnexos = (anexos ?? []).filter((a) => modo === 'loja' ? true : a.tipo !== 'laudo' || a.atual);
+  const comprovantes = (anexos ?? []).filter((a) => a.tipo === 'comprovante');
+  const outrosAnexos = (anexos ?? []).filter((a) => a.tipo !== 'comprovante' && (modo === 'loja' ? true : a.tipo !== 'laudo' || a.atual));
   const tempoCancelada = os.status === 'cancelado' && os.cancelada_em ? formatarDuracao(Date.now() - new Date(os.cancelada_em).getTime()) : null;
 
   return (
@@ -234,16 +238,34 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
         </section>
 
         <section className="card p-6" aria-labelledby="val-titulo">
-          <h2 id="val-titulo" className="h3 mb-4">Valores e pagamento</h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 id="val-titulo" className="h3">Valores e pagamento</h2>
+            {modo === 'loja' && os.status !== 'cancelado' && (
+              <BotaoPagamento os={{ id: os.id, numero: os.numero, placa: os.placa, valor: valorDaOs(os) }}
+                inicial={{ status: os.pagamento_status, forma: os.pagamento_forma, data: os.pagamento_data, obs: os.pagamento_obs }} />
+            )}
+          </div>
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Dado rotulo="Vistoria">{moeda(os.valor_base)}</Dado>
             <Dado rotulo="Deslocamento">{moeda(os.valor_deslocamento)}</Dado>
             {Number(os.valor_ajuste) !== 0 && <Dado rotulo="Ajuste">{moeda(os.valor_ajuste)}</Dado>}
             <Dado rotulo={os.valor_final !== null ? 'Valor final' : 'Valor previsto'}>
-              <span className="font-display text-xl font-black">{moeda(os.valor_final ?? Number(os.valor_base) + Number(os.valor_deslocamento) + Number(os.valor_ajuste))}</span>
+              <span className="font-display text-xl font-black">{moeda(valorDaOs(os))}</span>
             </Dado>
-            <Dado rotulo="Pagamento">{PAGAMENTO_LABEL[os.pagamento_status as keyof typeof PAGAMENTO_LABEL]}{os.pagamento_data ? ` · ${os.pagamento_forma ?? ''}` : ''}</Dado>
+            <Dado rotulo="Pagamento"><SeloPagamento s={os.pagamento_status} /></Dado>
+            {os.pagamento_status !== 'pendente' && <Dado rotulo={os.pagamento_status === 'pago' ? 'Pago em' : 'Faturado em'}>{fmtDataCurta(os.pagamento_data)} · {rotuloForma(os.pagamento_forma)}</Dado>}
+            {os.pagamento_obs && <div className="col-span-2"><Dado rotulo="Observação do pagamento">{os.pagamento_obs}</Dado></div>}
           </dl>
+          {comprovantes.length > 0 && (
+            <ul className="mt-4 space-y-2 border-t border-divider pt-4">
+              {comprovantes.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate"><span className="legenda block">Comprovante · {dataHora(c.enviado_em)}</span>{c.nome_arquivo}</span>
+                  <BaixarAnexo id={c.id} nome={c.nome_arquivo} />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="card p-6" aria-labelledby="anx-titulo">

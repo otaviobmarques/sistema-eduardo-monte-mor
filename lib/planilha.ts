@@ -33,12 +33,12 @@ export async function lerPlanilha(arquivo: File): Promise<Celula[][]> {
   return linhas;
 }
 
-export async function gerarXlsx(abas: { nome: string; colunas: { titulo: string; largura?: number }[]; linhas: (string | number | null)[][] }[]) {
+export async function gerarXlsx(abas: { nome: string; colunas: { titulo: string; largura?: number; formato?: string }[]; linhas: (string | number | null)[][] }[]) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Sistema de OS – Auto Visão';
   for (const a of abas) {
     const ws = wb.addWorksheet(a.nome);
-    ws.columns = a.colunas.map((c) => ({ header: c.titulo, width: c.largura ?? 18 }));
+    ws.columns = a.colunas.map((c) => ({ header: c.titulo, width: c.largura ?? 18, style: c.formato ? { numFmt: c.formato } : undefined }));
     const cab = ws.getRow(1);
     cab.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     cab.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF373435' } };

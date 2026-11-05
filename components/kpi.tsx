@@ -3,7 +3,7 @@ export function Kpi({ rotulo, valor, detalhe, tom }: { rotulo: string; valor: Re
   return (
     <div className={`rounded-card border p-4 ${cls}`}>
       <p className={`text-xs font-semibold uppercase tracking-wide ${tom === 'escuro' ? 'text-white/70' : 'text-text-secondary'}`}>{rotulo}</p>
-      <p className="mt-1 font-display text-[32px] font-black leading-none">{valor}</p>
+      <p className="mt-1 font-display text-[26px] font-black leading-none sm:text-[32px]">{valor}</p>
       {detalhe && <p className={`mt-1 text-xs ${tom === 'escuro' ? 'text-white/70' : tom === 'alerta' ? 'text-error' : 'text-text-secondary'}`}>{detalhe}</p>}
     </div>
   );

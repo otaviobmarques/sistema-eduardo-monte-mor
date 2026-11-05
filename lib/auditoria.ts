@@ -7,7 +7,7 @@ export const ROTULO_CAMPO: Record<string, string> = {
   status: 'Status', etapa: 'Etapa', vistoriador_id: 'Vistoriador', prazo_em: 'Prazo', pausado_desde: 'Pausado desde', total_pausado: 'Tempo pausado',
   marca_modelo: 'Marca e modelo', ano: 'Ano', cor: 'Cor', categoria_id: 'Categoria', renavam: 'Renavam', placa: 'Placa',
   valor_base: 'Valor base', valor_deslocamento: 'Deslocamento', valor_ajuste: 'Ajuste', valor_final: 'Valor final',
-  pagamento_status: 'Pagamento', pagamento_forma: 'Forma de pagamento', pagamento_data: 'Data do pagamento',
+  pagamento_status: 'Pagamento', pagamento_forma: 'Forma de pagamento', pagamento_data: 'Data do pagamento', pagamento_obs: 'Observação do pagamento',
   concluida_em: 'Concluída em', cancelada_em: 'Cancelada em', observacao: 'Observação', nome_solicitante: 'Solicitante',
   alerta1_enviado: '1º alerta enviado', alerta2_enviado: '2º alerta enviado', vencida_notificada: 'Vencimento notificado', escalonada: 'Escalonada',
   razao_social: 'Razão social', nome_fantasia: 'Nome fantasia', cnpj: 'CNPJ', forma_cobranca: 'Cobrança', usa_tabela_propria: 'Tabela própria',
@@ -22,7 +22,7 @@ export const ROTULO_TABELA: Record<string, string> = {
 };
 
 /** Campos técnicos que poluem a leitura e não precisam aparecer por padrão. */
-export const CAMPOS_TECNICOS = new Set(['id', 'created_at', 'created_by', 'empresa_cliente_id', 'servico_id', 'patio_id', 'lote_id', 'numero']);
+export const CAMPOS_TECNICOS = new Set(['id', 'created_at', 'created_by', 'empresa_cliente_id', 'servico_id', 'patio_id', 'lote_id', 'numero', 'pagamento_registrado_em', 'pagamento_registrado_por']);
 
 export function valorLegivel(campo: string, v: string | null): string {
   if (v === null || v === '') return '—';
