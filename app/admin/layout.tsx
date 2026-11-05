@@ -6,11 +6,13 @@ const GRUPOS: GrupoMenu[] = [
   { titulo: 'Plataforma', itens: [
     { href: '/admin', label: 'Lojas', icone: 'clientes' },
     { href: '/admin/cobranca', label: 'Cobrança', icone: 'financeiro' },
+    { href: '/admin/gateways', label: 'Gateways de pagamento', icone: 'config' },
   ] },
 ];
 const BARRA: ItemMenu[] = [
   { href: '/admin', label: 'Lojas', icone: 'clientes' },
   { href: '/admin/cobranca', label: 'Cobrança', icone: 'financeiro' },
+  { href: '/admin/gateways', label: 'Gateways', icone: 'config' },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

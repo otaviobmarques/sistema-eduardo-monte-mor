@@ -1,10 +1,11 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 import { exigirPerfil } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { asaas, asaasConfigurado, ErroAsaas, proximoVencimento, statusFatura } from '@/lib/asaas';
+import { asaas, asaasConfigurado, credenciaisAsaas, ErroAsaas, proximoVencimento, statusFatura } from '@/lib/asaas';
 import { cnpjValido, normalizarCnpj } from '@/lib/regras/cnpj';
 import { UFS } from '@/lib/formato';
 import { gerarSenhaTemporaria, LOGIN_REGEX, loginParaEmail, normalizarLogin } from '@/lib/login';
@@ -126,18 +127,14 @@ export async function alterarBloqueioLoja(lojaId: string, bloquear: boolean, mot
 /* ───────── Cobrança (Asaas) ───────── */
 export async function ativarCobranca(lojaId: string): Promise<Resultado<{ criadas: number }>> {
   await exigirPerfil('admin');
-  if (!asaasConfigurado()) return { ok: false, erro: 'Configure a chave do Asaas (ASAAS_API_KEY) para cobrar pelo Asaas. Enquanto isso, use “Nova fatura manual”.' };
+  if (!(await asaasConfigurado())) return { ok: false, erro: 'Ative o Asaas em Gateways de pagamento para cobrar por ele. Enquanto isso, use “Nova fatura” manual.' };
   const admin = createAdminClient();
   const { data: l } = await admin.from('lojas').select('*').eq('id', lojaId).single();
   if (!l) return { ok: false, erro: 'Loja não encontrada.' };
   if (!l.cnpj) return { ok: false, erro: 'Cadastre o CNPJ da Loja antes de cobrar.' };
   let criadas = 0;
   try {
-    let cliente = l.asaas_customer_id as string | null;
-    if (!cliente) {
-      cliente = (await asaas.criarCliente({ name: l.razao_social || l.nome, cpfCnpj: l.cnpj, email: l.email, mobilePhone: l.telefone, externalReference: l.id })).id;
-      await admin.from('lojas').update({ asaas_customer_id: cliente }).eq('id', l.id);
-    }
+    const cliente = await garantirClienteAsaas(l);
     const { count: temStart } = await admin.from('faturas').select('id', { count: 'exact', head: true }).eq('loja_id', l.id).eq('tipo', 'start').neq('status', 'cancelado');
     if (Number(l.taxa_start) > 0 && !temStart) {
       const venc = new Date(Date.now() - 3 * 3600_000 + 3 * 86400_000).toISOString().slice(0, 10);
@@ -161,24 +158,6 @@ export async function ativarCobranca(lojaId: string): Promise<Resultado<{ criada
   return { ok: true, dados: { criadas } };
 }
 
-const faturaManual = z.object({
-  tipo: z.enum(['start', 'mensalidade', 'avulsa']),
-  descricao: z.string().trim().min(2, 'Descreva a fatura.'),
-  valor: z.coerce.number().positive('Informe o valor.'),
-  vencimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe o vencimento.'),
-});
-
-export async function criarFaturaManual(lojaId: string, d: z.input<typeof faturaManual>): Promise<Resultado> {
-  await exigirPerfil('admin');
-  const p = faturaManual.safeParse(d);
-  if (!p.success) return { ok: false, erro: 'Confira os campos.', campos: campos(p.error) };
-  const supabase = await createClient();
-  const { error } = await supabase.from('faturas').insert({ loja_id: lojaId, ...p.data });
-  if (error) return { ok: false, erro: mensagemErroBanco(error) };
-  revalidatePath(`/admin/lojas/${lojaId}`); revalidatePath('/admin/cobranca');
-  return { ok: true };
-}
-
 export async function darBaixaFatura(faturaId: string): Promise<Resultado> {
   await exigirPerfil('admin');
   const admin = createAdminClient();
@@ -186,11 +165,112 @@ export async function darBaixaFatura(faturaId: string): Promise<Resultado> {
   if (!f) return { ok: false, erro: 'Fatura não encontrada.' };
   if (f.status === 'pago') return { ok: true };
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
-  if (f.asaas_payment_id && asaasConfigurado()) {
+  if (f.asaas_payment_id && (await asaasConfigurado())) {
     try { await asaas.receberEmDinheiro(f.asaas_payment_id, Number(f.valor), hoje); } catch (e) { return { ok: false, erro: e instanceof ErroAsaas ? e.message : 'Falha no Asaas.' }; }
   }
   await admin.from('faturas').update({ status: 'pago', pago_em: new Date().toISOString(), forma_pagamento: f.forma_pagamento ?? 'Baixa manual' }).eq('id', faturaId);
   await admin.rpc('reavaliar_bloqueio', { p_loja: f.loja_id });
   revalidatePath(`/admin/lojas/${f.loja_id}`); revalidatePath('/admin/cobranca'); revalidatePath('/admin');
   return { ok: true };
+}
+
+/* ───────── Cliente da Loja no Asaas ───────── */
+type LojaAsaas = { id: string; nome: string; razao_social: string | null; cnpj: string | null; email: string | null; telefone: string | null; asaas_customer_id: string | null };
+async function garantirClienteAsaas(l: LojaAsaas): Promise<string> {
+  if (l.asaas_customer_id) return l.asaas_customer_id;
+  if (!l.cnpj) throw new ErroAsaas('Cadastre o CNPJ da Loja antes de cobrar pelo Asaas.');
+  const id = (await asaas.criarCliente({ name: l.razao_social || l.nome, cpfCnpj: l.cnpj, email: l.email, mobilePhone: l.telefone, externalReference: l.id })).id;
+  await createAdminClient().from('lojas').update({ asaas_customer_id: id }).eq('id', l.id);
+  return id;
+}
+
+/* ───────── Nova fatura para uma Loja (pelo gateway ou manual) ───────── */
+const novaFatura = z.object({
+  loja_id: z.string().uuid('Escolha a Loja.'),
+  tipo: z.enum(['start', 'mensalidade', 'avulsa']),
+  descricao: z.string().trim().min(2, 'Descreva a fatura (ex.: Mensalidade 11/2026).'),
+  valor: z.coerce.number({ invalid_type_error: 'Informe o valor.' }).positive('Informe um valor maior que zero.'),
+  vencimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe o vencimento.'),
+  via_gateway: z.coerce.boolean(),
+});
+export type NovaFaturaDados = z.input<typeof novaFatura>;
+
+export async function criarFatura(d: NovaFaturaDados): Promise<Resultado<{ link: string | null }>> {
+  await exigirPerfil('admin');
+  const p = novaFatura.safeParse(d);
+  if (!p.success) return { ok: false, erro: 'Confira os campos.', campos: campos(p.error) };
+  const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+  if (p.data.via_gateway && p.data.vencimento < hoje) return { ok: false, erro: 'Pelo gateway o vencimento precisa ser hoje ou depois.', campos: { vencimento: 'Use hoje ou uma data futura.' } };
+  const admin = createAdminClient();
+  const { data: l } = await admin.from('lojas').select('id, nome, razao_social, cnpj, email, telefone, asaas_customer_id').eq('id', p.data.loja_id).single();
+  if (!l) return { ok: false, erro: 'Loja não encontrada.', campos: { loja_id: 'Loja não encontrada.' } };
+  const base = { loja_id: l.id, tipo: p.data.tipo, descricao: p.data.descricao, valor: p.data.valor, vencimento: p.data.vencimento };
+  let link: string | null = null;
+  if (p.data.via_gateway) {
+    if (!(await asaasConfigurado())) return { ok: false, erro: 'Ative o Asaas em Gateways de pagamento ou desmarque “Cobrar pelo Asaas”.' };
+    try {
+      const cliente = await garantirClienteAsaas(l);
+      const pag = await asaas.criarCobranca({ customer: cliente, value: p.data.valor, dueDate: p.data.vencimento, description: `${p.data.descricao} · ${l.nome}`, externalReference: `${p.data.tipo === 'mensalidade' ? 'mensal' : p.data.tipo}:${l.id}` });
+      link = pag.invoiceUrl ?? null;
+      const { error } = await admin.from('faturas').upsert({ ...base, status: statusFatura(pag.status), asaas_payment_id: pag.id, link_pagamento: link }, { onConflict: 'asaas_payment_id' });
+      if (error) return { ok: false, erro: mensagemErroBanco(error) };
+    } catch (e) {
+      return { ok: false, erro: e instanceof ErroAsaas ? e.message : 'Não foi possível falar com o Asaas.' };
+    }
+  } else {
+    const { error } = await admin.from('faturas').insert({ ...base, status: p.data.vencimento < hoje ? 'vencido' : 'pendente' });
+    if (error) return { ok: false, erro: mensagemErroBanco(error) };
+  }
+  revalidatePath(`/admin/lojas/${l.id}`); revalidatePath('/admin/cobranca'); revalidatePath('/admin');
+  return { ok: true, dados: { link } };
+}
+
+/* ───────── Gateways de pagamento ───────── */
+export async function salvarGateway(provedor: 'asaas', d: { ambiente: string; ativo: boolean; chave: string }): Promise<Resultado<{ mensagem: string }>> {
+  const s = await exigirPerfil('admin');
+  const ambiente = d.ambiente === 'producao' ? 'producao' : 'sandbox';
+  const chave = d.chave.trim();
+  if (chave && !/^\$?aact_/.test(chave) && chave.length < 30) return { ok: false, erro: 'Isso não parece uma chave de API do Asaas (começa com $aact_).', campos: { chave: 'Chave inválida.' } };
+  const atual = await credenciaisAsaas();
+  const usar = chave || atual.chave;
+  if (d.ativo && !usar) return { ok: false, erro: 'Informe a chave de API para ativar.', campos: { chave: 'Informe a chave.' } };
+  let mensagem = 'Configuração salva.';
+  let testeOk: boolean | null = null;
+  if (usar) {
+    try {
+      await asaas.testar({ ativo: true, ambiente, chave: usar, webhookToken: null });
+      testeOk = true; mensagem = `Conexão com o Asaas (${ambiente === 'producao' ? 'produção' : 'sandbox'}) funcionando.`;
+    } catch (e) {
+      return { ok: false, erro: `${e instanceof ErroAsaas ? e.message : 'Falha ao conectar.'} Confira se a chave é do ambiente ${ambiente === 'producao' ? 'de produção' : 'sandbox'}. Nada foi salvo.`, campos: { chave: 'Não conectou.' } };
+    }
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('salvar_gateway', { p_provedor: provedor, p_ambiente: ambiente, p_ativo: d.ativo, p_chave: chave || null });
+  if (error) return { ok: false, erro: 'Não foi possível salvar.' };
+  if (testeOk !== null) await supabase.from('gateways_pagamento').update({ testado_em: new Date().toISOString(), teste_ok: testeOk, teste_mensagem: mensagem, atualizado_por: s.userId }).eq('provedor', provedor);
+  revalidatePath('/admin/gateways'); revalidatePath('/admin/cobranca');
+  return { ok: true, dados: { mensagem } };
+}
+
+export async function configurarWebhook(email: string): Promise<Resultado<{ url: string }>> {
+  await exigirPerfil('admin');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { ok: false, erro: 'Informe o e-mail que recebe avisos de falha do webhook.', campos: { email: 'E-mail inválido.' } };
+  const cred = await credenciaisAsaas();
+  if (!cred.chave) return { ok: false, erro: 'Salve a chave do Asaas antes.' };
+  if (!cred.webhookToken) return { ok: false, erro: 'Salve a configuração do Asaas antes para gerar o token do webhook.' };
+  const h = await headers();
+  const host = process.env.APP_URL ?? `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('x-forwarded-host') ?? h.get('host')}`;
+  const url = `${host.replace(/\/$/, '')}/api/asaas/webhook`;
+  if (/localhost|127\.0\.0\.1/.test(url)) return { ok: false, erro: 'O webhook precisa de um endereço público. Configure pelo sistema publicado (Vercel).' };
+  try {
+    const existentes = await asaas.listarWebhooks();
+    const mesmo = existentes.data?.find((w) => w.url === url);
+    const r = mesmo ? await asaas.atualizarWebhook(mesmo.id, { url, email: email.trim(), authToken: cred.webhookToken }) : await asaas.criarWebhook({ url, email: email.trim(), authToken: cred.webhookToken });
+    const supabase = await createClient();
+    await supabase.from('gateways_pagamento').update({ webhook_id: r.id ?? mesmo?.id, webhook_url: url }).eq('provedor', 'asaas');
+  } catch (e) {
+    return { ok: false, erro: e instanceof ErroAsaas ? e.message : 'Não foi possível configurar o webhook.' };
+  }
+  revalidatePath('/admin/gateways');
+  return { ok: true, dados: { url } };
 }

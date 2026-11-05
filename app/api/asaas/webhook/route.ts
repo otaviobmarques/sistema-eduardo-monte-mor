@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
-import { statusFatura, type PagamentoAsaas } from '@/lib/asaas';
+import { credenciaisAsaas, statusFatura, type PagamentoAsaas } from '@/lib/asaas';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-function autorizado(req: NextRequest) {
-  const esperado = process.env.ASAAS_WEBHOOK_TOKEN;
+async function autorizado(req: NextRequest) {
+  const esperado = (await credenciaisAsaas()).webhookToken;
   const recebido = req.headers.get('asaas-access-token') ?? '';
   if (!esperado) return false;
   const a = Buffer.from(recebido), b = Buffer.from(esperado);
@@ -15,7 +15,7 @@ function autorizado(req: NextRequest) {
 
 /** Eventos de cobrança do Asaas → faturas da plataforma (e desbloqueio automático ao pagar). */
 export async function POST(req: NextRequest) {
-  if (!autorizado(req)) return NextResponse.json({ erro: 'não autorizado' }, { status: 401 });
+  if (!(await autorizado(req))) return NextResponse.json({ erro: 'não autorizado' }, { status: 401 });
   const corpo = (await req.json().catch(() => null)) as { event?: string; payment?: PagamentoAsaas } | null;
   const p = corpo?.payment;
   if (!corpo?.event?.startsWith('PAYMENT_') || !p?.id) return NextResponse.json({ ok: true, ignorado: true });

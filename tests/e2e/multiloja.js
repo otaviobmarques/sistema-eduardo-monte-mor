@@ -1,8 +1,10 @@
 // Multi-Loja · Administrador cadastra Loja e Gestor; isolamento entre Lojas; cobrança e bloqueio por atraso.
-// Uso: npm run build && npm start -- -p 3100; depois: E2E_ADMIN_SENHA=... S=pasta node tests/e2e/multiloja.js
+// Uso: npm run build && npm start -- -p 3100; depois: S=pasta node tests/e2e/multiloja.js
 const { chromium } = require('playwright');
 const { createClient } = require('@supabase/supabase-js');
 const { adm, email, criarLoja, criarUsuario, limparLoja, limparLojaPorNome, entrar } = require('./apoio');
+const { adminTemporario } = require('./apoio');
+let ADM;
 const S = process.env.S ?? '/tmp', B = process.env.BASE_URL ?? 'http://localhost:3100';
 const log = (...a) => console.log('✔', ...a);
 const falha = (m) => { throw new Error(m); };
@@ -10,13 +12,14 @@ const NOME_B = 'Loja E2E Campinas', NOME_A = 'Loja E2E Monte Mor';
 const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOString().slice(0, 10);
 
 (async () => {
+  ADM = await adminTemporario();
   await limparLojaPorNome(NOME_B);
   const lojaA = await criarLoja(NOME_A);
   const b = await chromium.launch();
   let lojaB;
   try {
     const admin = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-    await entrar(admin, B, 'admin', process.env.E2E_ADMIN_SENHA ?? '', '/admin');
+    await entrar(admin, B, ADM.login, ADM.senha, '/admin');
     log('admin entra direto em /admin');
     await admin.goto(B + '/loja'); await admin.waitForURL('**/admin'); log('admin não entra na área de Loja');
 
@@ -86,9 +89,10 @@ const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOStrin
 
     // Cobrança manual → vencida dentro da tolerância (aviso) → além da tolerância (bloqueio) → baixa (desbloqueio)
     await admin.reload();
-    await admin.click('button:has-text("Nova fatura manual")');
-    await admin.selectOption('#fm-tipo', 'mensalidade'); await admin.fill('#fm-desc', 'Mensalidade teste'); await admin.fill('#fm-valor', '299,90'); await admin.fill('#fm-venc', hoje(-2));
-    await admin.click('dialog button:has-text("Criar fatura")');
+    await admin.click('button:has-text("Nova fatura")');
+    await admin.fill('#nf-desc', 'Mensalidade teste'); await admin.fill('#nf-valor', '299,90'); await admin.fill('#nf-venc', hoje(-2));
+    await admin.click('dialog button:has-text("Registrar fatura manual")');
+    await admin.click('dialog button:has-text("Fechar")');
     await admin.waitForSelector('td:has-text("Mensalidade teste")'); log('fatura manual criada pelo admin');
     await adm.rpc('verificar_inadimplencia');
     await gestor.goto(B + '/loja'); await gestor.waitForSelector('text=será suspenso em');
@@ -122,6 +126,7 @@ const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOStrin
     await gestor.goto(B + '/loja/assinatura'); await gestor.screenshot({ path: S + '/loja-assinatura.png', fullPage: true });
   } finally {
     await b.close();
+    await ADM.remover();
     if (!process.env.MANTER) { await limparLoja(lojaA.id); if (lojaB) await limparLoja(lojaB.id); }
   }
 })().catch(async (e) => { console.error('✘', e.message); process.exit(1); });

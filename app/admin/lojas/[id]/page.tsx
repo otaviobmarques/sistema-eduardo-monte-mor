@@ -31,7 +31,7 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
       <div className="grid gap-6 xl:grid-cols-[1fr_440px] xl:items-start">
         <div className="space-y-6">
           <LojaForm id={id} inicial={l} />
-          <CobrancaLoja lojaId={id} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={asaasConfigurado()} temAssinatura={!!l.asaas_subscription_id} ambiente={ambienteAsaas()} />
+          <CobrancaLoja loja={{ id, nome: l.nome, temCnpj: !!l.cnpj }} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={await asaasConfigurado()} temAssinatura={!!l.asaas_subscription_id} ambiente={await ambienteAsaas()} />
         </div>
         <div className="space-y-6 xl:sticky xl:top-6">
           <AcessoCliente empresaId={id} perfil={gestor} titulo="Acesso do Gestor" descricao="Um Gestor por Loja: cadastra clientes, opera as OS e gerencia a Loja."

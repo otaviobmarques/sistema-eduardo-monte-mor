@@ -22,7 +22,15 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
   inativa** ⇒ essas funções retornam nulo/falso ⇒ Gestor e clientes dela não leem nada.
 - Loja nova nasce com `semear_loja()` (serviço padrão, preços zerados, motivos, configurações); pátios vazios.
 - **Cobrança das Lojas pelo Asaas** (`lib/asaas.ts`, webhook `/api/asaas/webhook`, faturas em `faturas`):
-  Start (cobrança única) + assinatura mensal (Pix/boleto/cartão). Sem chave do Asaas, faturas manuais + baixa.
+  Start (cobrança única) + assinatura mensal (Pix/boleto/cartão). Sem gateway ativo, faturas manuais + baixa.
+- **Gateways de pagamento** em `/admin/gateways`: o Administrador configura o Asaas (chave, sandbox/produção, teste de
+  conexão, webhook automático). Chave e token do webhook ficam no **Supabase Vault** (`salvar_gateway()`, só admin);
+  o servidor lê por `credenciais_gateway()` (só service_role). Variáveis `ASAAS_*` são apenas alternativa.
+  Mercado Pago e Stripe aparecem como "Em breve" (não implementados).
+- **Nova fatura** em `/admin/cobranca` com escolha da Loja e opção “Cobrar pelo Asaas” (gera link Pix/boleto/cartão)
+  ou fatura manual com baixa.
+- FKs para `auth.users` são `ON DELETE SET NULL` (exceto perfis/push em cascata) para permitir excluir usuários.
+- Testes E2E usam um administrador temporário (`adminTemporario()`), nunca o login real `admin`.
 - **Inadimplência**: `verificar_inadimplencia()` diária (pg_cron 09:05) marca vencidas e bloqueia quem passar de
   `dias_tolerancia`; `reavaliar_bloqueio()` libera ao pagar (só bloqueios automáticos).
 - Logins: `admin` = Administrador (Otávio); `eduardo` = Gestor da Loja Auto Visão Monte Mor.

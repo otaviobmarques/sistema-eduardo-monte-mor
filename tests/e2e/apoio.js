@@ -22,7 +22,14 @@ async function criarLoja(nome, { patios = true } = {}) {
 async function criarUsuario({ login, senha, perfil, lojaId, empresaId = null, nome = login, trocar = false }) {
   const { data: velho } = await adm.from('perfis_usuario').select('user_id').eq('login', login).maybeSingle();
   if (velho) { await adm.from('perfis_usuario').delete().eq('user_id', velho.user_id); await adm.auth.admin.deleteUser(velho.user_id); }
-  const { data: u, error } = await adm.auth.admin.createUser({ email: email(login), password: senha, email_confirm: true });
+  let { data: u, error } = await adm.auth.admin.createUser({ email: email(login), password: senha, email_confirm: true });
+  if (error && /already/i.test(error.message)) {
+    // usuário de Auth órfão de uma execução anterior: remove e cria de novo
+    const { data: lista } = await adm.auth.admin.listUsers({ perPage: 1000 });
+    const orfao = lista?.users.find((x) => x.email === email(login));
+    if (orfao) await adm.auth.admin.deleteUser(orfao.id);
+    ({ data: u, error } = await adm.auth.admin.createUser({ email: email(login), password: senha, email_confirm: true }));
+  }
   if (error) throw error;
   const { error: e2 } = await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil, loja_id: lojaId, empresa_cliente_id: empresaId, login, nome_exibicao: nome, deve_trocar_senha: trocar });
   if (e2) throw e2;
@@ -76,3 +83,15 @@ async function lojaComGestor(nome, login) {
 }
 module.exports.proximoNumero = proximoNumero;
 module.exports.lojaComGestor = lojaComGestor;
+
+/** Administrador temporário dos testes (nunca usa o login real "admin"). */
+async function adminTemporario() {
+  const login = 'admin-e2e', senha = 'admin-e2e-senha-123';
+  await criarUsuario({ login, senha, perfil: 'admin', lojaId: null, nome: 'Admin E2E' });
+  return { login, senha, remover: async () => {
+    const { data } = await adm.from('perfis_usuario').select('user_id').eq('login', login).maybeSingle();
+    if (data) { await adm.from('perfis_usuario').delete().eq('user_id', data.user_id); await adm.auth.admin.deleteUser(data.user_id); }
+    await adm.from('acessos_log').delete().eq('login', login);
+  } };
+}
+module.exports.adminTemporario = adminTemporario;
