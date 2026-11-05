@@ -56,7 +56,7 @@ body { font-family: var(--font-inter), Inter, sans-serif; }
   .aviso-info { @apply border-info bg-info-bg text-info; }
 
   /* Abas (DS p. 20): atual em texto, peso e traço */
-  .abas { @apply flex gap-1 overflow-x-auto rounded-card bg-surface px-2; }
+  .abas { @apply flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-card bg-surface px-2; }
   .aba { @apply relative flex min-h-toque shrink-0 items-center px-4 text-sm font-medium text-text hover:text-action; }
   .aba[aria-current='page'] { @apply font-semibold text-action after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-full after:bg-action; }
 

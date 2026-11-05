@@ -1,0 +1,170 @@
+'use server';
+import { randomUUID } from 'node:crypto';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { getSessao } from '@/lib/sessao';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { MAX_ANEXO, TIPOS_ANEXO_OK } from '@/lib/os';
+import { mensagemOperacao } from '@/lib/operacao';
+import type { Resultado } from '@/lib/cadastros';
+
+const uuid = z.string().uuid();
+
+async function sessao(perfil?: 'loja') {
+  const s = await getSessao();
+  if (!s || s.perfil.bloqueado || s.perfil.deve_trocar_senha) throw new Error('Sessão inválida');
+  if (perfil && s.perfil.perfil !== perfil) throw new Error('Sem permissão');
+  return s;
+}
+
+function atualizar(numero: number) {
+  revalidatePath(`/loja/os/${numero}`); revalidatePath(`/app/os/${numero}`);
+  revalidatePath('/loja'); revalidatePath('/app'); revalidatePath('/loja/pendencias'); revalidatePath('/app/pendencias'); revalidatePath('/loja/agenda');
+}
+
+/** Converte "2026-11-05T14:30" (horário de Brasília, vindo do input datetime-local) em ISO. */
+function deBrasilia(local: string) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return null;
+  const d = new Date(`${local}:00-03:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+export async function agendar(osId: string, numero: number, d: { data_hora: string; local: string; vistoriador_id: string; motivo_id?: string; motivo_texto?: string }): Promise<Resultado> {
+  await sessao('loja');
+  const quando = deBrasilia(d.data_hora);
+  const campos: Record<string, string> = {};
+  if (!quando) campos.data_hora = 'Informe data e hora.';
+  if (!uuid.safeParse(d.vistoriador_id).success) campos.vistoriador_id = 'Escolha o vistoriador.';
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('agendar_os', {
+    p_os: osId, p_data_hora: quando, p_local: d.local, p_vistoriador: d.vistoriador_id,
+    p_motivo: d.motivo_id && uuid.safeParse(d.motivo_id).success ? d.motivo_id : null, p_motivo_texto: d.motivo_texto ?? null,
+  });
+  if (error) return { ok: false, erro: mensagemOperacao(error), campos: error.message.includes('MOTIVO') ? { motivo_id: 'Escolha o motivo do reagendamento.' } : undefined };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function mudarEtapa(osId: string, numero: number, etapa: string): Promise<Resultado> {
+  await sessao('loja');
+  const e = z.enum(['aberta', 'agendada', 'em_execucao', 'laudo_em_elaboracao']).safeParse(etapa);
+  if (!e.success) return { ok: false, erro: 'Etapa inválida.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('alterar_etapa', { p_os: osId, p_etapa: e.data });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+async function anexoOpcional(form: FormData, osId: string, empresaId: string, userId: string, nome: string) {
+  const arq = form.get('arquivo');
+  if (!(arq instanceof File) || !arq.size) return null;
+  if (!TIPOS_ANEXO_OK.includes(arq.type)) return 'Anexo: use JPG, PNG ou PDF.';
+  if (arq.size > MAX_ANEXO) return 'Anexo: o limite é 20 MB.';
+  const supabase = await createClient();
+  const limpo = arq.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_').slice(-80);
+  const caminho = `${empresaId}/${osId}/frustracao-${randomUUID().slice(0, 8)}-${limpo}`;
+  const { error } = await supabase.storage.from('anexos').upload(caminho, arq, { contentType: arq.type });
+  if (error) return 'Não foi possível enviar o anexo.';
+  const admin = createAdminClient();
+  await admin.from('anexos').insert({ os_id: osId, tipo: arq.type === 'application/pdf' ? 'documento' : 'foto', bucket: 'anexos', storage_path: caminho, nome_arquivo: arq.name, tamanho_bytes: arq.size, enviado_por: userId });
+  return null;
+}
+
+export async function frustrar(form: FormData): Promise<Resultado> {
+  const s = await sessao('loja');
+  const osId = String(form.get('os_id')), numero = Number(form.get('numero'));
+  const campos: Record<string, string> = {};
+  const motivo = String(form.get('motivo_id') ?? ''), descricao = String(form.get('descricao') ?? '').trim();
+  const ocorrida = deBrasilia(String(form.get('ocorrida_em') ?? '')), previsao = String(form.get('previsao') ?? '');
+  const responsavel = String(form.get('responsavel') ?? '');
+  if (!uuid.safeParse(motivo).success) campos.motivo_id = 'Escolha o motivo.';
+  if (!ocorrida) campos.ocorrida_em = 'Informe data e hora.';
+  else if (new Date(ocorrida) > new Date(Date.now() + 5 * 60_000)) campos.ocorrida_em = 'Não pode estar no futuro.';
+  if (descricao.length < 3) campos.descricao = 'Descreva o que aconteceu.';
+  if (!['cliente', 'loja'].includes(responsavel)) campos.responsavel = 'Escolha quem resolve.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(previsao)) campos.previsao = 'Informe a previsão de resolução.';
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const supabase = await createClient();
+  const { data: os } = await supabase.from('ordens_servico').select('empresa_cliente_id').eq('id', osId).single();
+  const { error } = await supabase.rpc('frustrar_os', { p_os: osId, p_motivo: motivo, p_ocorrida_em: ocorrida, p_descricao: descricao, p_responsavel: responsavel, p_previsao: previsao });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  const e = os ? await anexoOpcional(form, osId, os.empresa_cliente_id, s.userId, s.perfil.nome_exibicao) : null;
+  atualizar(numero);
+  return e ? { ok: false, erro: `Frustração registrada, mas: ${e}` } : { ok: true };
+}
+
+export async function abrirPendencia(osId: string, numero: number, d: { tipo: string; descricao: string; responsavel: string; previsao: string }): Promise<Resultado> {
+  await sessao('loja');
+  const campos: Record<string, string> = {};
+  if (!['documental', 'falta_autorizacao', 'nao_localizado', 'agendamento', 'outra'].includes(d.tipo)) campos.tipo = 'Escolha o tipo.';
+  if (d.descricao.trim().length < 3) campos.descricao = 'Descreva a pendência.';
+  if (!['cliente', 'loja'].includes(d.responsavel)) campos.responsavel = 'Escolha quem resolve.';
+  if (d.previsao && !/^\d{4}-\d{2}-\d{2}$/.test(d.previsao)) campos.previsao = 'Data inválida.';
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('abrir_pendencia', { p_os: osId, p_tipo: d.tipo, p_descricao: d.descricao, p_responsavel: d.responsavel, p_previsao: d.previsao || null });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function resolverPendencia(pendenciaId: string, numero: number, texto: string): Promise<Resultado> {
+  await sessao('loja');
+  if (texto.trim().length < 3) return { ok: false, erro: 'Descreva como foi resolvida.', campos: { texto: 'Descreva como foi resolvida.' } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('resolver_pendencia', { p_pendencia: pendenciaId, p_texto: texto });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function responderPendencia(pendenciaId: string, numero: number, texto: string): Promise<Resultado> {
+  await sessao();
+  if (texto.trim().length < 2) return { ok: false, erro: 'Escreva a resposta.', campos: { texto: 'Escreva a resposta.' } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('responder_pendencia', { p_pendencia: pendenciaId, p_texto: texto });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function cancelar(osId: string, numero: number, d: { nome: string; motivo_id: string; descricao: string }): Promise<Resultado> {
+  await sessao();
+  const campos: Record<string, string> = {};
+  if (d.nome.trim().length < 2) campos.nome = 'Informe o nome de quem pediu.';
+  if (!uuid.safeParse(d.motivo_id).success) campos.motivo_id = 'Escolha o motivo.';
+  if (d.descricao.trim().length < 3) campos.descricao = 'Explique o cancelamento.';
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('cancelar_os', { p_os: osId, p_nome: d.nome, p_motivo: d.motivo_id, p_descricao: d.descricao });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function enviarLaudo(form: FormData): Promise<Resultado<{ versao: number }>> {
+  await sessao('loja');
+  const osId = String(form.get('os_id')), numero = Number(form.get('numero'));
+  const arq = form.get('arquivo');
+  if (!(arq instanceof File) || !arq.size) return { ok: false, erro: 'Escolha o PDF do laudo.' };
+  if (arq.type !== 'application/pdf' && !arq.name.toLowerCase().endsWith('.pdf')) return { ok: false, erro: 'O laudo precisa ser PDF.' };
+  if (arq.size > MAX_ANEXO) return { ok: false, erro: 'O laudo pode ter até 20 MB.' };
+  const supabase = await createClient();
+  const { data: os } = await supabase.from('ordens_servico').select('id, empresa_cliente_id').eq('id', osId).single();
+  if (!os) return { ok: false, erro: 'OS não encontrada.' };
+  const { count } = await supabase.from('anexos').select('id', { count: 'exact', head: true }).eq('os_id', osId).eq('tipo', 'laudo');
+  const versao = (count ?? 0) + 1;
+  const caminho = `${os.empresa_cliente_id}/${osId}/v${versao}.pdf`;
+  const { error: up } = await supabase.storage.from('laudos').upload(caminho, arq, { contentType: 'application/pdf', upsert: false });
+  if (up) return { ok: false, erro: up.message.includes('exists') ? 'Outra pessoa enviou um laudo agora mesmo. Atualize a página.' : 'Não foi possível enviar o arquivo. Tente de novo.' };
+  const { error } = await supabase.rpc('registrar_laudo', { p_os: osId, p_versao: versao, p_path: caminho, p_nome: arq.name, p_tamanho: arq.size });
+  if (error) {
+    await supabase.storage.from('laudos').remove([caminho]);
+    return { ok: false, erro: mensagemOperacao(error) };
+  }
+  atualizar(numero);
+  return { ok: true, dados: { versao } };
+}

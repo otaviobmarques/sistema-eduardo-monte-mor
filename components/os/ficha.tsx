@@ -8,6 +8,7 @@ import { formatarDuracao } from '@/lib/regras/sla';
 import { createClient } from '@/lib/supabase/server';
 import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './ficha-acoes';
 import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
+import { AcoesLoja, CancelarOs, Pendencias, type PendenciaVista } from './operacoes';
 import { Placa } from './placa';
 import { StatusSelo } from './status';
 
@@ -34,6 +35,16 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
     supabase.from('justificativas_atraso').select('id, texto, criado_em, motivos(descricao)').eq('os_id', os.id).order('criado_em'),
     modo === 'loja' ? supabase.from('motivos').select('id, descricao').eq('tipo', 'atraso').eq('ativo', true).order('ordem') : Promise.resolve({ data: [] as { id: string; descricao: string }[] }),
   ]);
+  const [{ data: agendamentos }, { data: pendencias }, { data: motivos }, { data: vistoriadores }, { data: cancelamento }] = await Promise.all([
+    supabase.from('os_agendamentos').select('id, versao, data_hora, local_texto, vistoriador_id, atual, motivo_texto, created_at, vistoriadores(nome), motivos(descricao)').eq('os_id', os.id).order('versao', { ascending: false }),
+    supabase.from('pendencias').select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, respondida_em').eq('os_id', os.id).order('created_at', { ascending: false }),
+    supabase.from('motivos').select('id, tipo, descricao').in('tipo', ['frustracao', 'cancelamento', 'reagendamento']).eq('ativo', true).order('ordem'),
+    modo === 'loja' ? supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    supabase.from('os_cancelamentos').select('solicitado_por_nome, descricao, data, motivos(descricao)').eq('os_id', os.id).maybeSingle(),
+  ]);
+  const porTipo = (t: string) => (motivos ?? []).filter((m) => m.tipo === t).map((m) => ({ id: m.id, descricao: m.descricao }));
+  const agAtual = (agendamentos ?? []).find((a) => a.atual);
+  const pendAbertas = (pendencias ?? []).filter((p) => !p.resolvida_em).length;
   const entradaSla = { aberta_em: os.aberta_em, sla_horas: os.sla_horas, status: os.status, concluida_em: os.concluida_em, cancelada_em: os.cancelada_em, pausas: pausas ?? [] };
   const sla = slaDaOs(os, cfg, pausas ?? []);
   const empresa = os.empresas_clientes as { razao_social: string; nome_fantasia: string | null } | null;
@@ -113,6 +124,25 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
         </dl>
       </header>
 
+      {modo === 'loja' && (
+        <AcoesLoja d={{
+          os: { id: os.id, numero: os.numero, status: os.status, etapa: os.etapa, local: os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome ?? '' : os.endereco ?? '' },
+          vistoriadores: vistoriadores ?? [], motivos: { frustracao: porTipo('frustracao'), cancelamento: porTipo('cancelamento'), reagendamento: porTipo('reagendamento') },
+          agendamento: agAtual ? { data_hora: agAtual.data_hora, vistoriador_id: agAtual.vistoriador_id, local_texto: agAtual.local_texto } : null,
+          pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length,
+        }} />
+      )}
+      {modo === 'cliente' && (os.status === 'a_vistoriar' || os.status === 'frustrado') && (
+        <div className="flex justify-end"><CancelarOs osId={os.id} numero={os.numero} motivos={porTipo('cancelamento')} cliente /></div>
+      )}
+      {cancelamento && (
+        <Aviso tipo="info" titulo={`Cancelada · ${(cancelamento.motivos as unknown as { descricao: string } | null)?.descricao ?? ''}`}>
+          Pedido por {cancelamento.solicitado_por_nome} em {dataHora(cancelamento.data)}. {cancelamento.descricao}
+        </Aviso>
+      )}
+
+      <Pendencias pendencias={(pendencias ?? []) as PendenciaVista[]} modo={modo} numero={os.numero} />
+
       {os.observacao && (
         <Aviso tipo="info" titulo="Observação do cliente"><p className="whitespace-pre-line">{os.observacao}</p></Aviso>
       )}
@@ -184,6 +214,21 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
             <Dado rotulo="Origem">{os.lote_id ? `Importação em lote · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : 'Abertura individual'}</Dado>
             {modo === 'loja' && <Dado rotulo="Vistoriador">{(os.vistoriadores as { nome: string } | null)?.nome}</Dado>}
           </dl>
+        </section>
+
+        <section className="card p-6" aria-labelledby="ag-titulo">
+          <h2 id="ag-titulo" className="h3 mb-4">Agendamento</h2>
+          {!agendamentos?.length ? <p className="text-sm text-text-secondary">{modo === 'loja' ? 'Ainda não agendada. Use “Agendar”.' : 'A Auto Visão ainda vai agendar a vistoria.'}</p> : (
+            <ol className="space-y-3">
+              {agendamentos.map((a) => (
+                <li key={a.id} className={`rounded-card p-3 text-sm ${a.atual ? 'bg-surface' : 'text-text-secondary line-through decoration-divider'}`}>
+                  <p className={a.atual ? 'font-display text-lg font-black no-underline' : ''}>{dataHora(a.data_hora)}</p>
+                  <p>{(a.vistoriadores as unknown as { nome: string } | null)?.nome}{a.local_texto ? ` · ${a.local_texto}` : ''}</p>
+                  <p className="legenda no-underline">Versão {a.versao}{a.atual ? ' (atual)' : ''}{(a.motivos as unknown as { descricao: string } | null)?.descricao ? ` · reagendada: ${(a.motivos as unknown as { descricao: string }).descricao}` : ''}{a.motivo_texto ? ` – ${a.motivo_texto}` : ''}</p>
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
 
         <section className="card p-6" aria-labelledby="val-titulo">

@@ -21,12 +21,22 @@ export default async function PainelCliente({ searchParams }: { searchParams: Pr
     ? [...ordenarPorUrgencia(filtradas.filter((o) => o.status === 'a_vistoriar' || o.status === 'frustrado')), ...filtradas.filter((o) => o.status === 'vistoriado' || o.status === 'cancelado')]
     : filtradas;
   const nome = s.empresa?.nome_fantasia || s.empresa?.razao_social;
+  const { count: aguardando } = await supabase.from('pendencias').select('id', { count: 'exact', head: true }).is('resolvida_em', null).eq('responsavel', 'cliente');
   return (
     <div className="space-y-6">
       <Hero kicker="Painel" titulo={`Olá, ${nome}`} descricao="Acompanhe prazo, status e laudo de cada placa.">
         <Link href="/app/nova-os" className="btn btn-claro">Nova OS</Link>
         <Link href="/app/importar" className="btn btn-contorno-claro">Importar planilha</Link>
       </Hero>
+      {!!aguardando && (
+        <div className="aviso aviso-atencao flex-col sm:flex-row sm:items-center sm:justify-between" role="status">
+          <div>
+            <p className="font-display text-base font-extrabold">{aguardando === 1 ? '1 pendência aguarda você' : `${aguardando} pendências aguardam você`}</p>
+            <p>O prazo dessas OS está pausado até a resposta.</p>
+          </div>
+          <Link href="/app/pendencias" className="btn btn-primario">Responder pendências</Link>
+        </div>
+      )}
       <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined }} />
       <Chips param="status" atual={st} extra={{ q: q || undefined }}
         opcoes={(Object.keys(STATUS) as (keyof typeof STATUS)[]).map((k) => ({ valor: k, rotulo: STATUS[k], qtd: k ? todas.filter((o) => o.status === k).length : todas.length }))} />
