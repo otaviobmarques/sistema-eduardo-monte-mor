@@ -21,6 +21,7 @@ const PATHS = {
   editar: 'M4 20h4L19 9l-4-4L4 16v4z',
   anexo: 'M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7',
   voltar: 'M15 18l-6-6 6-6',
+  copiar: 'M9 9h10v12H9zM5 15H4V3h11v1',
   som: 'M11 5 6 9H3v6h3l5 4V5zm4.5 3.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13',
 } as const;
 

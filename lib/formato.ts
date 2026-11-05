@@ -42,3 +42,36 @@ export const ETAPA_LABEL = {
 } as const;
 
 export const PAGAMENTO_LABEL = { pendente: 'Pendente', pago: 'Pago', faturado: 'Faturado' } as const;
+
+/** Aceita "1.234,56", "R$ 150", "150.5". Retorna null se vazio/inválido. */
+export function parseMoeda(v: string | number | null | undefined): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  let s = (v ?? '').replace(/[R$\s]/g, '');
+  if (!s) return null;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+export function valorParaCampo(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '';
+  return Number(v).toFixed(2).replace('.', ',');
+}
+
+export function telefone(v: string | null | undefined): string {
+  const d = (v ?? '').replace(/\D/g, '');
+  if (d.length === 11) return d.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+  if (d.length === 10) return d.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+  return v ?? '';
+}
+
+/** Primeira palavra do nome, sem acentos e minúscula (ex.: "Creditas S.A." → "creditas"). */
+export function sugerirLogin(nome: string): string {
+  const limpo = nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim();
+  const palavras = limpo.split(/\s+/).filter(Boolean);
+  if (!palavras.length) return '';
+  const primeira = palavras[0];
+  return (primeira.length >= 4 ? primeira : palavras.slice(0, 2).join('')).slice(0, 30);
+}
+
+export const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];

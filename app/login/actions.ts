@@ -42,6 +42,7 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
 
   if (error || !data.user) {
     await registrar(false);
+    if (error?.code === 'user_banned' || /banned/i.test(error?.message ?? '')) return { erro: `Acesso bloqueado. ${FALE}`, login: digitado };
     return { erro: 'Usuário ou senha incorretos.', login: digitado };
   }
 
