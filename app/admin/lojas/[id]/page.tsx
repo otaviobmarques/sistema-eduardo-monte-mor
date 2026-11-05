@@ -19,9 +19,11 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
   const supabase = await createClient();
   const { data: l } = await supabase.from('lojas').select('*').eq('id', id).maybeSingle();
   if (!l) notFound();
-  const [{ data: gestor }, { data: faturas }] = await Promise.all([
+  const [ativoAsaas, ambiente] = await Promise.all([asaasConfigurado(), ambienteAsaas()]);
+  const [{ data: gestor }, { data: faturas }, { data: noGateway }] = await Promise.all([
     supabase.from('perfis_usuario').select('login, nome_exibicao, bloqueado, deve_trocar_senha, senha_expira_em, primeiro_acesso_em').eq('loja_id', id).eq('perfil', 'loja').maybeSingle(),
-    supabase.from('faturas').select('id, tipo, descricao, valor, vencimento, status, link_pagamento, pago_em, asaas_payment_id').eq('loja_id', id).order('vencimento', { ascending: false }),
+    supabase.from('faturas').select('id, tipo, descricao, valor, vencimento, status, link_pagamento, pago_em, asaas_payment_id, ambiente').eq('loja_id', id).order('vencimento', { ascending: false }),
+    supabase.from('lojas_gateway').select('subscription_id').eq('loja_id', id).eq('provedor', 'asaas').eq('ambiente', ambiente).maybeSingle(),
   ]);
   return (
     <>
@@ -31,7 +33,7 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
       <div className="grid gap-6 xl:grid-cols-[1fr_440px] xl:items-start">
         <div className="space-y-6">
           <LojaForm id={id} inicial={l} />
-          <CobrancaLoja loja={{ id, nome: l.nome, temCnpj: !!l.cnpj }} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={await asaasConfigurado()} temAssinatura={!!l.asaas_subscription_id} ambiente={await ambienteAsaas()} />
+          <CobrancaLoja loja={{ id, nome: l.nome, temCnpj: !!l.cnpj }} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={ativoAsaas} temAssinatura={!!noGateway?.subscription_id} ambiente={ambiente} />
         </div>
         <div className="space-y-6 xl:sticky xl:top-6">
           <AcessoCliente empresaId={id} perfil={gestor} titulo="Acesso do Gestor" descricao="Um Gestor por Loja: cadastra clientes, opera as OS e gerencia a Loja."

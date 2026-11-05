@@ -2,91 +2,137 @@
 import { useState, useTransition } from 'react';
 import { Aviso, BotaoCopiar, Selo } from '@/components/ui';
 import { dataHora } from '@/lib/formato';
-import { configurarWebhook, salvarGateway } from '../actions';
+import { configurarWebhook, removerChaveGateway, salvarChaveGateway, usarAmbienteGateway } from '../actions';
 
-export interface EstadoAsaas {
-  ativo: boolean; ambiente: 'sandbox' | 'producao'; chaveFinal: string | null; testadoEm: string | null; testeOk: boolean | null;
-  testeMensagem: string | null; webhookUrl: string | null; viaAmbiente: boolean;
+export type Ambiente = 'sandbox' | 'producao';
+export interface EstadoAmbiente {
+  ambiente: Ambiente; chaveFinal: string | null; testadoEm: string | null; testeOk: boolean | null; testeMensagem: string | null;
+  webhookUrl: string | null; viaAmbiente: boolean;
+}
+const INFO: Record<Ambiente, { nome: string; titulo: string; conta: string; descricao: string }> = {
+  sandbox: { nome: 'Teste', titulo: 'Teste (sandbox)', conta: 'sandbox.asaas.com', descricao: 'Cobranças de mentira, para validar o fluxo. Não bloqueiam Lojas e o Gestor não vê.' },
+  producao: { nome: 'Produção', titulo: 'Produção', conta: 'asaas.com', descricao: 'Cobranças reais, enviadas às Lojas com Pix, boleto e cartão.' },
+};
+
+function SituacaoChave({ e }: { e: EstadoAmbiente }) {
+  if (!e.chaveFinal && !e.viaAmbiente) return <Selo tom="neutro">Sem chave</Selo>;
+  if (e.testeOk === false) return <Selo tom="erro">■ Chave com erro</Selo>;
+  if (e.testeOk) return <Selo tom="ok">● Chave testada</Selo>;
+  return <Selo tom="atencao">◆ Chave não testada</Selo>;
 }
 
-export function GatewayAsaas({ e }: { e: EstadoAsaas }) {
-  const [ambiente, setAmbiente] = useState(e.ambiente);
-  const [ativo, setAtivo] = useState(e.ativo || !e.chaveFinal);
-  const [chave, setChave] = useState('');
-  const [email, setEmail] = useState('');
+/** Seletor do ambiente em uso: vale para as cobranças novas; o outro ambiente continua salvo. */
+export function SeletorAmbiente({ emUso, ativo, ambientes }: { emUso: Ambiente; ativo: boolean; ambientes: EstadoAmbiente[] }) {
+  const [sel, setSel] = useState<Ambiente>(emUso);
+  const [ligado, setLigado] = useState(ativo);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
-  const [msgWh, setMsgWh] = useState<{ ok: boolean; t: string } | null>(null);
-  const [erros, setErros] = useState<Record<string, string>>({});
   const [pendente, iniciar] = useTransition();
-  const status = e.ativo && e.chaveFinal ? (e.testeOk === false ? <Selo tom="erro">■ Com erro</Selo> : <Selo tom="ok">● Ativo</Selo>) : e.chaveFinal ? <Selo tom="neutro">Desativado</Selo> : <Selo tom="neutro">Não configurado</Selo>;
-
+  const temChave = (a: Ambiente) => { const e = ambientes.find((x) => x.ambiente === a); return !!(e?.chaveFinal || e?.viaAmbiente); };
+  const mudou = sel !== emUso || ligado !== ativo;
   return (
-    <section className="card space-y-5 p-6" aria-labelledby="gw-asaas">
+    <section className="card space-y-5 p-6" aria-labelledby="gw-uso">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 id="gw-asaas" className="h3">Asaas</h2>
-          <p className="text-sm text-text-secondary">Pix, boleto e cartão · assinatura mensal · baixa automática pelo webhook</p>
+          <h2 id="gw-uso" className="h3">Ambiente em uso</h2>
+          <p className="text-sm text-text-secondary">Escolha qual conta do Asaas gera as cobranças novas. A configuração do outro ambiente continua salva.</p>
         </div>
-        {status}
+        {ativo ? <Selo tom={emUso === 'producao' ? 'ok' : 'info'}>● Cobrando pelo Asaas {INFO[emUso].nome}</Selo> : <Selo tom="neutro">Asaas desligado · faturas manuais</Selo>}
       </div>
-
-      <details className="rounded-card bg-surface p-4 text-sm">
-        <summary className="cursor-pointer font-semibold">Como obter a chave de API</summary>
-        <ol className="mt-3 list-decimal space-y-1 pl-5">
-          <li>Para testar, crie uma conta em <strong>sandbox.asaas.com</strong> (para cobrar de verdade, use a conta em asaas.com).</li>
-          <li>No Asaas, abra <strong>Integrações → Chave de API</strong> e gere uma chave.</li>
-          <li>Cole a chave abaixo, escolha o ambiente correspondente e clique em <strong>Salvar e testar</strong>.</li>
-          <li>Depois clique em <strong>Configurar webhook</strong> para o Asaas avisar o sistema quando uma fatura for paga.</li>
-        </ol>
-      </details>
-
       <form className="space-y-4" noValidate onSubmit={(ev) => {
         ev.preventDefault(); setMsg(null);
-        iniciar(async () => {
-          const r = await salvarGateway('asaas', { ambiente, ativo, chave });
-          if (r.ok) { setMsg({ ok: true, t: r.dados!.mensagem }); setChave(''); setErros({}); } else { setMsg({ ok: false, t: r.erro }); setErros(r.campos ?? {}); }
-        });
+        iniciar(async () => { const r = await usarAmbienteGateway(sel, ligado); setMsg(r.ok ? { ok: true, t: r.dados!.mensagem } : { ok: false, t: r.erro }); });
       }}>
         <fieldset>
-          <legend className="rotulo">Ambiente</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {([['sandbox', 'Teste (sandbox)', 'Cobranças de mentira, para validar o fluxo.'], ['producao', 'Produção', 'Cobranças reais para as Lojas.']] as const).map(([k, t, d]) => (
-              <label key={k} className="flex min-h-toque cursor-pointer gap-3 rounded-card border-[1.5px] border-border p-4 has-[:checked]:border-impact has-[:checked]:bg-surface">
-                <input type="radio" name="ambiente" className="mt-1 accent-action" checked={ambiente === k} onChange={() => setAmbiente(k)} />
-                <span><span className="block font-semibold">{t}</span><span className="text-sm text-text-secondary">{d}</span></span>
+          <legend className="sr-only">Ambiente</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(['sandbox', 'producao'] as const).map((a) => (
+              <label key={a} className="flex min-h-toque cursor-pointer gap-3 rounded-card border-[1.5px] border-border p-4 has-[:checked]:border-impact has-[:checked]:bg-surface">
+                <input type="radio" name="gw-ambiente" value={a} className="mt-1 accent-action" checked={sel === a} onChange={() => { setSel(a); setMsg(null); }} />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{INFO[a].titulo}</span>{emUso === a && ativo && <Selo tom="ok">Em uso</Selo>}</span>
+                  <span className="mt-1 block text-sm text-text-secondary">{INFO[a].descricao}</span>
+                  <span className="mt-2 block"><SituacaoChave e={ambientes.find((x) => x.ambiente === a)!} /></span>
+                </span>
               </label>
             ))}
           </div>
         </fieldset>
-        <div>
-          <label className="rotulo" htmlFor="gw-chave">Chave de API</label>
-          <input id="gw-chave" type="password" autoComplete="off" spellCheck={false} className="campo font-mono" value={chave} onChange={(ev) => { setChave(ev.target.value); setErros({}); }}
-            placeholder={e.chaveFinal ? `Chave salva terminando em ${e.chaveFinal} — deixe em branco para manter` : '$aact_...'} aria-invalid={erros.chave ? true : undefined} aria-describedby="gw-chave-msg" />
-          <p id="gw-chave-msg" className={erros.chave ? 'erro-campo' : 'ajuda'}>{erros.chave ?? 'Fica criptografada no cofre do banco. Nunca é mostrada de novo.'}</p>
-        </div>
         <label className="flex min-h-toque items-center gap-3 text-sm font-medium">
-          <input type="checkbox" className="check" checked={ativo} onChange={(ev) => setAtivo(ev.target.checked)} />Usar o Asaas para cobrar as Lojas
+          <input type="checkbox" className="check" checked={ligado} onChange={(ev) => { setLigado(ev.target.checked); setMsg(null); }} />Usar o Asaas para cobrar as Lojas
         </label>
+        {ligado && !temChave(sel) && <Aviso tipo="atencao" titulo={`O ambiente ${INFO[sel].nome} está sem chave`}>Cadastre e teste a chave dele no cartão abaixo antes de usá-lo para cobrar.</Aviso>}
+        {ligado && sel === 'producao' && emUso !== 'producao' && temChave('producao') && <Aviso tipo="info" titulo="Passando a cobrar de verdade">A partir de agora, “Ativar cobrança” e “Nova fatura” geram cobranças reais. As faturas de teste continuam na lista, marcadas como Teste.</Aviso>}
+        {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Não foi possível salvar'}>{msg.t}</Aviso>}
+        <button className="btn btn-primario" disabled={pendente || !mudou || (ligado && !temChave(sel))}>{pendente ? 'Salvando…' : 'Salvar seleção'}</button>
+      </form>
+    </section>
+  );
+}
+
+/** Configuração de UM ambiente: chave (testada antes de salvar), remoção e webhook próprio. */
+export function ConfigAmbiente({ e, emUso }: { e: EstadoAmbiente; emUso: boolean }) {
+  const i = INFO[e.ambiente];
+  const id = `gw-${e.ambiente}`;
+  const [chave, setChave] = useState('');
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [msgWh, setMsgWh] = useState<{ ok: boolean; t: string } | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pendente, iniciar] = useTransition();
+  const temChave = !!e.chaveFinal;
+  return (
+    <section className={`card space-y-5 p-6 ${emUso ? 'ring-2 ring-impact' : ''}`} aria-labelledby={`${id}-titulo`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id={`${id}-titulo`} className="h3">Asaas · {i.titulo}</h2>
+          <p className="text-sm text-text-secondary">Conta em <strong>{i.conta}</strong></p>
+        </div>
+        <div className="flex flex-wrap gap-2">{emUso && <Selo tom="ok">Em uso</Selo>}<SituacaoChave e={e} /></div>
+      </div>
+
+      <form className="space-y-4" noValidate onSubmit={(ev) => {
+        ev.preventDefault(); setMsg(null); setErro(null);
+        iniciar(async () => {
+          const r = await salvarChaveGateway(e.ambiente, chave);
+          if (r.ok) { setMsg({ ok: true, t: r.dados!.mensagem }); setChave(''); } else { setMsg({ ok: false, t: r.erro }); setErro(r.campos?.chave ?? null); }
+        });
+      }}>
+        <div>
+          <label className="rotulo" htmlFor={`${id}-chave`}>Chave de API {i.nome === 'Teste' ? 'do sandbox' : 'de produção'}</label>
+          <input id={`${id}-chave`} type="password" autoComplete="off" spellCheck={false} className="campo font-mono" value={chave}
+            onChange={(ev) => { setChave(ev.target.value); setErro(null); }}
+            placeholder={temChave ? `Salva (final ${e.chaveFinal}) · cole outra para trocar` : '$aact_...'}
+            aria-invalid={erro ? true : undefined} aria-describedby={`${id}-chave-msg`} />
+          <p id={`${id}-chave-msg`} className={erro ? 'erro-campo' : 'ajuda'}>{erro ?? `No ${i.conta}: Integrações › Chave de API. Fica criptografada no cofre do banco e nunca é mostrada de novo.`}</p>
+        </div>
         {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Não foi possível salvar'}>{msg.t}</Aviso>}
         {!msg && e.testadoEm && <p className="legenda">Último teste em {dataHora(e.testadoEm)}: {e.testeMensagem}</p>}
-        {e.viaAmbiente && <p className="legenda">Hoje a chave vem de variável de ambiente do servidor. Ao salvar aqui, a do painel passa a valer.</p>}
-        <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Testando…' : 'Salvar e testar'}</button>
+        {e.viaAmbiente && !temChave && <p className="legenda">Hoje a chave deste ambiente vem de variável de ambiente do servidor. Ao salvar aqui, a do painel passa a valer.</p>}
+        <div className="flex flex-wrap gap-3">
+          <button className="btn btn-primario" disabled={pendente || (!chave.trim() && !temChave)}>{pendente ? 'Testando…' : chave.trim() || !temChave ? 'Salvar e testar' : 'Testar de novo'}</button>
+          {temChave && (
+            <button type="button" className="btn btn-texto" disabled={pendente} onClick={() => {
+              if (!confirm(`Remover a chave do Asaas ${i.nome}?${emUso ? ' Este é o ambiente em uso: o Asaas será desligado e as cobranças novas passam a ser manuais.' : ''}`)) return;
+              iniciar(async () => { const r = await removerChaveGateway(e.ambiente); setMsg(r.ok ? { ok: true, t: 'Chave removida.' } : { ok: false, t: r.erro }); });
+            }}>Remover chave</button>
+          )}
+        </div>
       </form>
 
       <div className="space-y-3 border-t border-divider pt-5">
-        <h3 className="font-display text-lg font-extrabold">Webhook (baixa automática)</h3>
+        <h3 className="font-display text-lg font-extrabold">Webhook · baixa automática</h3>
         {e.webhookUrl ? (
           <div className="flex flex-wrap items-center gap-3 text-sm"><Selo tom="ok">● Configurado</Selo><code className="break-all rounded bg-surface px-2 py-1">{e.webhookUrl}</code><BotaoCopiar texto={e.webhookUrl} rotulo="Copiar URL" /></div>
-        ) : <p className="text-sm text-text-secondary">Ainda não configurado. Sem ele, os pagamentos não dão baixa sozinhos.</p>}
+        ) : <p className="text-sm text-text-secondary">Ainda não configurado nesta conta. Sem ele, os pagamentos deste ambiente não dão baixa sozinhos.</p>}
         <form className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" noValidate onSubmit={(ev) => {
           ev.preventDefault(); setMsgWh(null);
-          iniciar(async () => { const r = await configurarWebhook(email); setMsgWh(r.ok ? { ok: true, t: `Webhook ativo em ${r.dados!.url}.` } : { ok: false, t: r.erro }); });
+          iniciar(async () => { const r = await configurarWebhook(e.ambiente, email); setMsgWh(r.ok ? { ok: true, t: `Webhook ativo em ${r.dados!.url}.` } : { ok: false, t: r.erro }); });
         }}>
           <div>
-            <label className="rotulo" htmlFor="gw-email">E-mail para avisos de falha do webhook</label>
-            <input id="gw-email" type="email" className="campo" value={email} onChange={(ev) => setEmail(ev.target.value)} placeholder="voce@empresa.com.br" />
+            <label className="rotulo" htmlFor={`${id}-email`}>E-mail para avisos de falha</label>
+            <input id={`${id}-email`} type="email" className="campo" value={email} onChange={(ev) => setEmail(ev.target.value)} placeholder="voce@empresa.com.br" />
           </div>
-          <button className="btn btn-secundario" disabled={pendente || !e.chaveFinal}>Configurar webhook</button>
+          <button className="btn btn-secundario" disabled={pendente || !temChave}>Configurar webhook</button>
         </form>
         {msgWh && <Aviso tipo={msgWh.ok ? 'ok' : 'erro'} titulo={msgWh.ok ? 'Tudo certo' : 'Não foi possível'}>{msgWh.t}</Aviso>}
       </div>

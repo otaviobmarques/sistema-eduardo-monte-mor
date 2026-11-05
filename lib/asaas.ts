@@ -9,26 +9,48 @@ import { createAdminClient } from './supabase/admin';
  */
 const BASE = { sandbox: 'https://api-sandbox.asaas.com/v3', producao: 'https://api.asaas.com/v3' } as const;
 
-export interface CredenciaisAsaas { ativo: boolean; ambiente: 'sandbox' | 'producao'; chave: string | null; webhookToken: string | null }
+export type AmbienteAsaas = 'sandbox' | 'producao';
+export const NOME_AMBIENTE: Record<AmbienteAsaas, string> = { sandbox: 'Teste', producao: 'Produção' };
+export interface CredenciaisAsaas { ativo: boolean; ambiente: AmbienteAsaas; chave: string | null; webhookToken: string | null }
+const amb = (v: unknown): AmbienteAsaas => (v === 'producao' ? 'producao' : 'sandbox');
 
-export async function credenciaisAsaas(): Promise<CredenciaisAsaas> {
-  const { data } = await createAdminClient().rpc('credenciais_gateway', { p_provedor: 'asaas' });
+/**
+ * Credenciais do Asaas. Sem argumento: o ambiente em uso (o seletor de /admin/gateways), usado para criar cobranças.
+ * Com o ambiente: as credenciais daquele ambiente (testar, configurar webhook, dar baixa numa fatura dele).
+ */
+export async function credenciaisAsaas(ambiente?: AmbienteAsaas): Promise<CredenciaisAsaas> {
+  const admin = createAdminClient();
+  if (ambiente) {
+    const { data } = await admin.rpc('credenciais_gateway_ambiente', { p_provedor: 'asaas', p_ambiente: ambiente });
+    const c = (data as { chave: string | null; webhook_token: string | null }[] | null)?.[0];
+    const doEnv = !c?.chave && process.env.ASAAS_API_KEY && amb(process.env.ASAAS_AMBIENTE) === ambiente;
+    return { ativo: !!(c?.chave || doEnv), ambiente, chave: c?.chave ?? (doEnv ? process.env.ASAAS_API_KEY! : null), webhookToken: c?.webhook_token ?? (doEnv ? process.env.ASAAS_WEBHOOK_TOKEN ?? null : null) };
+  }
+  const { data } = await admin.rpc('credenciais_gateway', { p_provedor: 'asaas' });
   const c = (data as { ativo: boolean; ambiente: string; chave: string | null; webhook_token: string | null }[] | null)?.[0];
-  if (c?.chave) return { ativo: c.ativo, ambiente: c.ambiente === 'producao' ? 'producao' : 'sandbox', chave: c.chave, webhookToken: c.webhook_token };
+  if (c?.chave) return { ativo: c.ativo, ambiente: amb(c.ambiente), chave: c.chave, webhookToken: c.webhook_token };
+  // Alternativa: variáveis de ambiente do servidor, quando o painel não tem chave
   return {
-    ativo: !!process.env.ASAAS_API_KEY, ambiente: process.env.ASAAS_AMBIENTE === 'producao' ? 'producao' : 'sandbox',
-    chave: process.env.ASAAS_API_KEY ?? null, webhookToken: process.env.ASAAS_WEBHOOK_TOKEN ?? c?.webhook_token ?? null,
+    ativo: !!process.env.ASAAS_API_KEY, ambiente: process.env.ASAAS_API_KEY ? amb(process.env.ASAAS_AMBIENTE) : amb(c?.ambiente),
+    chave: process.env.ASAAS_API_KEY ?? null, webhookToken: process.env.ASAAS_WEBHOOK_TOKEN ?? null,
   };
 }
 
 export const asaasConfigurado = async () => { const c = await credenciaisAsaas(); return c.ativo && !!c.chave; };
 export const ambienteAsaas = async () => (await credenciaisAsaas()).ambiente;
 
+/** De qual conta (ambiente) veio um aviso do webhook, pelo token recebido. */
+export async function ambienteDoToken(token: string, iguais: (a: string, b: string) => boolean): Promise<AmbienteAsaas | null> {
+  const { data } = await createAdminClient().rpc('tokens_webhook_gateway', { p_provedor: 'asaas' });
+  for (const t of (data as { ambiente: string; webhook_token: string | null }[] | null) ?? []) if (t.webhook_token && iguais(token, t.webhook_token)) return amb(t.ambiente);
+  if (process.env.ASAAS_WEBHOOK_TOKEN && iguais(token, process.env.ASAAS_WEBHOOK_TOKEN)) return amb(process.env.ASAAS_AMBIENTE);
+  return null;
+}
+
 export class ErroAsaas extends Error {}
 
-async function chamar<T>(metodo: 'GET' | 'POST' | 'PUT' | 'DELETE', caminho: string, corpo?: unknown, cred?: CredenciaisAsaas): Promise<T> {
-  const c = cred ?? (await credenciaisAsaas());
-  if (!c.chave) throw new ErroAsaas('Asaas não configurado. Informe a chave em Gateways de pagamento.');
+async function chamar<T>(c: CredenciaisAsaas, metodo: 'GET' | 'POST' | 'PUT' | 'DELETE', caminho: string, corpo?: unknown): Promise<T> {
+  if (!c.chave) throw new ErroAsaas(`Asaas (${NOME_AMBIENTE[c.ambiente]}) sem chave. Informe a chave em Gateways de pagamento.`);
   const r = await fetch(`${process.env.ASAAS_URL ?? BASE[c.ambiente]}${caminho}`, {
     method: metodo,
     headers: { 'Content-Type': 'application/json', access_token: c.chave, 'User-Agent': 'SistemaOS-AutoVisao/1.0' },
@@ -51,28 +73,32 @@ export interface PagamentoAsaas {
   externalReference?: string | null; description?: string | null; deleted?: boolean;
 }
 
-export const asaas = {
-  criarCliente: (d: { name: string; cpfCnpj: string; email?: string | null; mobilePhone?: string | null; externalReference: string }) =>
-    chamar<{ id: string }>('POST', '/customers', { ...d, notificationDisabled: false }),
-  criarCobranca: (d: { customer: string; value: number; dueDate: string; description: string; externalReference: string }) =>
-    chamar<PagamentoAsaas>('POST', '/payments', { ...d, billingType: 'UNDEFINED' }),
-  criarAssinatura: (d: { customer: string; value: number; nextDueDate: string; description: string; externalReference: string }) =>
-    chamar<{ id: string }>('POST', '/subscriptions', { ...d, billingType: 'UNDEFINED', cycle: 'MONTHLY' }),
-  pagamentosDaAssinatura: (id: string) => chamar<{ data: PagamentoAsaas[] }>('GET', `/subscriptions/${id}/payments`),
-  cancelarAssinatura: (id: string) => chamar<{ deleted: boolean }>('DELETE', `/subscriptions/${id}`),
-  receberEmDinheiro: (id: string, valor: number, data: string) => chamar<PagamentoAsaas>('POST', `/payments/${id}/receiveInCash`, { paymentDate: data, value: valor, notifyCustomer: false }),
-  /** Teste de conexão com uma credencial ainda não salva (ou a salva). */
-  testar: (cred: CredenciaisAsaas) => chamar<{ totalCount: number }>('GET', '/customers?limit=1', undefined, cred),
-  listarWebhooks: () => chamar<{ data: { id: string; url: string }[] }>('GET', '/webhooks'),
-  criarWebhook: (d: { url: string; email: string; authToken: string }) => chamar<{ id: string }>('POST', '/webhooks', {
-    name: 'Sistema de OS – Auto Visão', url: d.url, email: d.email, enabled: true, interrupted: false, apiVersion: 3,
-    authToken: d.authToken, sendType: 'SEQUENTIALLY',
-    events: ['PAYMENT_CREATED', 'PAYMENT_UPDATED', 'PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED', 'PAYMENT_RECEIVED_IN_CASH_UNDONE'],
-  }),
-  atualizarWebhook: (id: string, d: { url: string; email: string; authToken: string }) => chamar<{ id: string }>('PUT', `/webhooks/${id}`, {
-    url: d.url, email: d.email, enabled: true, interrupted: false, authToken: d.authToken,
-  }),
-};
+/** Cliente da API ligado a uma credencial (um ambiente). */
+export function asaasCom(c: CredenciaisAsaas) {
+  return {
+    ambiente: c.ambiente,
+    criarCliente: (d: { name: string; cpfCnpj: string; email?: string | null; mobilePhone?: string | null; externalReference: string }) =>
+      chamar<{ id: string }>(c, 'POST', '/customers', { ...d, notificationDisabled: false }),
+    criarCobranca: (d: { customer: string; value: number; dueDate: string; description: string; externalReference: string }) =>
+      chamar<PagamentoAsaas>(c, 'POST', '/payments', { ...d, billingType: 'UNDEFINED' }),
+    criarAssinatura: (d: { customer: string; value: number; nextDueDate: string; description: string; externalReference: string }) =>
+      chamar<{ id: string }>(c, 'POST', '/subscriptions', { ...d, billingType: 'UNDEFINED', cycle: 'MONTHLY' }),
+    pagamentosDaAssinatura: (id: string) => chamar<{ data: PagamentoAsaas[] }>(c, 'GET', `/subscriptions/${id}/payments`),
+    cancelarAssinatura: (id: string) => chamar<{ deleted: boolean }>(c, 'DELETE', `/subscriptions/${id}`),
+    receberEmDinheiro: (id: string, valor: number, data: string) => chamar<PagamentoAsaas>(c, 'POST', `/payments/${id}/receiveInCash`, { paymentDate: data, value: valor, notifyCustomer: false }),
+    /** Teste de conexão. */
+    testar: () => chamar<{ totalCount: number }>(c, 'GET', '/customers?limit=1'),
+    listarWebhooks: () => chamar<{ data: { id: string; url: string }[] }>(c, 'GET', '/webhooks'),
+    criarWebhook: (d: { url: string; email: string; authToken: string }) => chamar<{ id: string }>(c, 'POST', '/webhooks', {
+      name: 'Sistema de OS – Auto Visão', url: d.url, email: d.email, enabled: true, interrupted: false, apiVersion: 3,
+      authToken: d.authToken, sendType: 'SEQUENTIALLY',
+      events: ['PAYMENT_CREATED', 'PAYMENT_UPDATED', 'PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED', 'PAYMENT_RECEIVED_IN_CASH_UNDONE'],
+    }),
+    atualizarWebhook: (id: string, d: { url: string; email: string; authToken: string }) => chamar<{ id: string }>(c, 'PUT', `/webhooks/${id}`, {
+      url: d.url, email: d.email, enabled: true, interrupted: false, authToken: d.authToken,
+    }),
+  };
+}
 
 /** Status do Asaas → status da fatura no sistema. */
 export function statusFatura(s: string, removida?: boolean): 'pendente' | 'pago' | 'vencido' | 'cancelado' {

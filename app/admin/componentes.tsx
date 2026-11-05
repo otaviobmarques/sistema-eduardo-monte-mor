@@ -38,7 +38,7 @@ export function SituacaoLoja({ lojaId, bloqueada, motivo, automatico, desde }: {
   );
 }
 
-export interface FaturaVista { id: string; tipo: 'start' | 'mensalidade' | 'avulsa'; descricao: string; valor: number; vencimento: string; status: 'pendente' | 'pago' | 'vencido' | 'cancelado'; link_pagamento: string | null; pago_em: string | null; asaas_payment_id: string | null; loja?: string }
+export interface FaturaVista { id: string; tipo: 'start' | 'mensalidade' | 'avulsa'; descricao: string; valor: number; vencimento: string; status: 'pendente' | 'pago' | 'vencido' | 'cancelado'; link_pagamento: string | null; pago_em: string | null; asaas_payment_id: string | null; ambiente?: 'sandbox' | 'producao' | null; loja?: string }
 
 export function SeloFatura({ s }: { s: FaturaVista['status'] }) {
   return { pendente: <Selo tom="atencao">◆ Em aberto</Selo>, pago: <Selo tom="ok">● Paga</Selo>, vencido: <Selo tom="erro">■ Vencida</Selo>, cancelado: <Selo tom="neutro">Cancelada</Selo> }[s];
@@ -58,7 +58,10 @@ export function TabelaFaturas({ faturas, admin, mostrarLoja }: { faturas: Fatura
             {faturas.map((f) => (
               <tr key={f.id} className={f.status === 'vencido' ? 'shadow-[inset_4px_0_0_#B42318]' : ''}>
                 {mostrarLoja && <td data-rotulo="Loja" className="font-semibold">{f.loja}</td>}
-                <td data-rotulo="Fatura">{f.descricao}{f.asaas_payment_id && <span className="block text-xs text-text-secondary">Asaas</span>}</td>
+                <td data-rotulo="Fatura">
+                  <span className="inline-flex flex-wrap items-center gap-2">{f.descricao}{f.ambiente === 'sandbox' && <Selo tom="info">Teste</Selo>}</span>
+                  <span className="block text-xs text-text-secondary">{f.asaas_payment_id ? `Asaas${f.ambiente === 'producao' ? ' · Produção' : f.ambiente === 'sandbox' ? ' · Teste' : ''}` : 'Manual'}</span>
+                </td>
                 <td data-rotulo="Vencimento" className="whitespace-nowrap">{fmtData(f.vencimento)}</td>
                 <td data-rotulo="Valor" className="whitespace-nowrap font-semibold">{moeda(f.valor)}</td>
                 <td data-rotulo="Situação"><SeloFatura s={f.status} />{f.pago_em && <span className="mt-1 block text-xs text-text-secondary">em {fmtData(f.pago_em)}</span>}</td>
@@ -78,7 +81,7 @@ export function TabelaFaturas({ faturas, admin, mostrarLoja }: { faturas: Fatura
   );
 }
 
-export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, rotulo = 'Nova fatura' }: { lojas: { id: string; nome: string; temCnpj: boolean }[]; lojaFixa?: string; gatewayAtivo: boolean; rotulo?: string }) {
+export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, rotulo = 'Nova fatura' }: { lojas: { id: string; nome: string; temCnpj: boolean }[]; lojaFixa?: string; gatewayAtivo: boolean; ambiente?: string; rotulo?: string }) {
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   const vazio = () => ({ loja_id: lojaFixa ?? '', tipo: 'mensalidade', descricao: `Mensalidade ${hoje.slice(5, 7)}/${hoje.slice(0, 4)}`, valor: '', vencimento: new Date(Date.now() - 3 * 3600_000 + 5 * 86400_000).toISOString().slice(0, 10), via_gateway: gatewayAtivo });
   const [aberto, setAberto] = useState(false);
@@ -146,7 +149,8 @@ export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, rotulo = 'Nova fatur
             <label className={`flex min-h-toque items-start gap-3 rounded-card border-[1.5px] p-4 text-sm ${gatewayAtivo ? 'cursor-pointer border-border has-[:checked]:border-impact has-[:checked]:bg-surface' : 'border-divider text-text-secondary'}`}>
               <input type="checkbox" className="check mt-0.5" checked={f.via_gateway} disabled={!gatewayAtivo} onChange={(e) => set('via_gateway', e.target.checked)} />
               <span>
-                <span className="block font-semibold">Cobrar pelo Asaas (Pix, boleto ou cartão)</span>
+                <span className="block font-semibold">Cobrar pelo Asaas {ambiente === 'sandbox' ? '· Teste' : ambiente === 'producao' ? '· Produção' : ''} (Pix, boleto ou cartão)</span>
+                {gatewayAtivo && ambiente === 'sandbox' && <span className="block text-info">Ambiente em uso: Teste. A cobrança não é real e não bloqueia a Loja.</span>}
                 {gatewayAtivo ? (loja && !loja.temCnpj && f.via_gateway ? <span className="text-error">Esta Loja não tem CNPJ cadastrado; o Asaas exige.</span> : 'Gera o link de pagamento, envia para a Loja e dá baixa sozinho quando pagar.')
                   : <>Ative o Asaas em <a className="font-semibold text-action underline" href="/admin/gateways">Gateways de pagamento</a>. Sem ele, a fatura é manual e você dá baixa ao receber.</>}
               </span>
@@ -170,10 +174,10 @@ export function CobrancaLoja({ loja, faturas, asaasAtivo, temAssinatura, ambient
     <section className="card space-y-4 p-6" aria-labelledby="cob-titulo">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="cob-titulo" className="h3">Cobrança</h2>
-        <Selo tom={asaasAtivo ? 'info' : 'neutro'}>{asaasAtivo ? `Asaas · ${ambiente === 'producao' ? 'produção' : 'teste (sandbox)'}` : 'Sem gateway ativo'}</Selo>
+        <Selo tom={asaasAtivo ? 'info' : 'neutro'}>{asaasAtivo ? `Asaas · ${ambiente === 'producao' ? 'Produção' : 'Teste (sandbox)'}` : 'Sem gateway ativo'}</Selo>
       </div>
       <div className="flex flex-wrap gap-3">
-        <NovaFatura lojas={[loja]} lojaFixa={loja.id} gatewayAtivo={asaasAtivo} />
+        <NovaFatura lojas={[loja]} lojaFixa={loja.id} gatewayAtivo={asaasAtivo} ambiente={ambiente} />
         <button type="button" className="btn btn-secundario" disabled={pendente || !asaasAtivo} onClick={() => iniciar(async () => {
           const r = await ativarCobranca(loja.id);
           setMsg(r.ok ? { ok: true, t: r.dados!.criadas ? `${r.dados!.criadas} cobrança(s) criada(s) no Asaas. A Loja recebe o link por e-mail.` : 'A cobrança já estava ativa.' } : { ok: false, t: r.erro });
