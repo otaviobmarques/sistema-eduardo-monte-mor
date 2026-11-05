@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
   let lojaId = ref.includes(':') ? ref.split(':')[1] : null;
   if (!lojaId) lojaId = (await admin.from('lojas_gateway').select('loja_id').eq('provedor', 'asaas').eq('ambiente', ambiente).eq('customer_id', p.customer).maybeSingle()).data?.loja_id ?? null;
   if (!lojaId || !/^[0-9a-f-]{36}$/.test(lojaId)) return NextResponse.json({ ok: true, ignorado: 'loja não encontrada' });
+  // Loja apagada (ex.: Loja de teste): responde 200 para o Asaas não reenviar nem pausar a fila de webhooks
+  if (!(await admin.from('lojas').select('id').eq('id', lojaId).maybeSingle()).data) return NextResponse.json({ ok: true, ignorado: 'loja não existe mais' });
 
   const status = statusFatura(p.status, corpo.event === 'PAYMENT_DELETED' || p.deleted);
   const tipo = ref.startsWith('start:') ? 'start' : p.subscription || ref.startsWith('mensal:') ? 'mensalidade' : 'avulsa';
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
     link_pagamento: p.invoiceUrl ?? null, forma_pagamento: p.billingType && p.billingType !== 'UNDEFINED' ? p.billingType : null,
     pago_em: pago ? new Date(`${p.clientPaymentDate ?? p.paymentDate ?? new Date().toISOString().slice(0, 10)}T12:00:00-03:00`).toISOString() : null,
   }, { onConflict: 'asaas_payment_id' });
-  if (error) return NextResponse.json({ erro: 'falha ao registrar' }, { status: 500 });
+  if (error) { console.error('webhook asaas: falha ao registrar fatura', p.id, error.message); return NextResponse.json({ erro: 'falha ao registrar' }, { status: 500 }); }
   if (pago) await admin.rpc('reavaliar_bloqueio', { p_loja: lojaId });
   return NextResponse.json({ ok: true, ambiente });
 }
