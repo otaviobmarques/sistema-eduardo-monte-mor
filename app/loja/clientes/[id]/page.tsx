@@ -41,7 +41,8 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
   return (
     <>
       <Link href="/loja/clientes" className="btn btn-texto btn-sm -ml-3 mb-2">← Clientes</Link>
-      <Cabecalho kicker={formatarCnpj(e.cnpj)} titulo={nome} descricao={e.nome_fantasia ? e.razao_social : undefined} />
+      <Cabecalho kicker={formatarCnpj(e.cnpj)} titulo={nome} descricao={e.nome_fantasia ? e.razao_social : undefined}
+        acoes={e.ativo ? <Link href={`/loja/os/nova?cliente=${id}`} className="btn btn-primario">Abrir OS para este cliente</Link> : undefined} />
       {novo && !perfil && <div className="mb-6"><Aviso tipo="ok" titulo="Cliente cadastrado">Agora gere o acesso da empresa logo abaixo.</Aviso></div>}
       <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-start">
         <div className="space-y-6">

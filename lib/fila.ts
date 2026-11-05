@@ -1,0 +1,50 @@
+import 'server-only';
+import type { LinhaOs } from '@/components/os/tabela-os';
+import { normalizarPlaca } from './regras/placa';
+import { pesoUrgencia } from './regras/sla';
+import { carregarConfigSla, slaDaOs } from './os-leitura';
+import type { createClient } from './supabase/server';
+
+type Sb = Awaited<ReturnType<typeof createClient>>;
+
+const SELECT = 'id, numero, placa, renavam, marca_modelo, status, etapa, aberta_em, sla_horas, pausado_desde, total_pausado, concluida_em, cancelada_em, nome_solicitante, cidade, endereco, local_tipo, pagamento_status, patios(nome), empresas_clientes(razao_social, nome_fantasia)';
+
+export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: string; limite?: number; comLaudo?: boolean }) {
+  let q = supabase.from('ordens_servico').select(SELECT).order('aberta_em', { ascending: false }).limit(opts.limite ?? 500);
+  if (opts.status?.length) q = q.in('status', opts.status);
+  const termo = (opts.q ?? '').trim();
+  if (termo) {
+    const placa = normalizarPlaca(termo);
+    const dig = termo.replace(/\D/g, '');
+    const t = termo.replace(/[%,()]/g, ' ');
+    const ors = [`placa.ilike.%${placa}%`, `marca_modelo.ilike.%${t}%`, `nome_solicitante.ilike.%${t}%`];
+    if (dig.length >= 4) ors.push(`renavam.ilike.%${dig}%`);
+    if (/^\d{1,12}$/.test(termo)) ors.push(`numero.eq.${termo}`);
+    q = q.or(ors.join(','));
+  }
+  const [cfg, { data }] = await Promise.all([carregarConfigSla(supabase), q]);
+  const agora = new Date();
+  let laudos = new Map<string, { id: string; nome: string }>();
+  if (opts.comLaudo && data?.length) {
+    const ids = data.filter((o) => o.status === 'vistoriado').map((o) => o.id);
+    if (ids.length) {
+      const { data: ls } = await supabase.from('anexos').select('id, os_id, nome_arquivo').eq('tipo', 'laudo').eq('atual', true).in('os_id', ids);
+      laudos = new Map((ls ?? []).map((l) => [l.os_id, { id: l.id, nome: l.nome_arquivo }]));
+    }
+  }
+  const linhas: LinhaOs[] = (data ?? []).map((o) => {
+    const emp = o.empresas_clientes as unknown as { razao_social: string; nome_fantasia: string | null } | null;
+    return {
+      id: o.id, numero: o.numero, placa: o.placa, marca_modelo: o.marca_modelo, status: o.status, etapa: o.etapa, aberta_em: o.aberta_em,
+      nome_solicitante: o.nome_solicitante, cidade: o.cidade,
+      local: o.local_tipo === 'patio' ? (o.patios as unknown as { nome: string } | null)?.nome ?? null : o.endereco,
+      cliente: emp?.nome_fantasia || emp?.razao_social, pagamento_status: o.pagamento_status,
+      sla: slaDaOs(o, cfg, undefined, agora), laudo: laudos.get(o.id) ?? null,
+    };
+  });
+  return linhas;
+}
+
+export function ordenarPorUrgencia(l: LinhaOs[]) {
+  return [...l].sort((a, b) => pesoUrgencia(a.sla) - pesoUrgencia(b.sla));
+}
