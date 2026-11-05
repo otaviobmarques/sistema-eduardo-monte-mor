@@ -20,7 +20,8 @@ async function aguardar(desc, fn, ms = 120000) {
 (async () => {
   const { data: uso } = await adm.from('gateways_pagamento').select('ativo, ambiente').eq('provedor', 'asaas').single();
   const { data: amb } = await adm.from('gateways_ambientes').select('chave_secret_id, webhook_url').eq('provedor', 'asaas').eq('ambiente', 'sandbox').single();
-  if (!uso.ativo || uso.ambiente !== 'sandbox') falha(`o ambiente em uso precisa ser Teste e estar ligado (hoje: ${uso.ambiente}, ${uso.ativo ? 'ligado' : 'desligado'})`);
+  // Se o ambiente em uso não for Teste ligado, passa para Teste só durante o teste e devolve a seleção no fim
+  const restaurarUso = uso.ativo && uso.ambiente === 'sandbox' ? null : { ativo: uso.ativo, ambiente: uso.ambiente };
   if (!amb.chave_secret_id || !amb.webhook_url) falha('configure a chave e o webhook do Teste em /admin/gateways');
   const chave = (await adm.rpc('credenciais_gateway_ambiente', { p_provedor: 'asaas', p_ambiente: 'sandbox' })).data[0].chave;
   const asaas = async (metodo, caminho, corpo) => {
@@ -31,6 +32,10 @@ async function aguardar(desc, fn, ms = 120000) {
   };
 
   const { data: formaAntes } = await adm.from('gateways_pagamento').select('forma_pagamento').eq('provedor', 'asaas').single();
+  if (restaurarUso) {
+    await adm.from('gateways_pagamento').update({ ativo: true, ambiente: 'sandbox' }).eq('provedor', 'asaas');
+    console.log(`  (seleção “${restaurarUso.ambiente}, ${restaurarUso.ativo ? 'ligado' : 'desligado'}” trocada por Teste durante o teste; volta no fim)`);
+  }
   const ADM = await adminTemporario();
   const loja = await criarLoja('Loja E2E Asaas Sandbox');
   await adm.from('lojas').update({ cnpj: '11444777000161', razao_social: 'Loja E2E Asaas Sandbox Ltda', email: 'loja-e2e@example.com', plano_mensal: 199.9, taxa_start: 500, dia_vencimento: 10, dias_tolerancia: 5 }).eq('id', loja.id);
@@ -114,7 +119,8 @@ async function aguardar(desc, fn, ms = 120000) {
     await espera(15000); // avisos de exclusão chegam ao webhook antes de apagar a Loja
     const { data: cancel } = await adm.from('faturas').select('tipo, status').eq('loja_id', loja.id);
     console.log('  limpeza no Asaas feita; faturas após o cancelamento:', JSON.stringify(cancel));
-    await adm.from('gateways_pagamento').update({ forma_pagamento: formaAntes.forma_pagamento }).eq('provedor', 'asaas');
+    await adm.from('gateways_pagamento').update({ forma_pagamento: formaAntes.forma_pagamento, ...(restaurarUso ?? {}) }).eq('provedor', 'asaas');
+    if (restaurarUso) console.log('  seleção devolvida:', JSON.stringify((await adm.from('gateways_pagamento').select('ativo, ambiente, forma_pagamento').eq('provedor', 'asaas').single()).data));
     await ADM.remover();
     if (!process.env.MANTER) await limparLoja(loja.id);
   }
