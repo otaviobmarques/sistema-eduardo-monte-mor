@@ -12,8 +12,26 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 6. Pátios: endereço/cidade **provisórios** até confirmação do franqueado.
 7. Importação em lote: a planilha não traz categoria; as OS do lote nascem como **Carro** (1ª categoria) e a Loja corrige na ficha se preciso.
 
+## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
+- **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
+  `loja` (Gestor de UMA Loja) e `cliente` (empresa cliente de UMA Loja).
+- **Tudo separado por Loja** (`loja_id` em clientes, OS, lotes, pátios, serviços, preços, vistoriadores, motivos,
+  configurações, feriados, notificações, auditoria). `categorias_veiculo` é global. Numeração de OS por Loja
+  (`lojas.proximo_numero_os`). Mesmo CNPJ pode ser cliente de duas Lojas.
+- RLS: `minha_loja()`, `is_loja()`, `minha_empresa()`, `os_da_minha_loja()`, `is_admin()`. Loja **bloqueada ou
+  inativa** ⇒ essas funções retornam nulo/falso ⇒ Gestor e clientes dela não leem nada.
+- Loja nova nasce com `semear_loja()` (serviço padrão, preços zerados, motivos, configurações); pátios vazios.
+- **Cobrança das Lojas pelo Asaas** (`lib/asaas.ts`, webhook `/api/asaas/webhook`, faturas em `faturas`):
+  Start (cobrança única) + assinatura mensal (Pix/boleto/cartão). Sem chave do Asaas, faturas manuais + baixa.
+- **Inadimplência**: `verificar_inadimplencia()` diária (pg_cron 09:05) marca vencidas e bloqueia quem passar de
+  `dias_tolerancia`; `reavaliar_bloqueio()` libera ao pagar (só bloqueios automáticos).
+- Logins: `admin` = Administrador (Otávio); `eduardo` = Gestor da Loja Auto Visão Monte Mor.
+- Testes E2E criam uma Loja isolada (`tests/e2e/apoio.js`) e apagam tudo no fim.
+
 ## Convenções do código
 - Supabase project ref: `klctfofigyukwldcvsue` (sa-east-1). Migrations em `supabase/migrations` (aplicar em ordem).
+- Funções `security definer`: nunca usar `current_user` para autorizar (é sempre o dono); usar `is_admin()`/`is_loja()`
+  ou `auth.jwt() ->> 'role'`. Em funções que retornam `table(id, …)`, qualificar colunas (`lj.id`) para evitar ambiguidade.
 - Leituras via RLS com o cliente do usuário (`lib/supabase/server.ts`). Mutações de negócio via funções SQL
   `security definer` (checam perfil) ou Server Actions; `lib/supabase/admin.ts` (service role) só no servidor,
   após `exigirPerfil()`.

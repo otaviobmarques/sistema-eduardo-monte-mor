@@ -6,7 +6,7 @@ type Sb = Awaited<ReturnType<typeof createClient>>;
 
 export async function carregarConfigSla(supabase: Sb): Promise<SlaConfig> {
   const [{ data: c }, { data: f }] = await Promise.all([
-    supabase.from('configuracoes').select('alerta1_horas, alerta2_horas_antes, contagem, horario_util').eq('id', 1).maybeSingle(),
+    supabase.from('configuracoes').select('alerta1_horas, alerta2_horas_antes, contagem, horario_util').limit(1).maybeSingle(),
     supabase.from('feriados').select('data'),
   ]);
   if (!c) return CONFIG_PADRAO;

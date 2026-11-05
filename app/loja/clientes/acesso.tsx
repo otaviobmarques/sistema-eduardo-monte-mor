@@ -18,7 +18,20 @@ export function SeloAcesso({ s }: { s: SituacaoAcesso }) {
 
 interface Perfil { login: string; nome_exibicao: string; bloqueado: boolean; deve_trocar_senha: boolean; senha_expira_em: string | null; primeiro_acesso_em: string | null }
 
-export function AcessoCliente({ empresaId, perfil, loginSugerido, responsavel }: { empresaId: string; perfil: Perfil | null; loginSugerido: string; responsavel: string }) {
+type Cred = { login: string; senha: string; expira: string };
+type Res<T = undefined> = { ok: boolean; erro?: string; dados?: T };
+export interface AcoesAcesso {
+  gerar: (login: string, nome: string) => Promise<Res<Cred>>;
+  resetar: () => Promise<Res<Cred>>;
+  bloquear: (bloquear: boolean) => Promise<Res>;
+}
+
+export function AcessoCliente({ empresaId, perfil, loginSugerido, responsavel, acoes, titulo = 'Acesso do cliente', descricao }: {
+  empresaId: string; perfil: Perfil | null; loginSugerido: string; responsavel: string; acoes?: AcoesAcesso; titulo?: string; descricao?: string;
+}) {
+  const a: AcoesAcesso = acoes ?? {
+    gerar: (l, n) => gerarAcesso(empresaId, l, n), resetar: () => resetarSenha(empresaId), bloquear: (b) => alterarBloqueio(empresaId, b),
+  };
   const [login, setLogin] = useState(loginSugerido);
   const [nome, setNome] = useState(responsavel);
   const [credencial, setCredencial] = useState<{ login: string; senha: string; expira: string } | null>(null);
@@ -40,13 +53,13 @@ export function AcessoCliente({ empresaId, perfil, loginSugerido, responsavel }:
   return (
     <section className="card space-y-4 p-6" aria-labelledby="acesso-titulo">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="acesso-titulo" className="h3">Acesso do cliente</h2>
+        <h2 id="acesso-titulo" className="h3">{titulo}</h2>
         <SeloAcesso s={sit} />
       </div>
 
       {!perfil ? (
         <>
-          <p className="text-sm text-text-secondary">Um login por empresa. A senha temporária aparece uma única vez, vale 7 dias e precisa ser trocada no primeiro acesso.</p>
+          <p className="text-sm text-text-secondary">{descricao ?? 'Um login por empresa.'} A senha temporária aparece uma única vez, vale 7 dias e precisa ser trocada no primeiro acesso.</p>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="acesso-login" className="rotulo">Usuário</label>
@@ -59,7 +72,7 @@ export function AcessoCliente({ empresaId, perfil, loginSugerido, responsavel }:
               <p className="ajuda">Aparece no menu e no histórico.</p>
             </div>
           </div>
-          <button type="button" className="btn btn-primario" disabled={pendente || !login} onClick={() => rodar(() => gerarAcesso(empresaId, login, nome))}>
+          <button type="button" className="btn btn-primario" disabled={pendente || !login} onClick={() => rodar(() => a.gerar(login, nome))}>
             {pendente ? 'Gerando…' : 'Gerar acesso'}
           </button>
         </>
@@ -75,14 +88,14 @@ export function AcessoCliente({ empresaId, perfil, loginSugerido, responsavel }:
           </dl>
           <div className="flex flex-wrap gap-3">
             <button type="button" className="btn btn-secundario" disabled={pendente}
-              onClick={() => { if (confirm('Gerar uma nova senha temporária? A senha atual deixa de funcionar.')) rodar(() => resetarSenha(empresaId)); }}>
+              onClick={() => { if (confirm('Gerar uma nova senha temporária? A senha atual deixa de funcionar.')) rodar(() => a.resetar()); }}>
               Resetar senha
             </button>
             {perfil.bloqueado ? (
-              <button type="button" className="btn btn-primario" disabled={pendente} onClick={() => rodar(() => alterarBloqueio(empresaId, false))}>Desbloquear acesso</button>
+              <button type="button" className="btn btn-primario" disabled={pendente} onClick={() => rodar(() => a.bloquear(false))}>Desbloquear acesso</button>
             ) : (
               <button type="button" className="btn btn-texto" disabled={pendente}
-                onClick={() => { if (confirm('Bloquear o acesso? O cliente sai do sistema imediatamente.')) rodar(() => alterarBloqueio(empresaId, true)); }}>
+                onClick={() => { if (confirm('Bloquear o acesso? O cliente sai do sistema imediatamente.')) rodar(() => a.bloquear(true)); }}>
                 Bloquear acesso
               </button>
             )}

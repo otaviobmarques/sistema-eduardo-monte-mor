@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Configurações' };
 export default async function ConfiguracoesPage() {
   const supabase = await createClient();
   const [{ data: cfg }, { data: feriados }] = await Promise.all([
-    supabase.from('configuracoes').select('alerta1_horas, alerta2_horas_antes, contagem, horario_util, escalonar_minutos, ajuste_preco_habilitado').eq('id', 1).single(),
+    supabase.from('configuracoes').select('alerta1_horas, alerta2_horas_antes, contagem, horario_util, escalonar_minutos, ajuste_preco_habilitado').limit(1).maybeSingle(),
     supabase.from('feriados').select('id, data, descricao').order('data'),
   ]);
   return (

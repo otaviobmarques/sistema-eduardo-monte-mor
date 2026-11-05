@@ -16,10 +16,12 @@ async function sessao() {
 
 async function referencias(empresaId: string): Promise<Referencias> {
   const admin = createAdminClient();
+  const { data: emp } = await admin.from('empresas_clientes').select('loja_id').eq('id', empresaId).single();
+  const loja = emp?.loja_id ?? '00000000-0000-0000-0000-000000000000';
   const [{ data: patios }, { data: apelidos }, { data: servicos }, { data: abertas }] = await Promise.all([
-    admin.from('patios').select('id, nome').eq('ativo', true),
-    admin.from('patio_apelidos').select('patio_id, apelido'),
-    admin.from('servicos').select('id, nome, padrao').eq('ativo', true),
+    admin.from('patios').select('id, nome').eq('ativo', true).eq('loja_id', loja),
+    admin.from('patio_apelidos').select('patio_id, apelido').eq('loja_id', loja),
+    admin.from('servicos').select('id, nome, padrao').eq('ativo', true).eq('loja_id', loja),
     admin.from('ordens_servico').select('placa, numero').eq('empresa_cliente_id', empresaId).in('status', ['a_vistoriar', 'frustrado']),
   ]);
   return {
@@ -52,11 +54,12 @@ export async function preverLote(form: FormData): Promise<Resultado<{ loteId: st
   if (analise.erroArquivo) return { ok: false, erro: analise.erroArquivo, campos: { arquivo: analise.erroArquivo } };
 
   const admin = createAdminClient();
-  const { data: emp } = await admin.from('empresas_clientes').select('id, ativo').eq('id', empresaId).single();
+  const { data: emp } = await admin.from('empresas_clientes').select('id, ativo, loja_id').eq('id', empresaId).single();
   if (!emp?.ativo) return { ok: false, erro: 'Cliente inativo.' };
+  if (s.perfil.perfil === 'loja' && emp.loja_id !== s.perfil.loja_id) return { ok: false, erro: 'Cliente não encontrado.' };
   const c = analise.contadores;
   const { data: lote, error } = await admin.from('lotes_importacao').insert({
-    empresa_cliente_id: empresaId, nome_solicitante: nome, telefone_contato: telefone || null, arquivo_nome: arq.name,
+    loja_id: emp.loja_id, empresa_cliente_id: empresaId, nome_solicitante: nome, telefone_contato: telefone || null, arquivo_nome: arq.name,
     total: c.total, validas: c.prontas, com_erro: c.comErro, duplicadas: c.duplicadas, criado_por: s.userId,
   }).select('id').single();
   if (error || !lote) return { ok: false, erro: 'Não foi possível gravar a prévia. Tente de novo.' };

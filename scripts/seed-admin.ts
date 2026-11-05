@@ -1,5 +1,5 @@
 /**
- * Cria (ou atualiza) o usuário Loja inicial.
+ * Cria (ou atualiza) o usuário Administrador da plataforma (cadastra Lojas e cobra as assinaturas).
  * Uso: SEED_ADMIN_SENHA=... npm run seed:admin   (lê .env.local)
  */
 import { config } from 'dotenv';
@@ -11,7 +11,7 @@ config();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const login = (process.env.SEED_ADMIN_LOGIN ?? 'admin').trim().toLowerCase();
-const nome = process.env.SEED_ADMIN_NOME ?? 'Gestor Auto Visão';
+const nome = process.env.SEED_ADMIN_NOME ?? 'Administrador';
 const senha = process.env.SEED_ADMIN_SENHA;
 const dominio = process.env.LOGIN_EMAIL_DOMAIN ?? 'login.autovisao.app';
 
@@ -32,10 +32,10 @@ async function main() {
     userId = data.user.id;
   }
   const { error } = await sb.from('perfis_usuario').upsert({
-    user_id: userId, perfil: 'loja', login, nome_exibicao: nome, deve_trocar_senha: false, bloqueado: false,
+    user_id: userId, perfil: 'admin', loja_id: null, empresa_cliente_id: null, login, nome_exibicao: nome, deve_trocar_senha: false, bloqueado: false,
   });
   if (error) throw error;
-  console.log(`Usuário Loja "${login}" pronto.`);
+  console.log(`Administrador "${login}" pronto.`);
 }
 
 main().catch((e) => { console.error(e.message ?? e); process.exit(1); });

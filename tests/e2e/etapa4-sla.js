@@ -8,6 +8,8 @@ const adm = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPAB
 const CNPJ = '11222333000181';
 const H = 3600_000;
 const log = (...a) => console.log('✔', ...a);
+const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+let AMB;
 const falha = (m) => { throw new Error(m); };
 
 async function limpar() {
@@ -32,18 +34,19 @@ const cron = async () => {
 const notifs = async (osId) => (await adm.from('notificacoes').select('destino, tipo, titulo').eq('os_id', osId).order('criada_em')).data;
 
 (async () => {
+  AMB = await lojaComGestor('Loja E2E Etapa 4', 'gestor-etapa4');
   await limpar();
   const sem = await fetch(B + '/api/cron/sla', { method: 'POST' });
   if (sem.status !== 401) falha('cron sem segredo deveria ser 401');
   log('endpoint protegido: sem segredo → 401');
 
-  const { data: emp } = await adm.from('empresas_clientes').insert({ cnpj: CNPJ, razao_social: 'E2E SLA Ltda', nome_fantasia: 'E2E SLA' }).select('id').single();
-  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).single();
-  const { data: patio } = await adm.from('patios').select('id').limit(1).single();
+  const { data: emp } = await adm.from('empresas_clientes').insert({ loja_id: AMB.loja.id, cnpj: CNPJ, razao_social: 'E2E SLA Ltda', nome_fantasia: 'E2E SLA' }).select('id').single();
+  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).eq('loja_id', AMB.loja.id).single();
+  const { data: patio } = await adm.from('patios').select('id').eq('loja_id', AMB.loja.id).limit(1).single();
   const nova = async (placa, horasAtras) => {
     const aberta = new Date(Date.now() - horasAtras * H);
     const { data, error } = await adm.from('ordens_servico').insert({
-      empresa_cliente_id: emp.id, nome_solicitante: 'Teste SLA', placa, servico_id: serv.id, patio_id: patio.id, local_tipo: 'patio',
+      loja_id: AMB.loja.id, numero: await proximoNumero(AMB.loja.id), empresa_cliente_id: emp.id, nome_solicitante: 'Teste SLA', placa, servico_id: serv.id, patio_id: patio.id, local_tipo: 'patio',
       sla_horas: 48, aberta_em: aberta.toISOString(), prazo_em: new Date(aberta.getTime() + 48 * H).toISOString(), marca_modelo: 'Teste',
     }).select('id, numero').single();
     if (error) falha(error.message);
@@ -94,7 +97,7 @@ const notifs = async (osId) => (await adm.from('notificacoes').select('destino, 
   const b = await chromium.launch();
   try {
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-    await loja.goto(B + '/login'); await loja.fill('#login', 'admin'); await loja.fill('#senha', process.env.E2E_ADMIN_SENHA ?? ''); await loja.click('button:has-text("Entrar")');
+    await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     await loja.waitForSelector('text=Vencidas');
     const ordem = await loja.$$eval('tbody tr', (trs) => trs.map((t) => t.textContent));
@@ -119,4 +122,4 @@ const notifs = async (osId) => (await adm.from('notificacoes').select('destino, 
   if (e) falha('com justificativa deveria concluir: ' + e.message);
   log('com justificativa a OS atrasada pode ser concluída');
   if (!process.env.MANTER) await limpar();
-})().catch(async (e) => { console.error('✘', e.message); if (!process.env.MANTER) await limpar(); process.exit(1); });
+})().then(async () => { if (!process.env.MANTER) await limparLoja(AMB.loja.id); }).catch(async (e) => { console.error('✘', e.message); if (AMB && !process.env.MANTER) await limparLoja(AMB.loja.id); if (!process.env.MANTER) await limpar(); process.exit(1); });

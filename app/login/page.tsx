@@ -5,7 +5,9 @@ import { CONTATO_GESTOR } from '@/lib/contato';
 
 export const metadata: Metadata = { title: 'Entrar' };
 
-const ERROS: Record<string, string> = { bloqueado: `Acesso bloqueado. Fale com ${CONTATO_GESTOR.nome}: ${CONTATO_GESTOR.telefone}.` };
+const ERROS: Record<string, string> = {
+  loja_suspensa: 'O acesso desta Loja está suspenso. Fale com o administrador do sistema.',
+  bloqueado: `Acesso bloqueado. Fale com ${CONTATO_GESTOR.nome}: ${CONTATO_GESTOR.telefone}.` };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams;

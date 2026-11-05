@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loginParaEmail, normalizarLogin } from '@/lib/login';
 import { CONTATO_GESTOR } from '@/lib/contato';
+import { telefone } from '@/lib/formato';
+import { ROTA_INICIAL, type TipoPerfil } from '@/lib/sessao';
 
 const FALE = `Fale com ${CONTATO_GESTOR.nome}: ${CONTATO_GESTOR.telefone}.`;
 
@@ -37,28 +39,43 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email: loginParaEmail(login), password: parsed.data.senha });
-  const registrar = (sucesso: boolean, userId?: string) =>
-    admin.from('acessos_log').insert({ login, ip, user_agent: ua, sucesso, user_id: userId ?? null });
+  const registrar = async (sucesso: boolean, userId?: string) => {
+    const lojaId = userId ? (await admin.from('perfis_usuario').select('loja_id').eq('user_id', userId).maybeSingle()).data?.loja_id ?? null : null;
+    return admin.from('acessos_log').insert({ login, ip, user_agent: ua, sucesso, user_id: userId ?? null, loja_id: lojaId });
+  };
 
   if (error || !data.user) {
     await registrar(false);
-    if (error?.code === 'user_banned' || /banned/i.test(error?.message ?? '')) return { erro: `Acesso bloqueado. ${FALE}`, login: digitado };
+    if (error?.code === 'user_banned' || /banned/i.test(error?.message ?? '')) {
+      const { data: pb } = await admin.from('perfis_usuario').select('perfil, lojas(nome, telefone)').eq('login', login).maybeSingle();
+      const lb = pb?.lojas as unknown as { nome: string; telefone: string | null } | null;
+      const quem = pb?.perfil === 'cliente' && lb ? `Fale com a ${lb.nome}${lb.telefone ? `: ${telefone(lb.telefone)}` : ''}.` : pb?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
+      return { erro: `Acesso bloqueado. ${quem}`, login: digitado };
+    }
     return { erro: 'Usuário ou senha incorretos.', login: digitado };
   }
 
-  const { data: perfil } = await admin.from('perfis_usuario').select('perfil, bloqueado, deve_trocar_senha, senha_expira_em').eq('user_id', data.user.id).maybeSingle();
+  const { data: perfil } = await admin.from('perfis_usuario').select('perfil, bloqueado, deve_trocar_senha, senha_expira_em, loja_id, lojas(nome, ativo, bloqueada, telefone)').eq('user_id', data.user.id).maybeSingle();
+  const lojaP = perfil?.lojas as unknown as { nome: string; telefone: string | null } | null;
+  const contato = perfil?.perfil === 'cliente' && lojaP ? `Fale com a ${lojaP.nome}${lojaP.telefone ? `: ${telefone(lojaP.telefone)}` : ''}.` : perfil?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
   if (!perfil || perfil.bloqueado) {
     await supabase.auth.signOut();
     await registrar(false, data.user.id);
-    return { erro: perfil ? `Acesso bloqueado. ${FALE}` : 'Usuário sem perfil configurado.', login: digitado };
+    return { erro: perfil ? `Acesso bloqueado. ${contato}` : 'Usuário sem perfil configurado.', login: digitado };
   }
   if (perfil.deve_trocar_senha && perfil.senha_expira_em && new Date(perfil.senha_expira_em) < new Date()) {
     await supabase.auth.signOut();
     await registrar(false, data.user.id);
-    return { erro: `Sua senha temporária expirou. ${FALE}`, login: digitado };
+    return { erro: `Sua senha temporária expirou. ${contato}`, login: digitado };
+  }
+  const loja = perfil.lojas as unknown as { nome: string; ativo: boolean; bloqueada: boolean; telefone: string | null } | null;
+  if (perfil.loja_id && (!loja?.ativo || loja.bloqueada)) {
+    await supabase.auth.signOut();
+    await registrar(false, data.user.id);
+    return { erro: perfil.perfil === 'loja' ? 'O acesso da sua Loja está suspenso. Regularize a assinatura com o administrador do sistema.' : `O sistema está temporariamente indisponível. Fale com a ${loja?.nome || 'sua unidade Auto Visão'}${loja?.telefone ? `: ${telefone(loja.telefone)}` : ''}.`, login: digitado };
   }
   await registrar(true, data.user.id);
-  redirect(perfil.deve_trocar_senha ? '/trocar-senha' : perfil.perfil === 'loja' ? '/loja' : '/app');
+  redirect(perfil.deve_trocar_senha ? '/trocar-senha' : ROTA_INICIAL[perfil.perfil as TipoPerfil]);
 }
 
 export async function sair() {

@@ -21,18 +21,23 @@ async function executar(req: NextRequest) {
   if (!autorizado(req)) return NextResponse.json({ erro: 'não autorizado' }, { status: 401 });
   const admin = createAdminClient();
   const agora = new Date();
-  const [{ data: c }, { data: fer }, { data: oss, error }] = await Promise.all([
-    admin.from('configuracoes').select('alerta1_horas, alerta2_horas_antes, contagem, horario_util').eq('id', 1).single(),
-    admin.from('feriados').select('data'),
+  const [{ data: cs }, { data: fer }, { data: oss, error }] = await Promise.all([
+    admin.from('configuracoes').select('loja_id, alerta1_horas, alerta2_horas_antes, contagem, horario_util'),
+    admin.from('feriados').select('loja_id, data'),
     admin.from('ordens_servico')
-      .select('id, numero, placa, empresa_cliente_id, aberta_em, sla_horas, status, prazo_em, alerta1_enviado, alerta2_enviado, vencida_notificada, sla_pausas(inicio, fim)')
-      .eq('status', 'a_vistoriar').limit(5000),
+      .select('id, numero, placa, loja_id, empresa_cliente_id, aberta_em, sla_horas, status, prazo_em, alerta1_enviado, alerta2_enviado, vencida_notificada, sla_pausas(inicio, fim), lojas!inner(ativo, bloqueada)')
+      .eq('status', 'a_vistoriar').eq('lojas.ativo', true).eq('lojas.bloqueada', false).limit(5000),
   ]);
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
-  const cfg: SlaConfig = c ? { ...c, horario_util: c.horario_util as SlaConfig['horario_util'], feriados: (fer ?? []).map((f) => f.data) } : CONFIG_PADRAO;
+  // Configuração de SLA de cada Loja
+  const porLoja = new Map<string, SlaConfig>();
+  for (const c of cs ?? []) {
+    porLoja.set(c.loja_id, { ...c, horario_util: c.horario_util as SlaConfig['horario_util'], feriados: (fer ?? []).filter((f) => f.loja_id === c.loja_id).map((f) => f.data) });
+  }
 
   let enviados = 0, prazosAjustados = 0;
   for (const os of oss ?? []) {
+    const cfg = porLoja.get(os.loja_id) ?? CONFIG_PADRAO;
     const sla = calcularSla({ aberta_em: os.aberta_em, sla_horas: os.sla_horas, status: os.status, pausas: os.sla_pausas ?? [] }, cfg, agora);
     const atualizacao: Record<string, unknown> = {};
     // Mantém prazo_em coerente (horas úteis ou pausas), útil para ordenação e para a trava de atraso
@@ -48,7 +53,7 @@ async function executar(req: NextRequest) {
       const { data: alterou } = await q.select('id');
       if (enviar && alterou?.length) {
         const t = textoAlerta(enviar, os.placa, os.numero, cfg, formatarDuracao(Math.max(0, sla.restanteMs)));
-        await notificar({ destinos: ['loja', 'cliente'], empresaId: os.empresa_cliente_id, tipo: enviar, osId: os.id, osNumero: os.numero, ...t });
+        await notificar({ destinos: ['loja', 'cliente'], lojaId: os.loja_id, empresaId: os.empresa_cliente_id, tipo: enviar, osId: os.id, osNumero: os.numero, ...t });
         enviados++;
       }
     }

@@ -11,6 +11,8 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const adm = createClient(URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const CNPJ = '11222333000181', LOGIN = 'e2e-lote', SENHA = 'e2e-senha-123';
 const log = (...a) => console.log('✔', ...a);
+const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+let AMB;
 const falha = (m) => { throw new Error(m); };
 
 async function limpar() {
@@ -33,6 +35,7 @@ async function limpar() {
 }
 
 (async () => {
+  AMB = await lojaComGestor('Loja E2E Etapa 6', 'gestor-etapa6');
   if (!process.env.PLANILHA) falha('defina PLANILHA');
   await limpar();
   // Cópia da planilha real com 2 erros de propósito
@@ -42,13 +45,13 @@ async function limpar() {
   ws.getRow(11).getCell(5).value = 489114009;            // linha 11 (FAZ0c72): DV errado
   const testeXlsx = path.join(S, 'creditas-com-erros.xlsx'); await wb.xlsx.writeFile(testeXlsx);
 
-  const { data: emp } = await adm.from('empresas_clientes').insert({ cnpj: CNPJ, razao_social: 'Creditas E2E Ltda', nome_fantasia: 'Creditas E2E' }).select('id').single();
+  const { data: emp } = await adm.from('empresas_clientes').insert({ loja_id: AMB.loja.id, cnpj: CNPJ, razao_social: 'Creditas E2E Ltda', nome_fantasia: 'Creditas E2E' }).select('id').single();
   const { data: u } = await adm.auth.admin.createUser({ email: `${LOGIN}@${process.env.LOGIN_EMAIL_DOMAIN}`, password: SENHA, email_confirm: true });
-  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'Creditas E2E', deve_trocar_senha: false });
+  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', loja_id: AMB.loja.id, empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'Creditas E2E', deve_trocar_senha: false });
   // OS já aberta para EUI6776 → deve aparecer como "Já com OS"
-  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).single();
-  const { data: patio } = await adm.from('patios').select('id').eq('nome', 'Freitas Utinga').single();
-  const { data: existente } = await adm.from('ordens_servico').insert({ empresa_cliente_id: emp.id, nome_solicitante: 'Antes', placa: 'EUI6776', servico_id: serv.id, local_tipo: 'patio', patio_id: patio.id, sla_horas: 48, prazo_em: new Date(Date.now() + 48 * 3600e3).toISOString() }).select('numero').single();
+  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).eq('loja_id', AMB.loja.id).single();
+  const { data: patio } = await adm.from('patios').select('id').eq('nome', 'Freitas Utinga').eq('loja_id', AMB.loja.id).single();
+  const { data: existente } = await adm.from('ordens_servico').insert({ loja_id: AMB.loja.id, numero: await proximoNumero(AMB.loja.id), empresa_cliente_id: emp.id, nome_solicitante: 'Antes', placa: 'EUI6776', servico_id: serv.id, local_tipo: 'patio', patio_id: patio.id, sla_horas: 48, prazo_em: new Date(Date.now() + 48 * 3600e3).toISOString() }).select('numero').single();
 
   const b = await chromium.launch();
   try {
@@ -107,7 +110,7 @@ async function limpar() {
     log('botão Criar desabilitado:', await cli.isDisabled('button:has-text("Criar 1 OS"), button:has-text("Criar 0 OS"), button:has-text("Criar 2 OS")'));
 
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-    await loja.goto(B + '/login'); await loja.fill('#login', 'admin'); await loja.fill('#senha', process.env.E2E_ADMIN_SENHA ?? ''); await loja.click('button:has-text("Entrar")');
+    await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     await loja.waitForSelector('text=36 em andamento'); log('fila da Loja com as 35 do lote + 1 anterior');
     await loja.goto(B + '/loja/importar'); await loja.waitForSelector('text=35 OS criadas'); log('Loja vê o lote nos envios recentes');
@@ -116,4 +119,4 @@ async function limpar() {
     await b.close();
     if (!process.env.MANTER) await limpar();
   }
-})().catch(async (e) => { console.error('✘', e.message); if (!process.env.MANTER) await limpar(); process.exit(1); });
+})().then(async () => { if (!process.env.MANTER) await limparLoja(AMB.loja.id); }).catch(async (e) => { console.error('✘', e.message); if (AMB && !process.env.MANTER) await limparLoja(AMB.loja.id); if (!process.env.MANTER) await limpar(); process.exit(1); });

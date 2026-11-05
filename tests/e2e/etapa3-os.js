@@ -7,6 +7,8 @@ const S = process.env.S ?? '/tmp', B = process.env.BASE_URL ?? 'http://localhost
 const adm = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const CNPJ = '11222333000181', LOGIN = 'e2e-os', SENHA = 'e2e-senha-123', PLACA = 'EUI6776';
 const log = (...a) => console.log('✔', ...a);
+const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+let AMB;
 
 async function limpar() {
   const { data: e } = await adm.from('empresas_clientes').select('id').eq('cnpj', CNPJ).maybeSingle();
@@ -28,10 +30,11 @@ async function limpar() {
 }
 
 (async () => {
+  AMB = await lojaComGestor('Loja E2E Etapa 3', 'gestor-etapa3');
   await limpar();
-  const { data: emp } = await adm.from('empresas_clientes').insert({ cnpj: CNPJ, razao_social: 'E2E Veículos Ltda', nome_fantasia: 'E2E Veículos', sla_horas: 48 }).select('id').single();
+  const { data: emp } = await adm.from('empresas_clientes').insert({ loja_id: AMB.loja.id, cnpj: CNPJ, razao_social: 'E2E Veículos Ltda', nome_fantasia: 'E2E Veículos', sla_horas: 48 }).select('id').single();
   const { data: u } = await adm.auth.admin.createUser({ email: `${LOGIN}@${process.env.LOGIN_EMAIL_DOMAIN}`, password: SENHA, email_confirm: true });
-  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'E2E Veículos', deve_trocar_senha: false });
+  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', loja_id: AMB.loja.id, empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'E2E Veículos', deve_trocar_senha: false });
 
   const b = await chromium.launch();
   try {
@@ -70,7 +73,7 @@ async function limpar() {
     await cli.goto(B + '/app/os/999999999'); log('OS inexistente/alheia:', await cli.textContent('h1, h2'));
 
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-    await loja.goto(B + '/login'); await loja.fill('#login', 'admin'); await loja.fill('#senha', process.env.E2E_ADMIN_SENHA ?? ''); await loja.click('button:has-text("Entrar")');
+    await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     await loja.waitForSelector(`text=OS ${numero}`); log('OS na fila da Loja');
     await loja.screenshot({ path: S + '/fila.png', fullPage: true });
@@ -100,4 +103,4 @@ async function limpar() {
     await b.close();
     if (!process.env.MANTER) await limpar();
   }
-})().catch((e) => { console.error('✘', e.message); process.exit(1); });
+})().then(async () => { if (!process.env.MANTER) await limparLoja(AMB.loja.id); }).catch(async (e) => { console.error('✘', e.message); if (AMB && !process.env.MANTER) await limparLoja(AMB.loja.id); process.exit(1); });

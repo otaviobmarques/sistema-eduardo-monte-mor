@@ -6,6 +6,7 @@ export type Destino = 'loja' | 'cliente';
 export interface Notificacao {
   destinos: Destino[];
   empresaId: string;
+  lojaId: string;
   tipo: string;
   titulo: string;
   corpo?: string;
@@ -22,6 +23,7 @@ export async function notificar(n: Notificacao) {
   const admin = createAdminClient();
   const linhas = n.destinos.map((d) => ({
     destino: d,
+    loja_id: n.lojaId,
     empresa_cliente_id: n.empresaId,
     tipo: n.tipo,
     os_id: n.osId ?? null,

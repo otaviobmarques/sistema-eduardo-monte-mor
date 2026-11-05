@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { exigirPerfil } from '@/lib/sessao';
+import { exigirPerfil, exigirUmDe } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mensagemErroBanco, type Resultado } from '@/lib/cadastros';
@@ -63,7 +63,7 @@ export interface DadosCnpj {
 }
 
 export async function consultarCnpj(cnpj: string): Promise<Resultado<DadosCnpj>> {
-  await exigirPerfil('loja');
+  await exigirUmDe(['loja', 'admin']);
   const c = normalizarCnpj(cnpj);
   if (!cnpjValido(c)) return { ok: false, erro: 'CNPJ inválido. Confira os 14 dígitos.' };
   try {
@@ -87,7 +87,7 @@ export async function consultarCnpj(cnpj: string): Promise<Resultado<DadosCnpj>>
 }
 
 export async function consultarCep(cep: string): Promise<Resultado<{ endereco: string; cidade: string; uf: string }>> {
-  await exigirPerfil('loja');
+  await exigirUmDe(['loja', 'admin']);
   const c = cep.replace(/\D/g, '');
   if (c.length !== 8) return { ok: false, erro: 'Informe os 8 dígitos do CEP.' };
   try {
@@ -110,9 +110,9 @@ function titulo(s: string) {
 
 const SETE_DIAS = 7 * 24 * 3600 * 1000;
 
-async function auditar(adminUserId: string, registroId: string, campo: string, de: string | null, para: string | null) {
+async function auditar(adminUserId: string, lojaId: string | null, registroId: string, campo: string, de: string | null, para: string | null) {
   const admin = createAdminClient();
-  await admin.from('auditoria').insert({ tabela: 'perfis_usuario', registro_id: registroId, campo, valor_anterior: de, valor_novo: para, usuario_id: adminUserId });
+  await admin.from('auditoria').insert({ tabela: 'perfis_usuario', registro_id: registroId, campo, valor_anterior: de, valor_novo: para, usuario_id: adminUserId, loja_id: lojaId });
 }
 
 export async function gerarAcesso(empresaId: string, loginBruto: string, nome: string): Promise<Resultado<{ login: string; senha: string; expira: string }>> {
@@ -120,7 +120,7 @@ export async function gerarAcesso(empresaId: string, loginBruto: string, nome: s
   const login = normalizarLogin(loginBruto);
   if (!LOGIN_REGEX.test(login)) return { ok: false, erro: 'O usuário deve ter de 3 a 40 letras minúsculas, números, ponto, hífen ou sublinhado (ou ser um e-mail).' };
   const admin = createAdminClient();
-  const { data: empresa } = await admin.from('empresas_clientes').select('id, razao_social, nome_fantasia, responsavel_acesso').eq('id', empresaId).single();
+  const { data: empresa } = await admin.from('empresas_clientes').select('id, razao_social, nome_fantasia, responsavel_acesso').eq('id', empresaId).eq('loja_id', s.perfil.loja_id!).single();
   if (!empresa) return { ok: false, erro: 'Cliente não encontrado.' };
   const { data: existente } = await admin.from('perfis_usuario').select('user_id').eq('empresa_cliente_id', empresaId).maybeSingle();
   if (existente) return { ok: false, erro: 'Este cliente já tem acesso. Use “Resetar senha”.' };
@@ -136,7 +136,7 @@ export async function gerarAcesso(empresaId: string, loginBruto: string, nome: s
   }
   const expira = new Date(Date.now() + SETE_DIAS).toISOString();
   const { error: e2 } = await admin.from('perfis_usuario').insert({
-    user_id: criado.user.id, perfil: 'cliente', empresa_cliente_id: empresaId, login,
+    user_id: criado.user.id, perfil: 'cliente', loja_id: s.perfil.loja_id, empresa_cliente_id: empresaId, login,
     nome_exibicao: nome.trim() || empresa.responsavel_acesso || empresa.nome_fantasia || empresa.razao_social,
     deve_trocar_senha: true, senha_expira_em: expira, bloqueado: false,
   });
@@ -144,7 +144,7 @@ export async function gerarAcesso(empresaId: string, loginBruto: string, nome: s
     await admin.auth.admin.deleteUser(criado.user.id);
     return { ok: false, erro: 'Não foi possível criar o acesso. Tente de novo.' };
   }
-  await auditar(s.userId, criado.user.id, 'acesso gerado', null, login);
+  await auditar(s.userId, s.perfil.loja_id, criado.user.id, 'acesso gerado', null, login);
   revalidatePath(`/loja/clientes/${empresaId}`);
   revalidatePath('/loja/clientes');
   return { ok: true, dados: { login, senha, expira } };
@@ -153,14 +153,14 @@ export async function gerarAcesso(empresaId: string, loginBruto: string, nome: s
 export async function resetarSenha(empresaId: string): Promise<Resultado<{ login: string; senha: string; expira: string }>> {
   const s = await exigirPerfil('loja');
   const admin = createAdminClient();
-  const { data: p } = await admin.from('perfis_usuario').select('user_id, login').eq('empresa_cliente_id', empresaId).maybeSingle();
+  const { data: p } = await admin.from('perfis_usuario').select('user_id, login').eq('empresa_cliente_id', empresaId).eq('loja_id', s.perfil.loja_id!).maybeSingle();
   if (!p) return { ok: false, erro: 'Este cliente ainda não tem acesso.' };
   const senha = gerarSenhaTemporaria();
   const { error } = await admin.auth.admin.updateUserById(p.user_id, { password: senha });
   if (error) return { ok: false, erro: 'Não foi possível resetar a senha. Tente de novo.' };
   const expira = new Date(Date.now() + SETE_DIAS).toISOString();
   await admin.from('perfis_usuario').update({ deve_trocar_senha: true, senha_expira_em: expira }).eq('user_id', p.user_id);
-  await auditar(s.userId, p.user_id, 'senha resetada', null, null);
+  await auditar(s.userId, s.perfil.loja_id, p.user_id, 'senha resetada', null, null);
   revalidatePath(`/loja/clientes/${empresaId}`);
   return { ok: true, dados: { login: p.login, senha, expira } };
 }
@@ -168,13 +168,13 @@ export async function resetarSenha(empresaId: string): Promise<Resultado<{ login
 export async function alterarBloqueio(empresaId: string, bloquear: boolean): Promise<Resultado> {
   const s = await exigirPerfil('loja');
   const admin = createAdminClient();
-  const { data: p } = await admin.from('perfis_usuario').select('user_id, bloqueado').eq('empresa_cliente_id', empresaId).maybeSingle();
+  const { data: p } = await admin.from('perfis_usuario').select('user_id, bloqueado').eq('empresa_cliente_id', empresaId).eq('loja_id', s.perfil.loja_id!).maybeSingle();
   if (!p) return { ok: false, erro: 'Este cliente ainda não tem acesso.' };
   const { error } = await admin.from('perfis_usuario').update({ bloqueado: bloquear }).eq('user_id', p.user_id);
   if (error) return { ok: false, erro: 'Não foi possível alterar o acesso. Tente de novo.' };
   // Banir no Auth encerra as sessões abertas; desbanir libera o login de novo
   await admin.auth.admin.updateUserById(p.user_id, { ban_duration: bloquear ? '876000h' : 'none' });
-  await auditar(s.userId, p.user_id, 'bloqueado', String(p.bloqueado), String(bloquear));
+  await auditar(s.userId, s.perfil.loja_id, p.user_id, 'bloqueado', String(p.bloqueado), String(bloquear));
   revalidatePath(`/loja/clientes/${empresaId}`);
   revalidatePath('/loja/clientes');
   return { ok: true };

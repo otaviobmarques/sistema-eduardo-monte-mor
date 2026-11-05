@@ -1,13 +1,16 @@
 const { chromium } = require('playwright');
+const { lojaComGestor, limparLoja } = require('./apoio');
+let AMB;
 // Uso: npm run build && npm start -- -p 3100; depois: E2E_ADMIN_SENHA=... S=pasta-de-prints node tests/e2e/etapa2-cadastros.js
 const S = process.env.S ?? '/tmp', B = process.env.BASE_URL ?? 'http://localhost:3100';
 (async () => {
+  AMB = await lojaComGestor('Loja E2E Etapa 2', 'gestor-etapa2');
   const b = await chromium.launch();
   const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   loja.on('dialog', (d) => d.accept());
   const log = (...a) => console.log('✔', ...a);
   await loja.goto(B + '/login');
-  await loja.fill('#login', 'admin'); await loja.fill('#senha', process.env.E2E_ADMIN_SENHA ?? ''); await loja.click('button:has-text("Entrar")');
+  await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
   await loja.waitForURL('**/loja');
 
   // Pátios
@@ -92,4 +95,4 @@ const S = process.env.S ?? '/tmp', B = process.env.BASE_URL ?? 'http://localhost
   await loja.goto(B + '/loja/configuracoes'); await loja.screenshot({ path: S + '/config.png', fullPage: true });
   await loja.setViewportSize({ width: 390, height: 844 }); await loja.goto(B + '/loja/clientes'); await loja.screenshot({ path: S + '/clientes-mobile.png' });
   await b.close();
-})().catch((e) => { console.error('✘', e.message); process.exit(1); });
+})().then(async () => { if (!process.env.MANTER) await limparLoja(AMB.loja.id); }).catch(async (e) => { console.error('✘', e.message); if (AMB && !process.env.MANTER) await limparLoja(AMB.loja.id); process.exit(1); });

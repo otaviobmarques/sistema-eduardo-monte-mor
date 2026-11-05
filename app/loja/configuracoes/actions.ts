@@ -18,7 +18,7 @@ const schema = z.object({
 export type ConfigDados = z.input<typeof schema>;
 
 export async function salvarConfiguracoes(dados: ConfigDados): Promise<Resultado> {
-  await exigirPerfil('loja');
+  const s = await exigirPerfil('loja');
   const p = schema.safeParse(dados);
   if (!p.success) {
     const campos: Record<string, string> = {};
@@ -26,7 +26,7 @@ export async function salvarConfiguracoes(dados: ConfigDados): Promise<Resultado
     return { ok: false, erro: 'Confira os campos destacados.', campos };
   }
   const supabase = await createClient();
-  const { error } = await supabase.from('configuracoes').update(p.data).eq('id', 1);
+  const { error } = await supabase.from('configuracoes').update(p.data).eq('loja_id', s.perfil.loja_id!);
   if (error) return { ok: false, erro: mensagemErroBanco(error) };
   revalidatePath('/loja/configuracoes');
   return { ok: true };

@@ -8,6 +8,8 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const adm = createClient(URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const CNPJ = '11222333000181', LOGIN = 'e2e-op', SENHA = 'e2e-senha-123', VIST = 'Vistoriador E2E';
 const log = (...a) => console.log('✔', ...a);
+const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+let AMB;
 const falha = (m) => { throw new Error(m); };
 const pdf = (t) => Buffer.from(`%PDF-1.4\n1 0 obj<<>>endobj\n% ${t}\n%%EOF`);
 
@@ -32,18 +34,19 @@ async function limpar() {
 }
 
 (async () => {
+  AMB = await lojaComGestor('Loja E2E Etapa 5', 'gestor-etapa5');
   await limpar();
-  const { data: emp } = await adm.from('empresas_clientes').insert({ cnpj: CNPJ, razao_social: 'E2E Operação Ltda', nome_fantasia: 'E2E Operação' }).select('id').single();
+  const { data: emp } = await adm.from('empresas_clientes').insert({ loja_id: AMB.loja.id, cnpj: CNPJ, razao_social: 'E2E Operação Ltda', nome_fantasia: 'E2E Operação' }).select('id').single();
   const { data: u } = await adm.auth.admin.createUser({ email: `${LOGIN}@${process.env.LOGIN_EMAIL_DOMAIN}`, password: SENHA, email_confirm: true });
-  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'E2E Operação', deve_trocar_senha: false });
-  await adm.from('vistoriadores').insert({ nome: VIST });
+  await adm.from('perfis_usuario').insert({ user_id: u.user.id, perfil: 'cliente', loja_id: AMB.loja.id, empresa_cliente_id: emp.id, login: LOGIN, nome_exibicao: 'E2E Operação', deve_trocar_senha: false });
+  await adm.from('vistoriadores').insert({ loja_id: AMB.loja.id, nome: VIST });
 
   // Cliente abre 3 OS pela API (mesma função da tela)
   const cliApi = createClient(URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   await cliApi.auth.signInWithPassword({ email: `${LOGIN}@${process.env.LOGIN_EMAIL_DOMAIN}`, password: SENHA });
-  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).single();
+  const { data: serv } = await adm.from('servicos').select('id').eq('padrao', true).eq('loja_id', AMB.loja.id).single();
   const { data: cat } = await adm.from('categorias_veiculo').select('id').eq('nome', 'Carro').single();
-  const { data: patio } = await adm.from('patios').select('id').eq('nome', 'Freitas Utinga').single();
+  const { data: patio } = await adm.from('patios').select('id').eq('nome', 'Freitas Utinga').eq('loja_id', AMB.loja.id).single();
   const abrir = async (placa) => {
     const { data, error } = await cliApi.rpc('abrir_os', { p_empresa: null, p_nome_solicitante: 'Ana', p_telefone: null, p_placa: placa, p_renavam: null,
       p_marca_modelo: 'Carro ' + placa, p_ano: null, p_cor: null, p_categoria_id: cat.id, p_servico_id: serv.id, p_local_tipo: 'patio', p_patio_id: patio.id,
@@ -56,7 +59,7 @@ async function limpar() {
   const b = await chromium.launch();
   try {
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-    await loja.goto(B + '/login'); await loja.fill('#login', 'admin'); await loja.fill('#senha', process.env.E2E_ADMIN_SENHA ?? ''); await loja.click('button:has-text("Entrar")');
+    await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     const cli = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
     await cli.goto(B + '/login'); await cli.fill('#login', LOGIN); await cli.fill('#senha', SENHA); await cli.click('button:has-text("Entrar")');
@@ -144,4 +147,4 @@ async function limpar() {
     await b.close();
     if (!process.env.MANTER) await limpar();
   }
-})().catch(async (e) => { console.error('✘', e.message); if (!process.env.MANTER) await limpar(); process.exit(1); });
+})().then(async () => { if (!process.env.MANTER) await limparLoja(AMB.loja.id); }).catch(async (e) => { console.error('✘', e.message); if (AMB && !process.env.MANTER) await limparLoja(AMB.loja.id); if (!process.env.MANTER) await limpar(); process.exit(1); });

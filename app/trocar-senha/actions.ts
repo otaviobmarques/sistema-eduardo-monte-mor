@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { ROTA_INICIAL, type TipoPerfil } from '@/lib/sessao';
 
 const senhaSchema = z
   .object({
@@ -25,5 +26,5 @@ export async function trocarSenha(_: TrocaState, form: FormData): Promise<TrocaS
   const { error: e2 } = await supabase.rpc('concluir_troca_senha');
   if (e2) return { erro: 'Senha trocada, mas não foi possível liberar o acesso. Tente de novo.' };
   const { data: perfil } = await supabase.from('perfis_usuario').select('perfil').eq('user_id', user.id).single();
-  redirect(perfil?.perfil === 'loja' ? '/loja' : '/app');
+  redirect(ROTA_INICIAL[(perfil?.perfil ?? 'cliente') as TipoPerfil]);
 }
