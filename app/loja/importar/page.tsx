@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { EmBreve } from '@/components/em-breve';
+import { TelaImportar } from '@/components/importar/tela';
 
 export const metadata: Metadata = { title: 'Importar lote' };
 
-export default function Page() {
-  return <EmBreve titulo="Importar lote" etapa={6} descricao="Importação de planilha com prévia, correção e confirmação." voltar="/loja" />;
+export default async function Page({ searchParams }: { searchParams: Promise<{ lote?: string; cliente?: string }> }) {
+  const { lote, cliente } = await searchParams;
+  return <TelaImportar modo="loja" loteId={lote} empresaFixa={cliente} />;
 }

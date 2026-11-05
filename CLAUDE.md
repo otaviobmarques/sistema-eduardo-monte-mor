@@ -10,6 +10,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 4. Motivos: lista do seed (seção 11), editável em Cadastros › Motivos.
 5. SLA: **horas corridas** (padrão). `lib/regras/sla.ts` já suporta horas úteis + feriados.
 6. Pátios: endereço/cidade **provisórios** até confirmação do franqueado.
+7. Importação em lote: a planilha não traz categoria; as OS do lote nascem como **Carro** (1ª categoria) e a Loja corrige na ficha se preciso.
 
 ## Convenções do código
 - Supabase project ref: `klctfofigyukwldcvsue` (sa-east-1). Migrations em `supabase/migrations` (aplicar em ordem).
