@@ -6,6 +6,8 @@ export S="${S:-$(mktemp -d)}"
 falhas=0; resumo=""
 for t in tests/e2e/*.js; do
   [ "$(basename "$t")" = "apoio.js" ] && continue
+  # Integração real com o Asaas sandbox: só quando pedido (E2E_ASAAS=1)
+  [ "$(basename "$t")" = "asaas-sandbox.js" ] && [ "${E2E_ASAAS:-}" != "1" ] && continue
   inicio=$(date +%s)
   if saida=$(node "$t" 2>&1); then
     resumo+="✔ $(basename "$t" .js) · $(grep -c '✔' <<<"$saida") passos · $(( $(date +%s) - inicio ))s"$'\n'
