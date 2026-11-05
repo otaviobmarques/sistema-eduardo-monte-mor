@@ -8,11 +8,11 @@ export function LoginForm({ erroInicial }: { erroInicial?: string }) {
     <form action={action} className="space-y-4" noValidate>
       <div>
         <label htmlFor="login" className="rotulo">Usuário</label>
-        <input id="login" name="login" className="campo" autoComplete="username" autoCapitalize="none" required autoFocus />
+        <input id="login" name="login" className="campo" autoComplete="username" autoCapitalize="none" defaultValue={state?.login} key={state?.login ?? ''} required autoFocus={!state?.login} />
       </div>
       <div>
         <label htmlFor="senha" className="rotulo">Senha</label>
-        <input id="senha" name="senha" type="password" className="campo" autoComplete="current-password" required />
+        <input id="senha" name="senha" type="password" className="campo" autoComplete="current-password" required autoFocus={!!state?.login} />
       </div>
       {state?.erro && (
         <p role="alert" className="rounded-campo bg-error-bg px-3 py-2 text-sm font-medium text-error">{state.erro}</p>

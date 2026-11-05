@@ -45,7 +45,7 @@ export function Shell({
       <div className="border-t border-white/10 px-5 py-4 text-white">
         <p className="truncate text-sm font-semibold">{usuario}</p>
         <p className="truncate text-xs text-white/60">{subtitulo}</p>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex items-center gap-3">
           <Link href="/trocar-senha" className="text-xs text-white/70 underline-offset-2 hover:underline">Trocar senha</Link>
           <form action={sairAction}><button className="text-xs text-white/70 underline-offset-2 hover:underline">Sair</button></form>
         </div>
