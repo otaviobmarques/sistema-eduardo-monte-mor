@@ -1,18 +1,19 @@
 import Link from 'next/link';
-import type { SlaResultado } from '@/lib/regras/sla';
-import { dataHora, PAGAMENTO_LABEL } from '@/lib/formato';
+import type { SlaConfig, SlaEntrada, SlaResultado } from '@/lib/regras/sla';
+import { PAGAMENTO_LABEL } from '@/lib/formato';
 import { BaixarAnexo } from './ficha-acoes';
 import { Placa } from './placa';
-import { corBarraSla, SlaPilula, StatusSelo } from './status';
+import { corBarraSla, StatusSelo } from './status';
+import { SlaAoVivo } from './sla-ao-vivo';
 
 export interface LinhaOs {
   id: string; numero: number; placa: string; marca_modelo: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
   etapa: 'aberta' | 'agendada' | 'em_execucao' | 'laudo_em_elaboracao' | null; aberta_em: string; nome_solicitante: string;
   cidade: string | null; local: string | null; cliente?: string | null; pagamento_status: 'pendente' | 'pago' | 'faturado';
-  sla: SlaResultado; laudo?: { id: string; nome: string } | null;
+  sla: SlaResultado; entrada: SlaEntrada; laudo?: { id: string; nome: string } | null;
 }
 
-export function TabelaOs({ linhas, modo, vazio }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode }) {
+export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig }) {
   const base = modo === 'loja' ? '/loja' : '/app';
   if (!linhas.length) return <div className="card p-10 text-center text-text-secondary">{vazio}</div>;
   return (
@@ -41,8 +42,7 @@ export function TabelaOs({ linhas, modo, vazio }: { linhas: LinhaOs[]; modo: 'lo
               <td data-rotulo="Local">{o.local ?? '—'}<span className="block text-xs text-text-secondary">{o.cidade}</span></td>
               <td data-rotulo="Status"><StatusSelo status={o.status} etapa={modo === 'loja' ? o.etapa : null} /></td>
               <td data-rotulo="Prazo">
-                <SlaPilula sla={o.sla} compacta />
-                {o.sla.prazo && o.sla.cor !== 'encerrada' && <span className="mt-1 block text-xs text-text-secondary">{dataHora(o.sla.prazo)}</span>}
+                <SlaAoVivo entrada={o.entrada} cfg={cfg} compacta comPrazo />
               </td>
               {modo === 'cliente' && <td data-rotulo="Pagamento">{PAGAMENTO_LABEL[o.pagamento_status]}</td>}
               <td data-rotulo="" className="whitespace-nowrap text-right">

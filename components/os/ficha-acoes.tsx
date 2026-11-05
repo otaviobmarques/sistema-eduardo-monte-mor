@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { anexarNaOs, atualizarVeiculo, urlAnexo } from '@/app/os/actions';
+import { anexarNaOs, atualizarVeiculo, justificarAtraso, urlAnexo } from '@/app/os/actions';
 import { Icone } from '@/components/icone';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Aviso, Modal } from '@/components/ui';
@@ -39,7 +39,7 @@ export function EnviarAnexo({ osId }: { osId: string }) {
       });
     }}>
       <input type="hidden" name="os_id" value={osId} />
-      <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
+      <div className="grid gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
         <div>
           <label className="rotulo" htmlFor="anexo-tipo">Tipo</label>
           <select id="anexo-tipo" name="tipo" className="campo" defaultValue="foto">
@@ -51,8 +51,8 @@ export function EnviarAnexo({ osId }: { osId: string }) {
           <p className="rotulo">Arquivo</p>
           <ArquivoInput id="anexo-arquivo" name="arquivo" obrigatorio accept=".pdf,.jpg,.jpeg,.png" />
         </div>
-        <button className="btn btn-secundario" disabled={pendente}>{pendente ? 'Enviando…' : 'Enviar anexo'}</button>
       </div>
+      <button className="btn btn-secundario w-full sm:w-auto" disabled={pendente}>{pendente ? 'Enviando…' : 'Enviar anexo'}</button>
       <p className="ajuda">JPG, PNG ou PDF, até 20 MB. O laudo é enviado pela ação “Enviar laudo”.</p>
       {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Não foi possível enviar'}>{msg.t}</Aviso>}
     </form>
@@ -97,6 +97,47 @@ export function EditarVeiculo({ osId, numero, inicial, categorias }: { osId: str
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" className="btn btn-secundario" onClick={() => setAberto(false)}>Cancelar</button>
             <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Salvando…' : 'Salvar'}</button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+export function JustificarAtraso({ osId, numero, motivos }: { osId: string; numero: number; motivos: { id: string; descricao: string }[] }) {
+  const [aberto, setAberto] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const [texto, setTexto] = useState('');
+  const [erros, setErros] = useState<Record<string, string>>({});
+  const [pendente, iniciar] = useTransition();
+  return (
+    <>
+      <button type="button" className="btn btn-primario" onClick={() => setAberto(true)}>Justificar atraso</button>
+      <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Justificar atraso" descricao="Obrigatório para concluir uma OS que passou do prazo.">
+        <form className="space-y-4" onSubmit={(e) => {
+          e.preventDefault();
+          iniciar(async () => {
+            const r = await justificarAtraso(osId, numero, motivo, texto);
+            if (r.ok) { setAberto(false); setTexto(''); setMotivo(''); } else setErros(r.campos ?? { texto: r.erro });
+          });
+        }}>
+          <div>
+            <label className="rotulo" htmlFor="ja-motivo">Motivo</label>
+            <select id="ja-motivo" className="campo" value={motivo} onChange={(e) => { setMotivo(e.target.value); setErros({}); }} aria-invalid={erros.motivo ? true : undefined}>
+              <option value="">Selecione o motivo</option>
+              {motivos.map((m) => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+            </select>
+            {erros.motivo && <p className="erro-campo">{erros.motivo}</p>}
+          </div>
+          <div>
+            <label className="rotulo" htmlFor="ja-texto">Explicação</label>
+            <textarea id="ja-texto" className="campo" rows={4} value={texto} onChange={(e) => { setTexto(e.target.value); setErros({}); }} aria-invalid={erros.texto ? true : undefined}
+              placeholder="Ex.: pátio fechado por 2 dias; vistoria remarcada para quinta." />
+            {erros.texto && <p className="erro-campo">{erros.texto}</p>}
+          </div>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" className="btn btn-secundario" onClick={() => setAberto(false)}>Cancelar</button>
+            <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Salvando…' : 'Salvar justificativa'}</button>
           </div>
         </form>
       </Modal>

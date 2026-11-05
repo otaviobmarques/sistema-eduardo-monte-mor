@@ -14,7 +14,7 @@ export default async function PainelCliente({ searchParams }: { searchParams: Pr
   const s = await exigirPerfil('cliente');
   const { q = '', status = '' } = await searchParams;
   const supabase = await createClient();
-  const todas = await buscarOs(supabase, { q, comLaudo: true });
+  const { linhas: todas, cfg } = await buscarOs(supabase, { q, comLaudo: true });
   const st = status in STATUS ? status : '';
   const filtradas = st ? todas.filter((o) => o.status === st) : todas;
   const linhas = st === '' || st === 'a_vistoriar' || st === 'frustrado'
@@ -30,7 +30,7 @@ export default async function PainelCliente({ searchParams }: { searchParams: Pr
       <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined }} />
       <Chips param="status" atual={st} extra={{ q: q || undefined }}
         opcoes={(Object.keys(STATUS) as (keyof typeof STATUS)[]).map((k) => ({ valor: k, rotulo: STATUS[k], qtd: k ? todas.filter((o) => o.status === k).length : todas.length }))} />
-      <TabelaOs linhas={linhas} modo="cliente"
+      <TabelaOs cfg={cfg} linhas={linhas} modo="cliente"
         vazio={q || st ? 'Nenhuma OS encontrada.' : <>Nenhuma OS ainda. <Link className="font-semibold text-action underline" href="/app/nova-os">Abra a primeira</Link>.</>} />
     </div>
   );

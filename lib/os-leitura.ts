@@ -13,7 +13,7 @@ export async function carregarConfigSla(supabase: Sb): Promise<SlaConfig> {
   return { ...c, horario_util: c.horario_util as SlaConfig['horario_util'], feriados: (f ?? []).map((x) => x.data) };
 }
 
-function intervaloMs(iv: string | null | undefined): number {
+export function intervaloMs(iv: string | null | undefined): number {
   if (!iv) return 0;
   // Postgres interval: "HH:MM:SS(.ms)" ou "N days HH:MM:SS"
   const dias = Number(iv.match(/(-?\d+) days?/)?.[1] ?? 0);

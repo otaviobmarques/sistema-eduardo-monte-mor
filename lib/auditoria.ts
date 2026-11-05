@@ -1,3 +1,6 @@
+import { dataHora, moeda } from './formato';
+import { formatarDuracao } from './regras/sla';
+
 /** Nomes legíveis dos campos para a trilha de auditoria. */
 export const ROTULO_CAMPO: Record<string, string> = {
   '(criado)': 'Registro criado', '(excluído)': 'Registro excluído',
@@ -25,8 +28,12 @@ export function valorLegivel(campo: string, v: string | null): string {
   if (v === null || v === '') return '—';
   if (v === 'true') return 'Sim';
   if (v === 'false') return 'Não';
-  if (/_em$|^prazo_em$|^pausado_desde$|data_hora/.test(campo) && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
-    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(v));
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return dataHora(v);
+  if (campo === 'total_pausado') {
+    const dias = Number(v.match(/(\d+) days?/)?.[1] ?? 0);
+    const t = v.match(/(\d+):(\d+):(\d+)/);
+    if (t) return formatarDuracao((dias * 24 + Number(t[1])) * 3_600_000 + Number(t[2]) * 60_000);
   }
+  if (/^valor/.test(campo) && /^-?\d+(\.\d+)?$/.test(v)) return moeda(v);
   return v.length > 140 ? `${v.slice(0, 140)}…` : v;
 }

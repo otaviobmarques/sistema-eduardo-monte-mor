@@ -6,9 +6,10 @@ import { dataHora, ETAPA_LABEL, moeda, PAGAMENTO_LABEL, STATUS_LABEL, telefone }
 import { carregarConfigSla, slaDaOs } from '@/lib/os-leitura';
 import { formatarDuracao } from '@/lib/regras/sla';
 import { createClient } from '@/lib/supabase/server';
-import { BaixarAnexo, EditarVeiculo, EnviarAnexo } from './ficha-acoes';
+import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './ficha-acoes';
+import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
 import { Placa } from './placa';
-import { SlaPilula, StatusSelo } from './status';
+import { StatusSelo } from './status';
 
 const TIPO_ANEXO = { laudo: 'Laudo', foto: 'Foto', documento: 'Documento', comprovante: 'Comprovante', justificativa: 'Justificativa' } as const;
 
@@ -24,13 +25,16 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
     .eq('numero', Number(numero)).maybeSingle();
   if (!os) notFound();
 
-  const [cfg, { data: pausas }, { data: historico }, { data: anexos }, { data: categorias }] = await Promise.all([
+  const [cfg, { data: pausas }, { data: historico }, { data: anexos }, { data: categorias }, { data: justificativas }, { data: motivosAtraso }] = await Promise.all([
     carregarConfigSla(supabase),
     supabase.from('sla_pausas').select('inicio, fim, origem').eq('os_id', os.id).order('inicio'),
     supabase.from('historico_os').select('id, evento, de, para, nome_exibicao, em').eq('os_id', os.id).order('em', { ascending: false }),
     supabase.from('anexos').select('id, tipo, nome_arquivo, versao, atual, enviado_em, tamanho_bytes').eq('os_id', os.id).order('enviado_em', { ascending: false }),
     modo === 'loja' ? supabase.from('categorias_veiculo').select('id, nome').order('ordem') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    supabase.from('justificativas_atraso').select('id, texto, criado_em, motivos(descricao)').eq('os_id', os.id).order('criado_em'),
+    modo === 'loja' ? supabase.from('motivos').select('id, descricao').eq('tipo', 'atraso').eq('ativo', true).order('ordem') : Promise.resolve({ data: [] as { id: string; descricao: string }[] }),
   ]);
+  const entradaSla = { aberta_em: os.aberta_em, sla_horas: os.sla_horas, status: os.status, concluida_em: os.concluida_em, cancelada_em: os.cancelada_em, pausas: pausas ?? [] };
   const sla = slaDaOs(os, cfg, pausas ?? []);
   const empresa = os.empresas_clientes as { razao_social: string; nome_fantasia: string | null } | null;
   const nomeEmpresa = empresa?.nome_fantasia || empresa?.razao_social;
@@ -98,7 +102,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
             <h1 className="h2 mt-1">{os.marca_modelo ?? 'Modelo não informado'}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusSelo status={os.status} etapa={modo === 'loja' ? os.etapa : null} />
-              <SlaPilula sla={sla} />
+              <SlaAoVivo entrada={entradaSla} cfg={cfg} />
               {tempoCancelada && <span className="text-sm text-text-secondary">Cancelada há {tempoCancelada}</span>}
             </div>
           </div>
@@ -111,6 +115,32 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
 
       {os.observacao && (
         <Aviso tipo="info" titulo="Observação do cliente"><p className="whitespace-pre-line">{os.observacao}</p></Aviso>
+      )}
+
+      <BarraSla entrada={entradaSla} cfg={cfg} pausas={(pausas ?? []) as { inicio: string; fim: string | null; origem: 'frustracao' | 'pendencia' | 'aprovacao_preco' }[]} />
+
+      {(os.status === 'a_vistoriar' || os.status === 'frustrado') && sla.restanteMs < 0 && !justificativas?.length && (
+        <div className="aviso aviso-erro flex-col sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <div>
+            <p className="font-display text-base font-extrabold">OS atrasada</p>
+            <p>{modo === 'loja' ? 'Para concluir esta OS é preciso justificar o atraso (motivo e explicação).' : 'O prazo do laudo passou. A Auto Visão vai registrar o motivo.'}</p>
+          </div>
+          {modo === 'loja' && <JustificarAtraso osId={os.id} numero={os.numero} motivos={motivosAtraso ?? []} />}
+        </div>
+      )}
+      {!!justificativas?.length && (
+        <section className="card p-6" aria-labelledby="just-titulo">
+          <h2 id="just-titulo" className="h3 mb-3">Justificativa de atraso</h2>
+          <ul className="space-y-3">
+            {justificativas.map((j) => (
+              <li key={j.id} className="text-sm">
+                <p className="font-semibold">{(j.motivos as unknown as { descricao: string } | null)?.descricao}</p>
+                <p className="whitespace-pre-line">{j.texto}</p>
+                <p className="legenda">{dataHora(j.criado_em)}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {laudoAtual && (

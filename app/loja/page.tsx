@@ -19,7 +19,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const { q = '', sla = '', ver = '' } = await searchParams;
   const supabase = await createClient();
   const encerradas = ver === 'encerradas';
-  const todas = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000 });
+  const { linhas: todas, cfg } = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000 });
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
@@ -41,7 +41,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <Chips param="sla" atual={sla in FILTROS ? sla : ''} extra={{ q: q || undefined }}
           opcoes={(Object.keys(FILTROS) as (keyof typeof FILTROS)[]).map((k) => ({ valor: k, rotulo: FILTROS[k].rotulo, qtd: conta(k) }))} />
       )}
-      <TabelaOs linhas={linhas} modo="loja" vazio={q ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
+      <TabelaOs cfg={cfg} linhas={linhas} modo="loja" vazio={q ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
     </div>
   );
 }

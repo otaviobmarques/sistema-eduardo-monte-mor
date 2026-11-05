@@ -2,7 +2,7 @@ import 'server-only';
 import type { LinhaOs } from '@/components/os/tabela-os';
 import { normalizarPlaca } from './regras/placa';
 import { pesoUrgencia } from './regras/sla';
-import { carregarConfigSla, slaDaOs } from './os-leitura';
+import { carregarConfigSla, intervaloMs, slaDaOs } from './os-leitura';
 import type { createClient } from './supabase/server';
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
@@ -39,10 +39,12 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
       nome_solicitante: o.nome_solicitante, cidade: o.cidade,
       local: o.local_tipo === 'patio' ? (o.patios as unknown as { nome: string } | null)?.nome ?? null : o.endereco,
       cliente: emp?.nome_fantasia || emp?.razao_social, pagamento_status: o.pagamento_status,
-      sla: slaDaOs(o, cfg, undefined, agora), laudo: laudos.get(o.id) ?? null,
+      sla: slaDaOs(o, cfg, undefined, agora),
+      entrada: { aberta_em: o.aberta_em, sla_horas: o.sla_horas, status: o.status, total_pausado_ms: intervaloMs(o.total_pausado), pausado_desde: o.pausado_desde, concluida_em: o.concluida_em, cancelada_em: o.cancelada_em },
+      laudo: laudos.get(o.id) ?? null,
     };
   });
-  return linhas;
+  return { linhas, cfg };
 }
 
 export function ordenarPorUrgencia(l: LinhaOs[]) {
