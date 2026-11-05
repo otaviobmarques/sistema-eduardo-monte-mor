@@ -13,6 +13,7 @@
     "seed:admin": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "exceljs": "^4.4.0",
