@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:admin": "tsx scripts/seed-admin.ts"
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "test:e2e": "bash scripts/e2e.sh",
+    "backup:storage": "node scripts/backup-storage.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

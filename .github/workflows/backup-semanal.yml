@@ -1,0 +1,80 @@
+# Dump semanal do banco + arquivos (laudos, anexos, importações), criptografado e guardado fora do Supabase
+# como artefato do GitHub por 90 dias. Restauração: docs/BACKUP.md.
+# Segredos do repositório (Settings › Secrets and variables › Actions):
+#   SUPABASE_DB_URL            conexão Postgres (Supabase › Connect › Session pooler), com a senha do banco
+#   SUPABASE_URL               https://<ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  chave secreta (service_role)
+#   BACKUP_PASSPHRASE          frase para criptografar o arquivo (guarde-a fora do GitHub)
+name: Backup semanal
+
+on:
+  schedule:
+    - cron: '23 6 * * 1' # segundas, 03:23 em Brasília
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Conferir segredos
+        id: segredos
+        run: |
+          faltam=""
+          for v in SUPABASE_DB_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY BACKUP_PASSPHRASE; do [ -z "${!v}" ] && faltam="$faltam $v"; done
+          if [ -n "$faltam" ]; then echo "::warning::Backup não configurado. Cadastre os segredos:$faltam (veja docs/BACKUP.md)"; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.segredos.outputs.ok == 'true'
+
+      - uses: supabase/setup-cli@v1
+        if: steps.segredos.outputs.ok == 'true'
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        if: steps.segredos.outputs.ok == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Dump do banco (papéis, estrutura e dados)
+        if: steps.segredos.outputs.ok == 'true'
+        run: |
+          pasta="backup-$(date -u +%Y-%m-%d)"; echo "PASTA=$pasta" >> "$GITHUB_ENV"; mkdir -p "$pasta/banco"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$pasta/banco/roles.sql" --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$pasta/banco/schema.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$pasta/banco/data.sql" --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          ls -la "$pasta/banco"
+
+      - name: Cópia dos arquivos (Storage)
+        if: steps.segredos.outputs.ok == 'true'
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/backup-storage.mjs "$PASTA/storage"
+
+      - name: Compactar e criptografar
+        if: steps.segredos.outputs.ok == 'true'
+        run: |
+          tar -czf "$PASTA.tar.gz" "$PASTA"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" --symmetric --cipher-algo AES256 -o "$PASTA.tar.gz.gpg" "$PASTA.tar.gz"
+          sha256sum "$PASTA.tar.gz.gpg" | tee "$PASTA.sha256"
+          rm -rf "$PASTA" "$PASTA.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.segredos.outputs.ok == 'true'
+        with:
+          name: ${{ env.PASTA }}
+          path: |
+            ${{ env.PASTA }}.tar.gz.gpg
+            ${{ env.PASTA }}.sha256
+          retention-days: 90
+          if-no-files-found: error

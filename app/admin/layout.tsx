@@ -8,6 +8,9 @@ const GRUPOS: GrupoMenu[] = [
     { href: '/admin/cobranca', label: 'Cobrança', icone: 'financeiro' },
     { href: '/admin/gateways', label: 'Gateways de pagamento', icone: 'config' },
   ] },
+  { titulo: 'Segurança', itens: [
+    { href: '/admin/acessos', label: 'Acessos', icone: 'auditoria' },
+  ] },
 ];
 const BARRA: ItemMenu[] = [
   { href: '/admin', label: 'Lojas', icone: 'clientes' },

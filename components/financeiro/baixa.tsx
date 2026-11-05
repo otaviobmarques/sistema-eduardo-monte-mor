@@ -52,7 +52,7 @@ export function ModalBaixa({ aberto, onFechar, os, inicial, onConcluir }: {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="pg-forma" className="rotulo">Forma{status === 'faturado' && <span className="font-normal text-text-secondary"> (opcional)</span>}</label>
-              <select id="pg-forma" name="forma" className="campo" defaultValue={inicial?.forma ?? (status === 'faturado' ? 'faturamento' : '')} {...inv('forma')}>
+              <select key={status} id="pg-forma" name="forma" className="campo" defaultValue={status === 'faturado' ? (inicial?.status === 'faturado' && inicial.forma ? inicial.forma : 'faturamento') : (inicial?.status === 'pago' && inicial.forma ? inicial.forma : '')} {...inv('forma')}>
                 {status === 'pago' && <option value="">Escolha…</option>}
                 {Object.entries(FORMAS_PAGAMENTO).filter(([k]) => status === 'faturado' || k !== 'faturamento').map(([k, t]) => <option key={k} value={k}>{t}</option>)}
               </select>

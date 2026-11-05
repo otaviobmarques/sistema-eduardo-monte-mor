@@ -15,7 +15,10 @@ const schema = z.object({ login: z.string().trim().min(1, 'Informe o usuário'),
 
 export type LoginState = { erro?: string; login?: string } | undefined;
 
+// Rate limit: 5 falhas por usuário em 15 min; por IP, 20 (um escritório atrás do mesmo IP não trava todo mundo
+// por causa de um colega, mas uma varredura de vários usuários a partir de um IP é contida).
 const MAX_TENTATIVAS = 5;
+const MAX_POR_IP = 20;
 const JANELA_MIN = 15;
 
 export async function entrar(_: LoginState, form: FormData): Promise<LoginState> {
@@ -33,20 +36,23 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
     admin.from('acessos_log').select('id', { count: 'exact', head: true }).eq('login', login).eq('sucesso', false).gte('em', desde),
     admin.from('acessos_log').select('id', { count: 'exact', head: true }).eq('ip', ip).eq('sucesso', false).gte('em', desde),
   ]);
-  if ((porLogin.count ?? 0) >= MAX_TENTATIVAS || (porIp.count ?? 0) >= MAX_TENTATIVAS) {
+  const registrar = async (sucesso: boolean, motivo: string | null, userId?: string) => {
+    const q = admin.from('perfis_usuario').select('loja_id');
+    const { data: p } = await (userId ? q.eq('user_id', userId) : q.eq('login', login)).maybeSingle();
+    return admin.from('acessos_log').insert({ login, ip, user_agent: ua.slice(0, 400), sucesso, motivo, user_id: userId ?? null, loja_id: p?.loja_id ?? null });
+  };
+  if ((porLogin.count ?? 0) >= MAX_TENTATIVAS || (porIp.count ?? 0) >= MAX_POR_IP) {
+    await registrar(false, 'limite de tentativas');
     return { erro: `Muitas tentativas. Aguarde ${JANELA_MIN} minutos e tente de novo.`, login: digitado };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email: loginParaEmail(login), password: parsed.data.senha });
-  const registrar = async (sucesso: boolean, userId?: string) => {
-    const lojaId = userId ? (await admin.from('perfis_usuario').select('loja_id').eq('user_id', userId).maybeSingle()).data?.loja_id ?? null : null;
-    return admin.from('acessos_log').insert({ login, ip, user_agent: ua, sucesso, user_id: userId ?? null, loja_id: lojaId });
-  };
 
   if (error || !data.user) {
-    await registrar(false);
-    if (error?.code === 'user_banned' || /banned/i.test(error?.message ?? '')) {
+    const banido = error?.code === 'user_banned' || /banned/i.test(error?.message ?? '');
+    await registrar(false, banido ? 'acesso bloqueado' : 'usuário ou senha incorretos');
+    if (banido) {
       const { data: pb } = await admin.from('perfis_usuario').select('perfil, lojas(nome, telefone)').eq('login', login).maybeSingle();
       const lb = pb?.lojas as unknown as { nome: string; telefone: string | null } | null;
       const quem = pb?.perfil === 'cliente' && lb ? `Fale com a ${lb.nome}${lb.telefone ? `: ${telefone(lb.telefone)}` : ''}.` : pb?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
@@ -60,21 +66,21 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
   const contato = perfil?.perfil === 'cliente' && lojaP ? `Fale com a ${lojaP.nome}${lojaP.telefone ? `: ${telefone(lojaP.telefone)}` : ''}.` : perfil?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
   if (!perfil || perfil.bloqueado) {
     await supabase.auth.signOut();
-    await registrar(false, data.user.id);
+    await registrar(false, perfil ? 'acesso bloqueado' : 'sem perfil', data.user.id);
     return { erro: perfil ? `Acesso bloqueado. ${contato}` : 'Usuário sem perfil configurado.', login: digitado };
   }
   if (perfil.deve_trocar_senha && perfil.senha_expira_em && new Date(perfil.senha_expira_em) < new Date()) {
     await supabase.auth.signOut();
-    await registrar(false, data.user.id);
+    await registrar(false, 'senha temporária expirada', data.user.id);
     return { erro: `Sua senha temporária expirou. ${contato}`, login: digitado };
   }
   const loja = perfil.lojas as unknown as { nome: string; ativo: boolean; bloqueada: boolean; telefone: string | null } | null;
   if (perfil.loja_id && (!loja?.ativo || loja.bloqueada)) {
     await supabase.auth.signOut();
-    await registrar(false, data.user.id);
+    await registrar(false, 'loja suspensa', data.user.id);
     return { erro: perfil.perfil === 'loja' ? 'O acesso da sua Loja está suspenso. Regularize a assinatura com o administrador do sistema.' : `O sistema está temporariamente indisponível. Fale com a ${loja?.nome || 'sua unidade Auto Visão'}${loja?.telefone ? `: ${telefone(loja.telefone)}` : ''}.`, login: digitado };
   }
-  await registrar(true, data.user.id);
+  await registrar(true, null, data.user.id);
   redirect(perfil.deve_trocar_senha ? '/trocar-senha' : ROTA_INICIAL[perfil.perfil as TipoPerfil]);
 }
 

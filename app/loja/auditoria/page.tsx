@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AbasAuditoria } from '@/components/acessos/abas';
 import { Cabecalho } from '@/components/ui';
 import { CAMPOS_TECNICOS, ROTULO_CAMPO, ROTULO_TABELA, valorLegivel } from '@/lib/auditoria';
 import { dataHora, ETAPA_LABEL, PAGAMENTO_LABEL, STATUS_LABEL } from '@/lib/formato';
@@ -46,6 +47,7 @@ export default async function AuditoriaPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <Cabecalho kicker="Sistema" titulo="Auditoria" descricao="Cada alteração com valor anterior, novo, usuário e data. Mostra os 300 registros mais recentes do filtro." />
+      <AbasAuditoria />
       <form className="card mb-6 grid gap-4 p-4 md:grid-cols-[1fr_200px_200px_160px_160px_auto] md:items-end" role="search">
         <div>
           <label className="rotulo" htmlFor="aud-q">Placa, nº da OS ou valor</label>
