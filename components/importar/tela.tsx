@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { EnvioForm } from './envio-form';
 import { Passos } from './passos';
 import { Previa, type LinhaPrevia } from './previa';
+import { MarcarVistas } from '@/components/notificacoes';
 
 export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: { modo: 'loja' | 'cliente'; loteId?: string; empresaFixa?: string; nomeEmpresa?: string }) {
   const supabase = await createClient();
@@ -65,6 +66,7 @@ export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: {
       <>
         {cab}
         <Passos atual={4} />
+        <MarcarVistas loteId={lote.id} />
         <div className="mb-6"><Aviso tipo="ok" titulo={`${lote.validas} OS criadas · ${emp?.nome_fantasia || emp?.razao_social}`}>
           Todas com abertura às {hora(lote.confirmado_em)} de {dataHora(lote.confirmado_em).slice(0, 10)}. {modo === 'cliente' ? 'A Auto Visão já foi avisada.' : ''}
         </Aviso></div>

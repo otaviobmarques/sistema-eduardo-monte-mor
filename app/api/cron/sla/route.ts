@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { alertasDevidos, textoAlerta } from '@/lib/regras/alertas';
 import { calcularSla, CONFIG_PADRAO, formatarDuracao, type SlaConfig } from '@/lib/regras/sla';
 import { notificar } from '@/lib/notificar';
+import { enviarPush, type Notif } from '@/lib/push';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ async function executar(req: NextRequest) {
   const admin = createAdminClient();
   const agora = new Date();
   const [{ data: cs }, { data: fer }, { data: oss, error }] = await Promise.all([
-    admin.from('configuracoes').select('loja_id, alerta1_horas, alerta2_horas_antes, contagem, horario_util'),
+    admin.from('configuracoes').select('loja_id, alerta1_horas, alerta2_horas_antes, contagem, horario_util, escalonar_minutos'),
     admin.from('feriados').select('loja_id, data'),
     admin.from('ordens_servico')
       .select('id, numero, placa, loja_id, empresa_cliente_id, aberta_em, sla_horas, status, prazo_em, alerta1_enviado, alerta2_enviado, vencida_notificada, sla_pausas(inicio, fim), lojas!inner(ativo, bloqueada)')
@@ -58,7 +59,21 @@ async function executar(req: NextRequest) {
       }
     }
   }
-  return NextResponse.json({ ok: true, verificadas: oss?.length ?? 0, alertas: enviados, prazosAjustados, em: agora.toISOString() });
+  // Escalonamento (seção 6): OS ou lote sem ninguém abrir em escalonar_minutos → push reforçado, uma vez
+  let reforcos = 0;
+  const minutos = new Map((cs ?? []).map((c) => [c.loja_id, c.escalonar_minutos ?? 30]));
+  const menor = Math.min(...[...minutos.values(), 30]);
+  const { data: pendentes } = await admin.from('notificacoes')
+    .select('id, destino, loja_id, empresa_cliente_id, tipo, titulo, corpo, link, criada_em')
+    .eq('destino', 'loja').in('tipo', ['nova_os', 'novo_lote']).is('vista_em', null).eq('push_reforco_enviado', false)
+    .lt('criada_em', new Date(agora.getTime() - menor * 60_000).toISOString()).limit(200);
+  for (const n of pendentes ?? []) {
+    const limite = (minutos.get(n.loja_id) ?? 30) * 60_000;
+    if (agora.getTime() - new Date(n.criada_em).getTime() < limite) continue;
+    const { data: marcou } = await admin.from('notificacoes').update({ push_reforco_enviado: true }).eq('id', n.id).eq('push_reforco_enviado', false).select('id');
+    if (marcou?.length) { await enviarPush(n as Notif, true); reforcos++; }
+  }
+  return NextResponse.json({ ok: true, verificadas: oss?.length ?? 0, alertas: enviados, prazosAjustados, reforcos, em: agora.toISOString() });
 }
 
 export const GET = executar;

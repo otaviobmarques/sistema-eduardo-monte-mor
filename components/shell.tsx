@@ -4,8 +4,9 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Logo, Mosaico } from './marca';
 import { Icone, type IconeNome } from './icone';
+import { ContadorMenu } from './notificacoes';
 
-export interface ItemMenu { href: string; label: string; icone: IconeNome; badge?: number }
+export interface ItemMenu { href: string; label: string; icone: IconeNome; badge?: number; contador?: 'alertas' | 'todas' }
 export interface GrupoMenu { titulo: string; itens: ItemMenu[] }
 
 function ativo(path: string, href: string, raiz: string) {
@@ -36,6 +37,7 @@ export function Shell({
                   <Icone nome={i.icone} className="h-5 w-5" />
                   <span className="flex-1">{i.label}</span>
                   {!!i.badge && <span className="rounded-full bg-brand-red px-2 py-0.5 text-xs font-bold text-white">{i.badge}</span>}
+                  {i.contador && <ContadorMenu tipo={i.contador} />}
                 </Link>
               );
             })}

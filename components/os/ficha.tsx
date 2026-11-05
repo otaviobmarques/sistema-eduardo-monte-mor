@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './ficha-acoes';
 import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
 import { AcoesLoja, CancelarOs, Pendencias, type PendenciaVista } from './operacoes';
+import { MarcarVistas } from '@/components/notificacoes';
 import { Placa } from './placa';
 import { StatusSelo } from './status';
 
@@ -102,6 +103,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
 
   return (
     <div className="space-y-6">
+      <MarcarVistas osId={os.id} />
       <Link href={base} className="btn btn-texto btn-sm -ml-3">← {modo === 'loja' ? 'Fila de OS' : 'Painel'}</Link>
       {nova && <Aviso tipo="ok" titulo={`OS nº ${os.numero} aberta`}>{modo === 'cliente' ? 'A Auto Visão já foi avisada. Acompanhe o prazo e o laudo por aqui.' : 'A OS entrou na fila.'}</Aviso>}
 
