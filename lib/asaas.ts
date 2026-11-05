@@ -10,6 +10,8 @@ import { createAdminClient } from './supabase/admin';
 const BASE = { sandbox: 'https://api-sandbox.asaas.com/v3', producao: 'https://api.asaas.com/v3' } as const;
 
 export type AmbienteAsaas = 'sandbox' | 'producao';
+import { FORMAS_ASAAS, formaValida, type FormaAsaas } from './asaas-formas';
+export { FORMAS_ASAAS, formaValida, type FormaAsaas };
 export const NOME_AMBIENTE: Record<AmbienteAsaas, string> = { sandbox: 'Teste', producao: 'Produção' };
 export interface CredenciaisAsaas { ativo: boolean; ambiente: AmbienteAsaas; chave: string | null; webhookToken: string | null }
 const amb = (v: unknown): AmbienteAsaas => (v === 'producao' ? 'producao' : 'sandbox');
@@ -79,10 +81,14 @@ export function asaasCom(c: CredenciaisAsaas) {
     ambiente: c.ambiente,
     criarCliente: (d: { name: string; cpfCnpj: string; email?: string | null; mobilePhone?: string | null; externalReference: string }) =>
       chamar<{ id: string }>(c, 'POST', '/customers', { ...d, notificationDisabled: false }),
-    criarCobranca: (d: { customer: string; value: number; dueDate: string; description: string; externalReference: string }) =>
-      chamar<PagamentoAsaas>(c, 'POST', '/payments', { ...d, billingType: 'UNDEFINED' }),
-    criarAssinatura: (d: { customer: string; value: number; nextDueDate: string; description: string; externalReference: string }) =>
-      chamar<{ id: string }>(c, 'POST', '/subscriptions', { ...d, billingType: 'UNDEFINED', cycle: 'MONTHLY' }),
+    criarCobranca: (d: { customer: string; value: number; dueDate: string; description: string; externalReference: string; billingType?: FormaAsaas }) =>
+      chamar<PagamentoAsaas>(c, 'POST', '/payments', { ...d, billingType: d.billingType ?? 'UNDEFINED' }),
+    criarAssinatura: (d: { customer: string; value: number; nextDueDate: string; description: string; externalReference: string; billingType?: FormaAsaas }) =>
+      chamar<{ id: string }>(c, 'POST', '/subscriptions', { ...d, billingType: d.billingType ?? 'UNDEFINED', cycle: 'MONTHLY' }),
+    /** Troca a forma de pagamento de uma assinatura (e das mensalidades dela ainda em aberto). */
+    alterarFormaAssinatura: (id: string, billingType: FormaAsaas) => chamar<{ id: string }>(c, 'PUT', `/subscriptions/${id}`, { billingType, updatePendingPayments: true }),
+    /** Troca a forma de pagamento de uma cobrança em aberto. */
+    alterarFormaCobranca: (id: string, billingType: FormaAsaas) => chamar<PagamentoAsaas>(c, 'PUT', `/payments/${id}`, { billingType }),
     pagamentosDaAssinatura: (id: string) => chamar<{ data: PagamentoAsaas[] }>(c, 'GET', `/subscriptions/${id}/payments`),
     cancelarAssinatura: (id: string) => chamar<{ deleted: boolean }>(c, 'DELETE', `/subscriptions/${id}`),
     receberEmDinheiro: (id: string, valor: number, data: string) => chamar<PagamentoAsaas>(c, 'POST', `/payments/${id}/receiveInCash`, { paymentDate: data, value: valor, notifyCustomer: false }),

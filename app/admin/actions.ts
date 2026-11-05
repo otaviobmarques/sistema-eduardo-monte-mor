@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { exigirPerfil } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { asaasCom, credenciaisAsaas, ErroAsaas, NOME_AMBIENTE, proximoVencimento, statusFatura, type AmbienteAsaas, type CredenciaisAsaas } from '@/lib/asaas';
+import { asaasCom, credenciaisAsaas, ErroAsaas, FORMAS_ASAAS, formaValida, NOME_AMBIENTE, type FormaAsaas, proximoVencimento, statusFatura, type AmbienteAsaas, type CredenciaisAsaas } from '@/lib/asaas';
 import { cnpjValido, normalizarCnpj } from '@/lib/regras/cnpj';
 import { UFS } from '@/lib/formato';
 import { gerarSenhaTemporaria, LOGIN_REGEX, loginParaEmail, normalizarLogin } from '@/lib/login';
@@ -127,6 +127,12 @@ export async function alterarBloqueioLoja(lojaId: string, bloquear: boolean, mot
 /* ───────── Cobrança (Asaas) ───────── */
 const erroAsaas = (e: unknown, padrao = 'Não foi possível falar com o Asaas. Tente de novo.') => (e instanceof ErroAsaas ? e.message : padrao);
 
+/** Forma de pagamento padrão das cobranças novas (Admin › Gateways › Formas de pagamento). */
+async function formaPadrao(): Promise<FormaAsaas> {
+  const { data } = await createAdminClient().from('gateways_pagamento').select('forma_pagamento').eq('provedor', 'asaas').maybeSingle();
+  return formaValida(data?.forma_pagamento);
+}
+
 /** Credenciais do ambiente em uso, se o gateway estiver ligado. */
 async function gatewayEmUso(): Promise<CredenciaisAsaas | null> {
   const c = await credenciaisAsaas();
@@ -138,6 +144,7 @@ export async function ativarCobranca(lojaId: string): Promise<Resultado<{ criada
   const cred = await gatewayEmUso();
   if (!cred) return { ok: false, erro: 'Ative o Asaas em Gateways de pagamento para cobrar por ele. Enquanto isso, use “Nova fatura” manual.' };
   const api = asaasCom(cred);
+  const forma = await formaPadrao();
   const admin = createAdminClient();
   const { data: l } = await admin.from('lojas').select('*').eq('id', lojaId).single();
   if (!l) return { ok: false, erro: 'Loja não encontrada.' };
@@ -148,16 +155,16 @@ export async function ativarCobranca(lojaId: string): Promise<Resultado<{ criada
     const { count: temStart } = await admin.from('faturas').select('id', { count: 'exact', head: true }).eq('loja_id', l.id).eq('tipo', 'start').eq('ambiente', cred.ambiente).neq('status', 'cancelado');
     if (Number(l.taxa_start) > 0 && !temStart) {
       const venc = new Date(Date.now() - 3 * 3600_000 + 3 * 86400_000).toISOString().slice(0, 10);
-      const p = await api.criarCobranca({ customer, value: Number(l.taxa_start), dueDate: venc, description: `Start do projeto · Sistema de OS – Auto Visão · ${l.nome}`, externalReference: `start:${l.id}` });
-      await admin.from('faturas').upsert({ loja_id: l.id, tipo: 'start', descricao: 'Start do projeto', valor: p.value, vencimento: p.dueDate, status: statusFatura(p.status), asaas_payment_id: p.id, link_pagamento: p.invoiceUrl ?? null, ambiente: cred.ambiente }, { onConflict: 'asaas_payment_id' });
+      const p = await api.criarCobranca({ customer, value: Number(l.taxa_start), dueDate: venc, description: `Start do projeto · Sistema de OS – Auto Visão · ${l.nome}`, externalReference: `start:${l.id}`, billingType: forma });
+      await admin.from('faturas').upsert({ loja_id: l.id, tipo: 'start', descricao: 'Start do projeto', valor: p.value, vencimento: p.dueDate, status: statusFatura(p.status), asaas_payment_id: p.id, link_pagamento: p.invoiceUrl ?? null, ambiente: cred.ambiente, forma_solicitada: forma }, { onConflict: 'asaas_payment_id' });
       criadas++;
     }
     if (Number(l.plano_mensal) > 0 && !subscription) {
-      const assin = await api.criarAssinatura({ customer, value: Number(l.plano_mensal), nextDueDate: proximoVencimento(l.dia_vencimento), description: `Mensalidade · Sistema de OS – Auto Visão · ${l.nome}`, externalReference: `mensal:${l.id}` });
+      const assin = await api.criarAssinatura({ customer, value: Number(l.plano_mensal), nextDueDate: proximoVencimento(l.dia_vencimento), description: `Mensalidade · Sistema de OS – Auto Visão · ${l.nome}`, externalReference: `mensal:${l.id}`, billingType: forma });
       await admin.from('lojas_gateway').update({ subscription_id: assin.id }).eq('loja_id', l.id).eq('provedor', 'asaas').eq('ambiente', cred.ambiente);
       const { data: pags } = await api.pagamentosDaAssinatura(assin.id);
       for (const p of pags ?? []) {
-        await admin.from('faturas').upsert({ loja_id: l.id, tipo: 'mensalidade', descricao: `Mensalidade ${p.dueDate.slice(5, 7)}/${p.dueDate.slice(0, 4)}`, valor: p.value, vencimento: p.dueDate, status: statusFatura(p.status), asaas_payment_id: p.id, link_pagamento: p.invoiceUrl ?? null, ambiente: cred.ambiente }, { onConflict: 'asaas_payment_id' });
+        await admin.from('faturas').upsert({ loja_id: l.id, tipo: 'mensalidade', descricao: `Mensalidade ${p.dueDate.slice(5, 7)}/${p.dueDate.slice(0, 4)}`, valor: p.value, vencimento: p.dueDate, status: statusFatura(p.status), asaas_payment_id: p.id, link_pagamento: p.invoiceUrl ?? null, ambiente: cred.ambiente, forma_solicitada: forma }, { onConflict: 'asaas_payment_id' });
         criadas++;
       }
     }
@@ -207,6 +214,7 @@ const novaFatura = z.object({
   valor: z.coerce.number({ invalid_type_error: 'Informe o valor.' }).positive('Informe um valor maior que zero.'),
   vencimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe o vencimento.'),
   via_gateway: z.coerce.boolean(),
+  forma: z.enum(['UNDEFINED', 'PIX', 'BOLETO', 'CREDIT_CARD']).optional(),
 });
 export type NovaFaturaDados = z.input<typeof novaFatura>;
 
@@ -226,9 +234,10 @@ export async function criarFatura(d: NovaFaturaDados): Promise<Resultado<{ link:
     if (!cred) return { ok: false, erro: 'Ative o Asaas em Gateways de pagamento ou desmarque “Cobrar pelo Asaas”.' };
     try {
       const { customer } = await garantirClienteAsaas(l, cred);
-      const pag = await asaasCom(cred).criarCobranca({ customer, value: p.data.valor, dueDate: p.data.vencimento, description: `${p.data.descricao} · ${l.nome}`, externalReference: `${p.data.tipo === 'mensalidade' ? 'mensal' : p.data.tipo}:${l.id}` });
+      const forma = p.data.forma ?? (await formaPadrao());
+      const pag = await asaasCom(cred).criarCobranca({ customer, value: p.data.valor, dueDate: p.data.vencimento, description: `${p.data.descricao} · ${l.nome}`, externalReference: `${p.data.tipo === 'mensalidade' ? 'mensal' : p.data.tipo}:${l.id}`, billingType: forma });
       link = pag.invoiceUrl ?? null; ambiente = cred.ambiente;
-      const { error } = await admin.from('faturas').upsert({ ...base, status: statusFatura(pag.status), asaas_payment_id: pag.id, link_pagamento: link, ambiente }, { onConflict: 'asaas_payment_id' });
+      const { error } = await admin.from('faturas').upsert({ ...base, status: statusFatura(pag.status), asaas_payment_id: pag.id, link_pagamento: link, ambiente, forma_solicitada: forma }, { onConflict: 'asaas_payment_id' });
       if (error) return { ok: false, erro: mensagemErroBanco(error) };
     } catch (e) {
       return { ok: false, erro: erroAsaas(e, 'Não foi possível falar com o Asaas.') };
@@ -330,4 +339,35 @@ export async function configurarWebhook(ambienteBruto: string, email: string): P
   }
   revalidatePath('/admin/gateways');
   return { ok: true, dados: { url } };
+}
+
+/** Forma de pagamento padrão das cobranças novas; opcionalmente aplica às assinaturas e cobranças em aberto. */
+export async function salvarFormaPagamento(formaBruta: string, aplicarExistentes: boolean): Promise<Resultado<{ mensagem: string }>> {
+  await exigirPerfil('admin');
+  if (!(formaBruta in FORMAS_ASAAS)) return { ok: false, erro: 'Escolha uma forma de pagamento.' };
+  const forma = formaBruta as FormaAsaas;
+  const supabase = await createClient();
+  const { error } = await supabase.from('gateways_pagamento').update({ forma_pagamento: forma }).eq('provedor', 'asaas');
+  if (error) return { ok: false, erro: 'Não foi possível salvar.' };
+  let mensagem = `Cobranças novas: ${FORMAS_ASAAS[forma].titulo.toLowerCase()}.`;
+  if (aplicarExistentes) {
+    // Cada assinatura/cobrança é alterada na conta Asaas onde nasceu (Teste ou Produção)
+    const admin = createAdminClient();
+    let assin = 0, cob = 0; const falhas: string[] = [];
+    for (const amb of ['sandbox', 'producao'] as const) {
+      const cred = await credenciaisAsaas(amb);
+      if (!cred.chave) continue;
+      const api = asaasCom(cred);
+      const { data: subs } = await admin.from('lojas_gateway').select('subscription_id').eq('provedor', 'asaas').eq('ambiente', amb).not('subscription_id', 'is', null);
+      for (const sub of subs ?? []) { try { await api.alterarFormaAssinatura(sub.subscription_id!, forma); assin++; } catch (e) { falhas.push(erroAsaas(e)); } }
+      const { data: fs } = await admin.from('faturas').select('id, asaas_payment_id').eq('ambiente', amb).in('status', ['pendente', 'vencido']).not('asaas_payment_id', 'is', null);
+      for (const f of fs ?? []) {
+        try { await api.alterarFormaCobranca(f.asaas_payment_id!, forma); await admin.from('faturas').update({ forma_solicitada: forma }).eq('id', f.id); cob++; } catch (e) { falhas.push(erroAsaas(e)); }
+      }
+    }
+    mensagem += ` Atualizadas no Asaas: ${assin} assinatura(s) e ${cob} cobrança(s) em aberto.`;
+    if (falhas.length) return { ok: false, erro: `${mensagem} ${falhas.length} não puderam ser alteradas: ${[...new Set(falhas)].slice(0, 2).join(' ')}` };
+  }
+  revalidatePath('/admin/gateways'); revalidatePath('/admin/cobranca');
+  return { ok: true, dados: { mensagem } };
 }

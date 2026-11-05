@@ -2,7 +2,8 @@
 import { useState, useTransition } from 'react';
 import { Aviso, BotaoCopiar, Selo } from '@/components/ui';
 import { dataHora } from '@/lib/formato';
-import { configurarWebhook, removerChaveGateway, salvarChaveGateway, usarAmbienteGateway } from '../actions';
+import { configurarWebhook, removerChaveGateway, salvarChaveGateway, salvarFormaPagamento, usarAmbienteGateway } from '../actions';
+import { FORMAS_ASAAS, type FormaAsaas } from '@/lib/asaas-formas';
 
 export type Ambiente = 'sandbox' | 'producao';
 export interface EstadoAmbiente {
@@ -143,6 +144,52 @@ export function ConfigAmbiente({ e, emUso }: { e: EstadoAmbiente; emUso: boolean
         </form>
         {msgWh && <Aviso tipo={msgWh.ok ? 'ok' : 'erro'} titulo={msgWh.ok ? 'Tudo certo' : 'Não foi possível'}>{msgWh.t}</Aviso>}
       </div>
+    </section>
+  );
+}
+
+/** Forma de pagamento padrão das cobranças novas, com opção de aplicar às que já estão em aberto. */
+export function FormasPagamento({ atual }: { atual: FormaAsaas }) {
+  const [forma, setForma] = useState<FormaAsaas>(atual);
+  const [aplicar, setAplicar] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [pendente, iniciar] = useTransition();
+  const mudou = forma !== atual || aplicar;
+  return (
+    <section className="card space-y-5 p-6" aria-labelledby="gw-formas">
+      <div>
+        <h2 id="gw-formas" className="h3">Formas de pagamento</h2>
+        <p className="text-sm text-text-secondary">Como as Lojas pagam o Start, as mensalidades e as faturas avulsas geradas pelo Asaas. Vale para os dois ambientes. Na “Nova fatura” dá para escolher outra forma só para aquela cobrança.</p>
+      </div>
+      <form className="space-y-4" noValidate onSubmit={(ev) => {
+        ev.preventDefault(); setMsg(null);
+        iniciar(async () => { const r = await salvarFormaPagamento(forma, aplicar); setMsg(r.ok ? { ok: true, t: r.dados!.mensagem } : { ok: false, t: r.erro }); if (r.ok) setAplicar(false); });
+      }}>
+        <fieldset>
+          <legend className="sr-only">Forma de pagamento padrão</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(Object.keys(FORMAS_ASAAS) as FormaAsaas[]).map((k) => (
+              <label key={k} className="flex min-h-toque cursor-pointer gap-3 rounded-card border-[1.5px] border-border p-4 has-[:checked]:border-impact has-[:checked]:bg-surface">
+                <input type="radio" name="gw-forma" value={k} className="mt-1 accent-action" checked={forma === k} onChange={() => { setForma(k); setMsg(null); }} />
+                <span>
+                  <span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{FORMAS_ASAAS[k].titulo}</span>{atual === k && <Selo tom="ok">Em uso</Selo>}{k === 'UNDEFINED' && <Selo tom="neutro">Recomendado</Selo>}</span>
+                  <span className="mt-1 block text-sm text-text-secondary">{FORMAS_ASAAS[k].detalhe}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="flex min-h-toque items-start gap-3 text-sm">
+          <input type="checkbox" className="check mt-0.5" checked={aplicar} onChange={(ev) => { setAplicar(ev.target.checked); setMsg(null); }} />
+          <span><span className="font-medium">Aplicar também às assinaturas e cobranças em aberto</span><span className="block text-text-secondary">Sem marcar, só as cobranças novas usam a forma escolhida. As já pagas não mudam.</span></span>
+        </label>
+        <p className="ajuda">Para Pix, a conta Asaas precisa ter uma chave Pix cadastrada; para cartão, a conta precisa estar aprovada para receber cartão.</p>
+        {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Atenção'}>{msg.t}</Aviso>}
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="btn btn-primario" disabled={pendente || !mudou}>{pendente ? 'Salvando…' : 'Salvar forma de pagamento'}</button>
+          {!mudou && <p className="text-sm text-text-secondary">Esta já é a forma em uso. Escolha outra para salvar.</p>}
+        </div>
+      </form>
     </section>
   );
 }

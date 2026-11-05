@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { AcessoCliente } from '@/app/loja/clientes/acesso';
 import { Aviso, Cabecalho } from '@/components/ui';
 import { ambienteAsaas, asaasConfigurado } from '@/lib/asaas';
+import { formaValida } from '@/lib/asaas-formas';
 import { sugerirLogin } from '@/lib/formato';
 import { formatarCnpj } from '@/lib/regras/cnpj';
 import { createClient } from '@/lib/supabase/server';
@@ -20,10 +21,11 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
   const { data: l } = await supabase.from('lojas').select('*').eq('id', id).maybeSingle();
   if (!l) notFound();
   const [ativoAsaas, ambiente] = await Promise.all([asaasConfigurado(), ambienteAsaas()]);
-  const [{ data: gestor }, { data: faturas }, { data: noGateway }] = await Promise.all([
+  const [{ data: gestor }, { data: faturas }, { data: noGateway }, { data: gp }] = await Promise.all([
     supabase.from('perfis_usuario').select('login, nome_exibicao, bloqueado, deve_trocar_senha, senha_expira_em, primeiro_acesso_em').eq('loja_id', id).eq('perfil', 'loja').maybeSingle(),
     supabase.from('faturas').select('id, tipo, descricao, valor, vencimento, status, link_pagamento, pago_em, asaas_payment_id, ambiente').eq('loja_id', id).order('vencimento', { ascending: false }),
     supabase.from('lojas_gateway').select('subscription_id').eq('loja_id', id).eq('provedor', 'asaas').eq('ambiente', ambiente).maybeSingle(),
+    supabase.from('gateways_pagamento').select('forma_pagamento').eq('provedor', 'asaas').maybeSingle(),
   ]);
   return (
     <>
@@ -33,7 +35,7 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
       <div className="grid gap-6 xl:grid-cols-[1fr_440px] xl:items-start">
         <div className="space-y-6">
           <LojaForm id={id} inicial={l} />
-          <CobrancaLoja loja={{ id, nome: l.nome, temCnpj: !!l.cnpj }} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={ativoAsaas} temAssinatura={!!noGateway?.subscription_id} ambiente={ambiente} />
+          <CobrancaLoja loja={{ id, nome: l.nome, temCnpj: !!l.cnpj }} faturas={(faturas ?? []) as FaturaVista[]} asaasAtivo={ativoAsaas} temAssinatura={!!noGateway?.subscription_id} ambiente={ambiente} formaPadrao={formaValida(gp?.forma_pagamento)} />
         </div>
         <div className="space-y-6 xl:sticky xl:top-6">
           <AcessoCliente empresaId={id} perfil={gestor} titulo="Acesso do Gestor" descricao="Um Gestor por Loja: cadastra clientes, opera as OS e gerencia a Loja."

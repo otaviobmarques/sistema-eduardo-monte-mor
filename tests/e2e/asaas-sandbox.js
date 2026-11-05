@@ -30,6 +30,7 @@ async function aguardar(desc, fn, ms = 120000) {
     return j;
   };
 
+  const { data: formaAntes } = await adm.from('gateways_pagamento').select('forma_pagamento').eq('provedor', 'asaas').single();
   const ADM = await adminTemporario();
   const loja = await criarLoja('Loja E2E Asaas Sandbox');
   await adm.from('lojas').update({ cnpj: '11444777000161', razao_social: 'Loja E2E Asaas Sandbox Ltda', email: 'loja-e2e@example.com', plano_mensal: 199.9, taxa_start: 500, dia_vencimento: 10, dias_tolerancia: 5 }).eq('id', loja.id);
@@ -71,6 +72,34 @@ async function aguardar(desc, fn, ms = 120000) {
     log('Admin › Cobrança (filtro Teste): Start como “Paga”, mensalidade em aberto');
     await p.screenshot({ path: S + '/asaas-sb-cobranca.png', fullPage: true });
 
+    // Formas de pagamento: padrão Pix aplicado às que estão em aberto (assinatura + mensalidade), conferido no Asaas
+    await p.goto(`${B}/admin/gateways`);
+    await p.check('input[name=gw-forma][value=PIX]');
+    await p.check('section:has(#gw-formas) input[type=checkbox]');
+    await p.click('button:has-text("Salvar forma de pagamento")');
+    await p.waitForSelector('section:has(#gw-formas) >> text=Atualizadas no Asaas', { timeout: 60000 });
+    log('Gateways › Formas de pagamento:', (await p.textContent('section:has(#gw-formas) [role=status], section:has(#gw-formas) .aviso')).replace(/\s+/g, ' ').trim().slice(0, 140));
+    await p.screenshot({ path: S + '/asaas-sb-formas.png', fullPage: true });
+    const assin2 = await asaas('GET', `/subscriptions/${gw.subscription_id}`);
+    const mens2 = await asaas('GET', `/payments/${mensal.asaas_payment_id}`);
+    if (assin2.billingType !== 'PIX' || mens2.billingType !== 'PIX') falha(`forma no Asaas: assinatura ${assin2.billingType}, mensalidade ${mens2.billingType}`);
+    log('no Asaas: a assinatura e a mensalidade em aberto passaram para Pix');
+
+    // Nova fatura escolhendo Boleto só para ela
+    await p.goto(`${B}/admin/lojas/${loja.id}`);
+    await p.click('button:has-text("Nova fatura")');
+    await p.check('dialog input[name=nf-tipo][value=avulsa]').catch(async () => p.click('dialog label:has-text("Avulsa")'));
+    await p.fill('#nf-desc', 'Taxa avulsa de teste');
+    await p.fill('#nf-valor', '49,90');
+    if ((await p.inputValue('#nf-forma')) !== 'PIX') falha('Nova fatura não veio com o padrão (Pix)');
+    await p.selectOption('#nf-forma', 'BOLETO');
+    await p.click('dialog button:has-text("Gerar cobrança")');
+    await p.waitForSelector('dialog >> text=Abrir link de pagamento', { timeout: 60000 });
+    const { data: avulsa } = await adm.from('faturas').select('asaas_payment_id, forma_solicitada, ambiente').eq('loja_id', loja.id).eq('tipo', 'avulsa').single();
+    const pagAv = await asaas('GET', `/payments/${avulsa.asaas_payment_id}`);
+    if (pagAv.billingType !== 'BOLETO' || avulsa.forma_solicitada !== 'BOLETO' || avulsa.ambiente !== 'sandbox') falha('fatura avulsa: ' + JSON.stringify({ asaas: pagAv.billingType, ...avulsa }));
+    log('Nova fatura: veio com o padrão (Pix); escolhendo Boleto, a cobrança foi criada no Asaas como boleto');
+
     // O Gestor não vê faturas de teste
     const gest = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     await gest.auth.signInWithPassword({ email: email('gestor-asaas-sb'), password: 'gestor-senha-123' });
@@ -85,6 +114,7 @@ async function aguardar(desc, fn, ms = 120000) {
     await espera(15000); // avisos de exclusão chegam ao webhook antes de apagar a Loja
     const { data: cancel } = await adm.from('faturas').select('tipo, status').eq('loja_id', loja.id);
     console.log('  limpeza no Asaas feita; faturas após o cancelamento:', JSON.stringify(cancel));
+    await adm.from('gateways_pagamento').update({ forma_pagamento: formaAntes.forma_pagamento }).eq('provedor', 'asaas');
     await ADM.remover();
     if (!process.env.MANTER) await limparLoja(loja.id);
   }

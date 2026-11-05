@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import { Aviso, Modal, Selo } from '@/components/ui';
 import { data as fmtData, moeda, parseMoeda } from '@/lib/formato';
 import { alterarBloqueioLoja, ativarCobranca, criarFatura, darBaixaFatura } from './actions';
+import { FORMAS_ASAAS, type FormaAsaas } from '@/lib/asaas-formas';
 
 export function SituacaoLoja({ lojaId, bloqueada, motivo, automatico, desde }: { lojaId: string; bloqueada: boolean; motivo: string | null; automatico: boolean; desde: string | null }) {
   const [aberto, setAberto] = useState(false);
@@ -81,9 +82,9 @@ export function TabelaFaturas({ faturas, admin, mostrarLoja }: { faturas: Fatura
   );
 }
 
-export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, rotulo = 'Nova fatura' }: { lojas: { id: string; nome: string; temCnpj: boolean }[]; lojaFixa?: string; gatewayAtivo: boolean; ambiente?: string; rotulo?: string }) {
+export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, formaPadrao = 'UNDEFINED', rotulo = 'Nova fatura' }: { lojas: { id: string; nome: string; temCnpj: boolean }[]; lojaFixa?: string; gatewayAtivo: boolean; ambiente?: string; formaPadrao?: FormaAsaas; rotulo?: string }) {
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
-  const vazio = () => ({ loja_id: lojaFixa ?? '', tipo: 'mensalidade', descricao: `Mensalidade ${hoje.slice(5, 7)}/${hoje.slice(0, 4)}`, valor: '', vencimento: new Date(Date.now() - 3 * 3600_000 + 5 * 86400_000).toISOString().slice(0, 10), via_gateway: gatewayAtivo });
+  const vazio = () => ({ loja_id: lojaFixa ?? '', tipo: 'mensalidade', descricao: `Mensalidade ${hoje.slice(5, 7)}/${hoje.slice(0, 4)}`, valor: '', vencimento: new Date(Date.now() - 3 * 3600_000 + 5 * 86400_000).toISOString().slice(0, 10), via_gateway: gatewayAtivo, forma: formaPadrao as string });
   const [aberto, setAberto] = useState(false);
   const [f, setF] = useState(vazio);
   const [erros, setErros] = useState<Record<string, string>>({});
@@ -107,7 +108,7 @@ export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, rotulo = '
           <form className="space-y-4" noValidate onSubmit={(e) => {
             e.preventDefault(); setErro(null);
             iniciar(async () => {
-              const r = await criarFatura({ ...f, tipo: f.tipo as 'avulsa', valor: parseMoeda(f.valor) ?? 0 });
+              const r = await criarFatura({ ...f, tipo: f.tipo as 'avulsa', forma: f.forma as FormaAsaas, valor: parseMoeda(f.valor) ?? 0 });
               if (r.ok) setFeito({ link: r.dados?.link ?? null }); else { setErros(r.campos ?? {}); setErro(r.erro); }
             });
           }}>
@@ -149,12 +150,21 @@ export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, rotulo = '
             <label className={`flex min-h-toque items-start gap-3 rounded-card border-[1.5px] p-4 text-sm ${gatewayAtivo ? 'cursor-pointer border-border has-[:checked]:border-impact has-[:checked]:bg-surface' : 'border-divider text-text-secondary'}`}>
               <input type="checkbox" className="check mt-0.5" checked={f.via_gateway} disabled={!gatewayAtivo} onChange={(e) => set('via_gateway', e.target.checked)} />
               <span>
-                <span className="block font-semibold">Cobrar pelo Asaas {ambiente === 'sandbox' ? '· Teste' : ambiente === 'producao' ? '· Produção' : ''} (Pix, boleto ou cartão)</span>
+                <span className="block font-semibold">Cobrar pelo Asaas {ambiente === 'sandbox' ? '· Teste' : ambiente === 'producao' ? '· Produção' : ''}</span>
                 {gatewayAtivo && ambiente === 'sandbox' && <span className="block text-info">Ambiente em uso: Teste. A cobrança não é real e não bloqueia a Loja.</span>}
                 {gatewayAtivo ? (loja && !loja.temCnpj && f.via_gateway ? <span className="text-error">Esta Loja não tem CNPJ cadastrado; o Asaas exige.</span> : 'Gera o link de pagamento, envia para a Loja e dá baixa sozinho quando pagar.')
                   : <>Ative o Asaas em <a className="font-semibold text-action underline" href="/admin/gateways">Gateways de pagamento</a>. Sem ele, a fatura é manual e você dá baixa ao receber.</>}
               </span>
             </label>
+            {gatewayAtivo && f.via_gateway && (
+              <div>
+                <label className="rotulo" htmlFor="nf-forma">Forma de pagamento</label>
+                <select id="nf-forma" className="campo" value={f.forma} onChange={(e) => set('forma', e.target.value)}>
+                  {(Object.keys(FORMAS_ASAAS) as FormaAsaas[]).map((k) => <option key={k} value={k}>{FORMAS_ASAAS[k].titulo}{k === formaPadrao ? ' (padrão)' : ''}</option>)}
+                </select>
+                <p className="ajuda">{FORMAS_ASAAS[f.forma as FormaAsaas]?.detalhe}</p>
+              </div>
+            )}
             {erro && <Aviso tipo="erro" titulo="Não foi possível criar">{erro}</Aviso>}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button type="button" className="btn btn-secundario" onClick={() => setAberto(false)}>Voltar</button>
@@ -167,7 +177,7 @@ export function NovaFatura({ lojas, lojaFixa, gatewayAtivo, ambiente, rotulo = '
   );
 }
 
-export function CobrancaLoja({ loja, faturas, asaasAtivo, temAssinatura, ambiente }: { loja: { id: string; nome: string; temCnpj: boolean }; faturas: FaturaVista[]; asaasAtivo: boolean; temAssinatura: boolean; ambiente: string }) {
+export function CobrancaLoja({ loja, faturas, asaasAtivo, temAssinatura, ambiente, formaPadrao = 'UNDEFINED' }: { loja: { id: string; nome: string; temCnpj: boolean }; faturas: FaturaVista[]; asaasAtivo: boolean; temAssinatura: boolean; ambiente: string; formaPadrao?: FormaAsaas }) {
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [pendente, iniciar] = useTransition();
   return (
@@ -177,7 +187,7 @@ export function CobrancaLoja({ loja, faturas, asaasAtivo, temAssinatura, ambient
         <Selo tom={asaasAtivo ? 'info' : 'neutro'}>{asaasAtivo ? `Asaas · ${ambiente === 'producao' ? 'Produção' : 'Teste (sandbox)'}` : 'Sem gateway ativo'}</Selo>
       </div>
       <div className="flex flex-wrap gap-3">
-        <NovaFatura lojas={[loja]} lojaFixa={loja.id} gatewayAtivo={asaasAtivo} ambiente={ambiente} />
+        <NovaFatura lojas={[loja]} lojaFixa={loja.id} gatewayAtivo={asaasAtivo} ambiente={ambiente} formaPadrao={formaPadrao} />
         <button type="button" className="btn btn-secundario" disabled={pendente || !asaasAtivo} onClick={() => iniciar(async () => {
           const r = await ativarCobranca(loja.id);
           setMsg(r.ok ? { ok: true, t: r.dados!.criadas ? `${r.dados!.criadas} cobrança(s) criada(s) no Asaas. A Loja recebe o link por e-mail.` : 'A cobrança já estava ativa.' } : { ok: false, t: r.erro });

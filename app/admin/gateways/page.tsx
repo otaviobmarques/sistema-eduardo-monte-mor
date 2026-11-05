@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import { Cabecalho, Selo } from '@/components/ui';
 import { createClient } from '@/lib/supabase/server';
-import { ConfigAmbiente, SeletorAmbiente, type Ambiente, type EstadoAmbiente } from './form';
+import { formaValida } from '@/lib/asaas-formas';
+import { ConfigAmbiente, FormasPagamento, SeletorAmbiente, type Ambiente, type EstadoAmbiente } from './form';
 
 export const metadata: Metadata = { title: 'Gateways de pagamento' };
 
 export default async function GatewaysPage() {
   const supabase = await createClient();
   const [{ data: g }, { data: ambs }] = await Promise.all([
-    supabase.from('gateways_pagamento').select('ativo, ambiente').eq('provedor', 'asaas').maybeSingle(),
+    supabase.from('gateways_pagamento').select('ativo, ambiente, forma_pagamento').eq('provedor', 'asaas').maybeSingle(),
     supabase.from('gateways_ambientes').select('ambiente, chave_final, testado_em, teste_ok, teste_mensagem, webhook_url').eq('provedor', 'asaas'),
   ]);
   const emUso: Ambiente = g?.ambiente === 'producao' ? 'producao' : 'sandbox';
@@ -23,6 +24,7 @@ export default async function GatewaysPage() {
       <Cabecalho kicker="Plataforma" titulo="Gateways de pagamento" descricao="Onde o sistema gera as cobranças das Lojas (Start do projeto e mensalidade). As chaves ficam criptografadas e só o servidor as lê." />
       <div className="space-y-6">
         <SeletorAmbiente emUso={emUso} ativo={!!g?.ativo} ambientes={ambientes} />
+        <FormasPagamento atual={formaValida(g?.forma_pagamento)} />
         <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
           {ambientes.map((e) => <ConfigAmbiente key={e.ambiente} e={e} emUso={!!g?.ativo && emUso === e.ambiente} />)}
         </div>
