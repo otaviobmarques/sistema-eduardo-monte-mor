@@ -5,6 +5,7 @@ import { data as fmtData, moeda } from '@/lib/formato';
 import Link from 'next/link';
 import { sair } from '../login/actions';
 import { NotificacoesProvider, Sino, type Notificacao } from '@/components/notificacoes';
+import { AvisoFaturaVencida, type FaturaVencidaVista } from '@/components/fatura-vencida';
 
 const GRUPOS: GrupoMenu[] = [
   { titulo: 'Operação', itens: [
@@ -37,7 +38,7 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
   const supabase = await createClient();
   const [{ data: loja }, { data: abertas }, { data: naoLidas }] = await Promise.all([
     supabase.from('lojas').select('nome, dias_tolerancia').eq('id', s.perfil.loja_id!).single(),
-    supabase.from('faturas').select('valor, vencimento, status, link_pagamento').in('status', ['vencido']).order('vencimento').limit(1),
+    supabase.from('faturas').select('id, descricao, valor, vencimento, status, link_pagamento').eq('status', 'vencido').order('vencimento').limit(20),
     supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'loja').is('vista_em', null).order('criada_em', { ascending: false }).limit(50),
   ]);
   const vencida = abertas?.[0];
@@ -54,6 +55,8 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
           {vencida.link_pagamento ? <a href={vencida.link_pagamento} target="_blank" rel="noreferrer" className="btn btn-primario">Pagar agora</a> : <Link href="/loja/assinatura" className="btn btn-primario">Ver assinatura</Link>}
         </div>
       )}
+      <AvisoFaturaVencida suspensao={suspensao ? suspensao.toISOString() : null}
+        faturas={(abertas ?? []).map((f): FaturaVencidaVista => ({ id: f.id, descricao: f.descricao, valor: Number(f.valor), vencimento: f.vencimento, link: f.link_pagamento }))} />
       {children}
     </Shell>
     </NotificacoesProvider>

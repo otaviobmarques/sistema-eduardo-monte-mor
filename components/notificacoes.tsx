@@ -182,7 +182,7 @@ export function NotificacoesProvider({ modo, iniciais, children }: { modo: 'loja
             </div>
           </div>
         )}
-        {toasts.map((n) => <Toast key={n.id} n={n} alerta={modo === 'loja' && ALERTA_LOJA.has(n.tipo)} onAbrir={() => abrir(n)} onFechar={() => setToasts((t) => t.filter((x) => x.id !== n.id))} />)}
+        {toasts.map((n) => <Toast key={n.id} n={n} alerta={modo === 'loja' && (ALERTA_LOJA.has(n.tipo) || n.tipo === 'fatura_vencida')} onAbrir={() => abrir(n)} onFechar={() => setToasts((t) => t.filter((x) => x.id !== n.id))} />)}
       </div>
     </NotifCtx.Provider>
   );
@@ -196,7 +196,7 @@ function Toast({ n, alerta, onAbrir, onFechar }: { n: Notificacao; alerta: boole
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{n.titulo}</p>
         {n.corpo && <p className="mt-0.5 text-sm text-white/80">{n.corpo}</p>}
-        {n.link && <button type="button" onClick={onAbrir} className="mt-2 text-sm font-semibold text-white underline underline-offset-2 hover:no-underline">{n.tipo === 'novo_lote' ? 'Ver lote' : 'Ver OS'}</button>}
+        {n.link && <button type="button" onClick={onAbrir} className="mt-2 text-sm font-semibold text-white underline underline-offset-2 hover:no-underline">{n.tipo === 'novo_lote' ? 'Ver lote' : n.tipo === 'fatura_vencida' ? 'Ver fatura e pagar' : 'Ver OS'}</button>}
       </div>
       <button type="button" onClick={onFechar} className="-m-1 rounded p-1 text-white/70 hover:text-white" aria-label="Fechar aviso"><Icone nome="x" className="h-4 w-4" /></button>
     </div>
