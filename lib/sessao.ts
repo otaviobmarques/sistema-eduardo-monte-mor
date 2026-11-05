@@ -46,12 +46,20 @@ export const getSessao = cache(async (): Promise<Sessao | null> => {
   return { userId: user.id, perfil, loja, empresa };
 });
 
-/** Garante sessão válida, perfil certo, não bloqueado, Loja em dia e senha já trocada. */
-export async function exigirPerfil(perfil: TipoPerfil): Promise<Sessao> {
+/** Gestor de uma Loja ativa mas bloqueada por atraso: entra só para pagar (Assinatura). */
+export const lojaSoPagamento = (s: Sessao) => s.perfil.perfil === 'loja' && !!s.loja?.ativo && !!s.loja?.bloqueada;
+
+/**
+ * Garante sessão válida, perfil certo, não bloqueado, Loja em dia e senha já trocada.
+ * Loja bloqueada: o Gestor é levado à Assinatura (só ela aceita `permitirLojaBloqueada`); os clientes ficam de fora.
+ */
+export async function exigirPerfil(perfil: TipoPerfil, opcoes: { permitirLojaBloqueada?: boolean } = {}): Promise<Sessao> {
   const s = await getSessao();
   if (!s) redirect('/login');
   if (s.perfil.bloqueado) redirect('/login?erro=bloqueado');
-  if (s.loja && (s.loja.bloqueada || !s.loja.ativo)) redirect('/login?erro=loja_suspensa');
+  if (s.loja && lojaSoPagamento(s)) {
+    if (!opcoes.permitirLojaBloqueada) redirect('/loja/assinatura');
+  } else if (s.loja && (s.loja.bloqueada || !s.loja.ativo)) redirect('/login?erro=loja_suspensa');
   if (s.perfil.deve_trocar_senha) redirect('/trocar-senha');
   if (s.perfil.perfil !== perfil) redirect(ROTA_INICIAL[s.perfil.perfil]);
   return s;

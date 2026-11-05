@@ -14,11 +14,14 @@ function ativo(path: string, href: string, raiz: string) {
 }
 
 export function Shell({
-  grupos, raiz, usuario, subtitulo, barraInferior, sairAction, children, topo,
+  grupos, raiz, usuario, subtitulo, barraInferior, sairAction, children, topo, liberados,
 }: {
   grupos: GrupoMenu[]; raiz: string; usuario: string; subtitulo: string; barraInferior: ItemMenu[];
   sairAction: () => Promise<void>; children: React.ReactNode; topo?: React.ReactNode;
+  /** Modo restrito (ex.: Loja bloqueada): só estes endereços ficam clicáveis; os demais itens aparecem inativos. */
+  liberados?: string[];
 }) {
+  const inativo = (href: string) => !!liberados && !liberados.includes(href);
   const path = usePathname();
   const [aberto, setAberto] = useState(false);
 
@@ -31,6 +34,13 @@ export function Shell({
             <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white/45">{g.titulo}</p>
             {g.itens.map((i) => {
               const a = ativo(path, i.href, raiz);
+              if (inativo(i.href)) return (
+                <span key={i.href} aria-disabled="true" title="Indisponível até a fatura ser paga"
+                  className="flex min-h-toque cursor-not-allowed items-center gap-3 rounded-campo px-3 text-sm font-medium text-white/30">
+                  <Icone nome={i.icone} className="h-5 w-5" /><span className="flex-1">{i.label}</span>
+                  <span className="sr-only">(indisponível até a fatura ser paga)</span>
+                </span>
+              );
               return (
                 <Link key={i.href} href={i.href} onClick={() => setAberto(false)} aria-current={a ? 'page' : undefined}
                   className={`flex min-h-toque items-center gap-3 rounded-campo px-3 text-sm font-medium transition-colors ${a ? 'bg-action text-white shadow-[0_6px_16px_rgba(201,35,44,.45)]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}>
@@ -75,6 +85,11 @@ export function Shell({
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-divider bg-white min-[900px]:hidden" aria-label="Atalhos">
         {barraInferior.map((i) => {
           const a = ativo(path, i.href, raiz);
+          if (inativo(i.href)) return (
+            <span key={i.href} aria-disabled="true" className="flex min-h-[56px] flex-1 cursor-not-allowed flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-text-secondary/40">
+              <Icone nome={i.icone} className="h-5 w-5" />{i.label}<span className="sr-only">(indisponível)</span>
+            </span>
+          );
           return (
             <Link key={i.href} href={i.href} className={`relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${a ? 'text-action' : 'text-text-secondary'}`}>
               <Icone nome={i.icone} className="h-5 w-5" />

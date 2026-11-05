@@ -75,13 +75,15 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
     return { erro: `Sua senha temporária expirou. ${contato}`, login: digitado };
   }
   const loja = perfil.lojas as unknown as { nome: string; ativo: boolean; bloqueada: boolean; telefone: string | null } | null;
-  if (perfil.loja_id && (!loja?.ativo || loja.bloqueada)) {
+  // Loja bloqueada por atraso: o Gestor entra só para pagar (Assinatura); clientes e Loja desativada ficam de fora
+  const soPagamento = perfil.perfil === 'loja' && !!loja?.ativo && !!loja?.bloqueada;
+  if (perfil.loja_id && !soPagamento && (!loja?.ativo || loja.bloqueada)) {
     await supabase.auth.signOut();
     await registrar(false, 'loja suspensa', data.user.id);
     return { erro: perfil.perfil === 'loja' ? 'O acesso da sua Loja está suspenso. Regularize a assinatura com o administrador do sistema.' : `O sistema está temporariamente indisponível. Fale com a ${loja?.nome || 'sua unidade Auto Visão'}${loja?.telefone ? `: ${telefone(loja.telefone)}` : ''}.`, login: digitado };
   }
-  await registrar(true, null, data.user.id);
-  redirect(perfil.deve_trocar_senha ? '/trocar-senha' : ROTA_INICIAL[perfil.perfil as TipoPerfil]);
+  await registrar(true, soPagamento ? 'loja bloqueada: só pagamento' : null, data.user.id);
+  redirect(perfil.deve_trocar_senha ? '/trocar-senha' : soPagamento ? '/loja/assinatura' : ROTA_INICIAL[perfil.perfil as TipoPerfil]);
 }
 
 export async function sair() {

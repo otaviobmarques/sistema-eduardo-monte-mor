@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLICAS = ['/login', '/api/cron', '/api/push/enviar', '/api/asaas/webhook', '/api/saude', '/manifest.webmanifest', '/sw.js'];
 
 export async function middleware(request: NextRequest) {
+  // Caminho pedido, para os layouts do servidor (ex.: Loja bloqueada só acessa /loja/assinatura)
+  request.headers.set('x-caminho', request.nextUrl.pathname);
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

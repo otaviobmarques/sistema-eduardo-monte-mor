@@ -91,6 +91,9 @@ const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOStrin
     await admin.reload();
     await admin.click('button:has-text("Nova fatura")');
     await admin.fill('#nf-desc', 'Mensalidade teste'); await admin.fill('#nf-valor', '299,90'); await admin.fill('#nf-venc', hoje(-2));
+    // Sempre manual: nunca gerar cobrança no Asaas (que pode estar ligado em Produção)
+    const viaAsaas = admin.locator('dialog input[type=checkbox]');
+    if (await viaAsaas.isEnabled() && await viaAsaas.isChecked()) await viaAsaas.uncheck();
     await admin.click('dialog button:has-text("Registrar fatura manual")');
     await admin.click('dialog button:has-text("Fechar")');
     await admin.waitForSelector('td:has-text("Mensalidade teste")'); log('fatura manual criada pelo admin');
@@ -103,9 +106,8 @@ const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOStrin
     const { data: lb } = await adm.from('lojas').select('bloqueada, motivo_bloqueio').eq('id', idB).single();
     if (!lb.bloqueada) falha('não bloqueou');
     log(`job de inadimplência bloqueou ${bloqueadas} Loja: ${lb.motivo_bloqueio}`);
-    await gestor.goto(B + '/loja'); await gestor.waitForURL(/\/login/); log('Gestor bloqueado sai do sistema');
-    await gestor.fill('#login', 'gestor-e2e'); await gestor.fill('#senha', 'gestor-nova-123'); await gestor.click('button:has-text("Entrar")');
-    await gestor.waitForSelector('form [role=alert]'); log('login do Gestor:', await gestor.textContent('form [role=alert]'));
+    await gestor.goto(B + '/loja'); await gestor.waitForURL('**/loja/assinatura');
+    await gestor.waitForSelector('text=Acesso da Loja suspenso'); log('Gestor da Loja bloqueada só fica na Assinatura (para pagar)');
     const cli = await (await b.newContext()).newPage();
     await cli.goto(B + '/login'); await cli.fill('#login', 'cliente-e2e-b'); await cli.fill('#senha', 'cliente-123456'); await cli.click('button:has-text("Entrar")');
     await cli.waitForSelector('form [role=alert]'); log('cliente da Loja bloqueada também é barrado:', await cli.textContent('form [role=alert]'));
@@ -119,7 +121,7 @@ const hoje = (d = 0) => new Date(Date.now() - 3 * 3600e3 + d * 864e5).toISOStrin
     admin.on('dialog', (d) => d.accept());
     await admin.click('button:has-text("Dar baixa")');
     await admin.waitForSelector('text=● Liberada'); log('admin deu baixa → Loja desbloqueada automaticamente');
-    await gestor.fill('#senha', 'gestor-nova-123'); await gestor.click('button:has-text("Entrar")'); await gestor.waitForURL('**/loja'); log('Gestor volta a entrar');
+    await gestor.goto(B + '/loja'); await gestor.waitForURL(B + '/loja'); log('Gestor volta a usar a Fila');
 
     await admin.goto(B + '/admin'); await admin.screenshot({ path: S + '/admin-painel.png', fullPage: true });
     await admin.goto(B + '/admin/cobranca'); await admin.screenshot({ path: S + '/admin-cobranca.png', fullPage: true });

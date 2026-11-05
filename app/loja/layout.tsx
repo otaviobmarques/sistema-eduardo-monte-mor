@@ -1,5 +1,7 @@
 import { Shell, type GrupoMenu, type ItemMenu } from '@/components/shell';
-import { exigirPerfil } from '@/lib/sessao';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { exigirPerfil, lojaSoPagamento } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { data as fmtData, moeda } from '@/lib/formato';
 import Link from 'next/link';
@@ -34,10 +36,13 @@ const BARRA: ItemMenu[] = [
 ];
 
 export default async function LojaLayout({ children }: { children: React.ReactNode }) {
-  const s = await exigirPerfil('loja');
+  const s = await exigirPerfil('loja', { permitirLojaBloqueada: true });
+  // Loja bloqueada por atraso: só a Assinatura funciona até a fatura ser paga
+  const bloqueada = lojaSoPagamento(s);
+  if (bloqueada && !((await headers()).get('x-caminho') ?? '').startsWith('/loja/assinatura')) redirect('/loja/assinatura');
   const supabase = await createClient();
   const [{ data: loja }, { data: abertas }, { data: naoLidas }] = await Promise.all([
-    supabase.from('lojas').select('nome, dias_tolerancia').eq('id', s.perfil.loja_id!).single(),
+    supabase.from('lojas').select('nome, dias_tolerancia, motivo_bloqueio').eq('id', s.perfil.loja_id!).single(),
     supabase.from('faturas').select('id, descricao, valor, vencimento, status, link_pagamento').eq('status', 'vencido').order('vencimento').limit(20),
     supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'loja').is('vista_em', null).order('criada_em', { ascending: false }).limit(50),
   ]);
@@ -45,8 +50,19 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
   const suspensao = vencida && loja ? new Date(Date.parse(`${vencida.vencimento}T12:00:00-03:00`) + (loja.dias_tolerancia + 1) * 86400_000) : null;
   return (
     <NotificacoesProvider modo="loja" iniciais={(naoLidas ?? []) as Notificacao[]}>
-    <Shell grupos={GRUPOS} raiz="/loja" usuario={s.perfil.nome_exibicao} subtitulo={loja?.nome ?? 'Loja'} barraInferior={BARRA} sairAction={sair} topo={<Sino />}>
-      {vencida && (
+    <Shell grupos={GRUPOS} raiz="/loja" usuario={s.perfil.nome_exibicao} subtitulo={loja?.nome ?? 'Loja'} sairAction={sair} topo={<Sino />}
+      barraInferior={bloqueada ? [...BARRA, { href: '/loja/assinatura', label: 'Assinatura', icone: 'financeiro' }] : BARRA}
+      liberados={bloqueada ? ['/loja/assinatura'] : undefined}>
+      {bloqueada && (
+        <div className="aviso aviso-erro mb-6 flex-col sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <div>
+            <p className="font-display text-base font-extrabold">Acesso da Loja suspenso</p>
+            <p>{loja?.motivo_bloqueio ?? 'Há fatura em atraso.'} Os menus voltam assim que o pagamento for confirmado, sem precisar sair do sistema. Seus clientes também estão sem acesso até lá.</p>
+          </div>
+          {vencida?.link_pagamento && <a href={vencida.link_pagamento} target="_blank" rel="noreferrer" className="btn btn-primario">Pagar agora</a>}
+        </div>
+      )}
+      {vencida && !bloqueada && (
         <div className="aviso aviso-erro mb-6 flex-col sm:flex-row sm:items-center sm:justify-between" role="alert">
           <div>
             <p className="font-display text-base font-extrabold">Fatura de {moeda(vencida.valor)} vencida em {fmtData(vencida.vencimento)}</p>
