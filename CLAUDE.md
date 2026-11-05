@@ -18,7 +18,17 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
   após `exigirPerfil()`.
 - Regras puras e testadas em `lib/regras/*` (`npm test`). Datas sempre exibidas em America/Sao_Paulo (`lib/formato.ts`).
 - Login por usuário: `loginParaEmail()` converte em e-mail sintético `@LOGIN_EMAIL_DOMAIN`.
-- Marca provisória em `components/marca.tsx` até o pacote `brand/` ser copiado para `/public/brand/`.
+- Marca: arquivos oficiais em `/public/brand/` extraídos do **Design System Auto Visão 1.1** (PDF oficial, 45 p.):
+  `logo-colorido.png` / `logo-branco.png` (2048×474, proporção 4,3207), `simbolo.png`, `simbolo-mono.png`, `mosaico.png`.
+  Use sempre `components/marca.tsx` (`Logo`, `Mosaico`, `RecorteSimbolo`). **Nunca recriar o lettering.**
+- Regras do DS 1.1: fundo claro → logo colorido; fundo escuro **ou vermelho** → logo **integralmente branco**
+  (não manter "visão" em vermelho). Área livre mínima 1x (ponto do "i"); redução mínima 320 px de largura em tela
+  (em menus usar ≥ 28 px de altura). Vermelho da marca #ED3237 só em destaques ≥ 24 px; ações usam #C9232C.
+  Tipografia: H1 Nunito 900 40/44, H2 800 32/38, H3 800 24/30, corpo Inter 400 16/24, rótulo Inter 600 14/20,
+  legenda Inter 500 12/16. Contêiner até 1200 px; margens 16/24/32. Botões 48 px (compacto 40, grande 56), raio 8,
+  foco 2 px com afastamento 2 px; indisponível = fundo superfície + texto secundário. Transições 120/180/240 ms.
+  Feedback: barra lateral + ícone + título + texto. Abas: atual com texto, peso e traço vermelho.
+  Ícones: grade 24 px, traço 2 px. Linguagem: verbo que descreve o resultado; erro explica como corrigir.
 
 ---
 

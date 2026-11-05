@@ -8,8 +8,8 @@ export default async function PainelCliente() {
   return (
     <div className="space-y-6">
       <Hero kicker="Painel" titulo={`Olá, ${nome}`}>
-        <Link href="/app/nova-os" className="btn bg-white text-impact hover:bg-surface">Nova OS</Link>
-        <Link href="/app/importar" className="btn border-[1.5px] border-white text-white hover:bg-white/10">Importar planilha</Link>
+        <Link href="/app/nova-os" className="btn btn-claro">Nova OS</Link>
+        <Link href="/app/importar" className="btn btn-contorno-claro">Importar planilha</Link>
       </Hero>
       <p className="text-text-secondary">O painel completo entra na etapa 3.</p>
     </div>

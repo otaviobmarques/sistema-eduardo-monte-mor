@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { FaixaQuadriculada, Logo } from './marca';
+import { Logo, Mosaico } from './marca';
 import { Icone, type IconeNome } from './icone';
 
 export interface ItemMenu { href: string; label: string; icone: IconeNome; badge?: number }
@@ -23,7 +23,7 @@ export function Shell({
 
   const menu = (
     <nav className="flex h-full flex-col" style={{ background: 'radial-gradient(120% 90% at 20% 0%, #2C2A2B, #151415)' }}>
-      <div className="px-5 pb-4 pt-6"><Logo variante="branco" /></div>
+      <div className="px-5 pb-4 pt-6"><Logo variante="branco" altura={40} /></div>
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         {grupos.map((g) => (
           <div key={g.titulo} className="mt-4">
@@ -50,7 +50,7 @@ export function Shell({
           <form action={sairAction}><button className="text-xs text-white/70 underline-offset-2 hover:underline">Sair</button></form>
         </div>
       </div>
-      <FaixaQuadriculada />
+      <Mosaico modulo={10} />
     </nav>
   );
 
@@ -65,11 +65,11 @@ export function Shell({
       )}
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-divider bg-white/95 px-4 backdrop-blur min-[900px]:hidden">
         <button className="btn btn-fantasma btn-sm -ml-2 px-2" onClick={() => setAberto(true)} aria-label="Abrir menu"><Icone nome="menu" className="h-6 w-6" /></button>
-        <Logo />
+        <Logo altura={28} />
         <div className="ml-auto">{topo}</div>
       </header>
       <div className="hidden justify-end px-8 pt-4 min-[900px]:flex">{topo}</div>
-      <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-4 min-[900px]:px-8 min-[900px]:pb-10">{children}</main>
+      <main className="mx-auto max-w-[1200px] min-[1200px]:px-8 px-4 pb-24 pt-4 min-[900px]:px-8 min-[900px]:pb-10">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-divider bg-white min-[900px]:hidden" aria-label="Atalhos">
         {barraInferior.map((i) => {
           const a = ativo(path, i.href, raiz);

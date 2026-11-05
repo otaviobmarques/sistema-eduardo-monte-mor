@@ -14,34 +14,69 @@ html, body { background: var(--surface); color: var(--text); }
 body { font-family: var(--font-inter), Inter, sans-serif; }
 
 @layer components {
-  .btn { @apply inline-flex h-btn items-center justify-center gap-2 rounded-campo px-5 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-sm { @apply h-btn-sm px-4 text-sm; }
-  .btn-primario { @apply bg-action text-white hover:bg-action-hover active:bg-action-pressed; }
-  .btn-secundario { @apply border-[1.5px] border-impact bg-white text-impact hover:bg-surface; }
+  /* Botões (DS p. 17): 48px, raio 8, lateral 24, foco 2px + afastamento 2px; compacto 40px */
+  .btn { @apply inline-flex h-btn select-none items-center justify-center gap-2 whitespace-nowrap rounded-campo px-6 text-sm font-semibold transition-colors duration-[120ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact disabled:cursor-not-allowed; }
+  .btn-sm { @apply h-btn-sm px-4; }
+  .btn-lg { @apply h-14 px-8 text-base; }
+  .btn-primario { @apply bg-action text-white hover:bg-action-hover active:bg-action-pressed disabled:border disabled:border-divider disabled:bg-surface disabled:text-text-secondary; }
+  .btn-secundario { @apply border border-impact bg-white text-impact hover:bg-surface active:bg-divider disabled:border-divider disabled:text-text-secondary; }
+  .btn-texto { @apply px-3 text-action hover:bg-error-bg active:text-action-pressed disabled:text-text-secondary; }
   .btn-fantasma { @apply text-text hover:bg-surface; }
-  .campo { @apply h-campo w-full rounded-campo border-[1.5px] border-border bg-white px-3 text-text placeholder:text-text-secondary focus:border-impact focus:outline-none focus:ring-2 focus:ring-impact/20 disabled:bg-surface; }
-  textarea.campo { @apply h-auto min-h-[96px] py-2; }
-  .campo-placa { @apply h-placa text-center font-display text-2xl font-bold uppercase tracking-[0.2em]; }
-  .rotulo { @apply mb-1 block text-sm font-semibold text-text; }
-  .ajuda { @apply mt-1 text-xs text-text-secondary; }
-  .erro-campo { @apply mt-1 text-xs font-medium text-error; }
-  .card { @apply rounded-card border border-divider bg-white; }
-  .painel { @apply rounded-painel border border-divider bg-white; }
+  .btn-claro { @apply bg-white text-impact hover:bg-surface; }
+  .btn-contorno-claro { @apply border border-white text-white hover:bg-white/10; }
+
+  /* Campos (DS p. 18): 48px, borda 1.5 #8C8288, foco contorno #151415, erro vermelho com texto abaixo */
+  .campo { @apply h-campo w-full rounded-campo border-[1.5px] border-border bg-white px-4 text-base text-text transition-shadow duration-[120ms] placeholder:text-text-secondary focus:border-impact focus:outline-none focus:ring-2 focus:ring-impact focus:ring-offset-0 disabled:border-divider disabled:bg-surface disabled:text-text-secondary aria-[invalid=true]:border-error; }
+  textarea.campo { @apply h-auto min-h-[96px] py-3; }
+  select.campo { @apply appearance-none bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23373435' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+  .campo-placa { @apply h-placa text-center font-display text-2xl font-black uppercase tracking-[0.2em]; }
+  .rotulo { @apply mb-1.5 block text-sm font-semibold leading-5 text-text; }
+  .ajuda { @apply mt-1.5 text-xs font-medium leading-4 text-text-secondary; }
+  .erro-campo { @apply mt-1.5 text-xs font-medium leading-4 text-error; }
+  .check { @apply h-5 w-5 rounded border-[1.5px] border-border accent-action focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact; }
+
+  /* Tipografia (DS p. 11) */
+  .h1 { @apply font-display text-[32px] font-black leading-[38px] md:text-[40px] md:leading-[44px]; }
+  .h2 { @apply font-display text-[26px] font-extrabold leading-[32px] md:text-[32px] md:leading-[38px]; }
+  .h3 { @apply font-display text-2xl font-extrabold leading-[30px]; }
+  .legenda { @apply text-xs font-medium leading-4 text-text-secondary; }
   .kicker { @apply flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em]; }
   .kicker::before { content: ''; @apply inline-block h-[2px] w-6 bg-current; }
+  .rotulo-card { @apply text-xs font-bold uppercase tracking-[0.08em] text-action; }
+
+  /* Cards (DS p. 20): raio 12, borda divisor; painéis raio 16 */
+  .card { @apply rounded-card border border-divider bg-white; }
+  .painel { @apply rounded-painel border border-divider bg-white; }
+
+  /* Feedback (DS p. 19): barra lateral, ícone e texto */
+  .aviso { @apply flex gap-3 rounded-card border-l-4 p-4 text-sm; }
+  .aviso-ok { @apply border-ok bg-ok-bg text-ok; }
+  .aviso-atencao { @apply border-warn bg-warn-bg text-warn; }
+  .aviso-erro { @apply border-error bg-error-bg text-error; }
+  .aviso-info { @apply border-info bg-info-bg text-info; }
+
+  /* Abas (DS p. 20): atual em texto, peso e traço */
+  .abas { @apply flex gap-1 overflow-x-auto rounded-card bg-surface px-2; }
+  .aba { @apply relative flex min-h-toque shrink-0 items-center px-4 text-sm font-medium text-text hover:text-action; }
+  .aba[aria-current='page'] { @apply font-semibold text-action after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-full after:bg-action; }
+
+  /* Tabelas: cabeçalho grafite, zebra; viram cartões < 760px */
   .tabela { @apply w-full border-collapse text-sm; }
-  .tabela thead th { @apply bg-brand-graphite px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-white first:rounded-tl-card last:rounded-tr-card; }
+  .tabela thead th { @apply bg-brand-graphite px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white first:rounded-tl-card last:rounded-tr-card; }
   .tabela tbody tr:nth-child(even) { @apply bg-surface; }
-  .tabela tbody td { @apply border-b border-divider px-3 py-2.5 align-middle; }
-  .faixa-quadriculada {
-    height: 12px;
-    background-image:
-      linear-gradient(45deg, #151415 25%, transparent 25%, transparent 75%, #151415 75%),
-      linear-gradient(45deg, #151415 25%, transparent 25%, transparent 75%, #151415 75%);
-    background-size: 12px 12px; background-position: 0 0, 6px 6px; background-color: #fff;
+  .tabela tbody td { @apply border-b border-divider px-3 py-3 align-middle; }
+  @media (max-width: 759px) {
+    .tabela-cartoes thead { @apply sr-only; }
+    .tabela-cartoes, .tabela-cartoes tbody, .tabela-cartoes tr, .tabela-cartoes td { @apply block w-full; }
+    .tabela-cartoes tbody tr { @apply mb-3 rounded-card border border-divider bg-white p-3; }
+    .tabela-cartoes tbody tr:nth-child(even) { @apply bg-white; }
+    .tabela-cartoes tbody td { @apply flex items-start justify-between gap-3 border-0 px-0 py-1.5 text-right; }
+    .tabela-cartoes tbody td::before { content: attr(data-rotulo); @apply shrink-0 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary; }
+    .tabela-cartoes tbody td[data-rotulo=''] { @apply justify-end; }
+    .tabela-cartoes tbody td[data-rotulo='']::before { content: none; }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
