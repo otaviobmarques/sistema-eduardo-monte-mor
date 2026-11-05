@@ -63,7 +63,14 @@ export function SeletorAmbiente({ emUso, ativo, ambientes }: { emUso: Ambiente; 
         {ligado && !temChave(sel) && <Aviso tipo="atencao" titulo={`O ambiente ${INFO[sel].nome} está sem chave`}>Cadastre e teste a chave dele no cartão abaixo antes de usá-lo para cobrar.</Aviso>}
         {ligado && sel === 'producao' && emUso !== 'producao' && temChave('producao') && <Aviso tipo="info" titulo="Passando a cobrar de verdade">A partir de agora, “Ativar cobrança” e “Nova fatura” geram cobranças reais. As faturas de teste continuam na lista, marcadas como Teste.</Aviso>}
         {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Não foi possível salvar'}>{msg.t}</Aviso>}
-        <button className="btn btn-primario" disabled={pendente || !mudou || (ligado && !temChave(sel))}>{pendente ? 'Salvando…' : 'Salvar seleção'}</button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="btn btn-primario" disabled={pendente || !mudou || (ligado && !temChave(sel))} aria-describedby="gw-uso-motivo">{pendente ? 'Salvando…' : 'Salvar seleção'}</button>
+          <p id="gw-uso-motivo" className="text-sm text-text-secondary" aria-live="polite">
+            {!mudou ? `Esta já é a seleção em uso (${ativo ? `Asaas ${INFO[emUso].nome} ligado` : 'Asaas desligado'}). Mude o ambiente ou a caixa acima para salvar.`
+              : ligado && !temChave(sel) ? `Cadastre a chave do ambiente ${INFO[sel].nome} para poder ligá-lo.`
+              : `Ao salvar: ${ligado ? `cobranças novas pelo Asaas ${INFO[sel].nome}` : 'Asaas desligado, cobranças manuais'}.`}
+          </p>
+        </div>
       </form>
     </section>
   );
