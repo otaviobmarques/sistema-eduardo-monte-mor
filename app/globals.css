@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-red: #ED3237; --brand-graphite: #373435; --white: #FFFFFF;
+  --action-primary: #C9232C; --action-hover: #B51C25; --action-pressed: #A21B23; --impact: #151415;
+  --text: #373435; --text-secondary: #696267; --border: #8C8288; --divider: #DED8DC; --surface: #F6F4F5;
+  --ok: #18743B; --ok-bg: #EDF8F0; --warn: #805500; --warn-bg: #FFF6DE;
+  --error: #B42318; --error-bg: #FFF0ED; --info: #165EA8; --info-bg: #EFF6FF;
+}
+
+html, body { background: var(--surface); color: var(--text); }
+body { font-family: var(--font-inter), Inter, sans-serif; }
+
+@layer components {
+  .btn { @apply inline-flex h-btn items-center justify-center gap-2 rounded-campo px-5 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-sm { @apply h-btn-sm px-4 text-sm; }
+  .btn-primario { @apply bg-action text-white hover:bg-action-hover active:bg-action-pressed; }
+  .btn-secundario { @apply border-[1.5px] border-impact bg-white text-impact hover:bg-surface; }
+  .btn-fantasma { @apply text-text hover:bg-surface; }
+  .campo { @apply h-campo w-full rounded-campo border-[1.5px] border-border bg-white px-3 text-text placeholder:text-text-secondary focus:border-impact focus:outline-none focus:ring-2 focus:ring-impact/20 disabled:bg-surface; }
+  textarea.campo { @apply h-auto min-h-[96px] py-2; }
+  .campo-placa { @apply h-placa text-center font-display text-2xl font-bold uppercase tracking-[0.2em]; }
+  .rotulo { @apply mb-1 block text-sm font-semibold text-text; }
+  .ajuda { @apply mt-1 text-xs text-text-secondary; }
+  .erro-campo { @apply mt-1 text-xs font-medium text-error; }
+  .card { @apply rounded-card border border-divider bg-white; }
+  .painel { @apply rounded-painel border border-divider bg-white; }
+  .kicker { @apply flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em]; }
+  .kicker::before { content: ''; @apply inline-block h-[2px] w-6 bg-current; }
+  .tabela { @apply w-full border-collapse text-sm; }
+  .tabela thead th { @apply bg-brand-graphite px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-white first:rounded-tl-card last:rounded-tr-card; }
+  .tabela tbody tr:nth-child(even) { @apply bg-surface; }
+  .tabela tbody td { @apply border-b border-divider px-3 py-2.5 align-middle; }
+  .faixa-quadriculada {
+    height: 12px;
+    background-image:
+      linear-gradient(45deg, #151415 25%, transparent 25%, transparent 75%, #151415 75%),
+      linear-gradient(45deg, #151415 25%, transparent 25%, transparent 75%, #151415 75%);
+    background-size: 12px 12px; background-position: 0 0, 6px 6px; background-color: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
