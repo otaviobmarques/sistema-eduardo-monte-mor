@@ -1,14 +1,15 @@
 /* Marca provisória até os arquivos do pacote brand/ chegarem (substituir por /brand/logo-*.png). */
-export function Logo({ variante = 'colorido', className = '' }: { variante?: 'branco' | 'colorido'; className?: string }) {
-  const cor = variante === 'branco' ? '#FFFFFF' : '#373435';
+export function Logo({ variante = 'colorido', className = '' }: { variante?: 'branco' | 'colorido' | 'sobre-vermelho'; className?: string }) {
+  const cor = variante === 'colorido' ? '#373435' : '#FFFFFF';
+  const destaque = variante === 'sobre-vermelho' ? '#FFFFFF' : '#ED3237';
   return (
     <span className={`inline-flex items-center gap-2 ${className}`} aria-label="Auto Visão">
       <svg viewBox="0 0 40 40" className="h-8 w-8 shrink-0" aria-hidden>
-        <circle cx="17" cy="17" r="11" fill="none" stroke="#ED3237" strokeWidth="5" />
-        <path d="M25 25l9 9" stroke={variante === 'branco' ? '#FFFFFF' : '#151415'} strokeWidth="5" strokeLinecap="round" />
+        <circle cx="17" cy="17" r="11" fill="none" stroke={destaque} strokeWidth="5" />
+        <path d="M25 25l9 9" stroke={variante === 'colorido' ? '#151415' : variante === 'branco' ? '#FFFFFF' : '#151415'} strokeWidth="5" strokeLinecap="round" />
       </svg>
       <span className="font-display text-xl font-black leading-none tracking-tight" style={{ color: cor }}>
-        AUTO <span className="text-brand-red">VISÃO</span>
+        AUTO <span style={{ color: destaque }}>VISÃO</span>
       </span>
     </span>
   );

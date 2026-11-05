@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loginParaEmail, normalizarLogin } from '@/lib/login';
+import { CONTATO_GESTOR } from '@/lib/contato';
+
+const FALE = `Fale com ${CONTATO_GESTOR.nome}: ${CONTATO_GESTOR.telefone}.`;
 
 const schema = z.object({ login: z.string().trim().min(1, 'Informe o usuário'), senha: z.string().min(1, 'Informe a senha') });
 
@@ -46,12 +49,12 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
   if (!perfil || perfil.bloqueado) {
     await supabase.auth.signOut();
     await registrar(false, data.user.id);
-    return { erro: perfil ? 'Acesso bloqueado. Fale com a Auto Visão.' : 'Usuário sem perfil configurado.', login: digitado };
+    return { erro: perfil ? `Acesso bloqueado. ${FALE}` : 'Usuário sem perfil configurado.', login: digitado };
   }
   if (perfil.deve_trocar_senha && perfil.senha_expira_em && new Date(perfil.senha_expira_em) < new Date()) {
     await supabase.auth.signOut();
     await registrar(false, data.user.id);
-    return { erro: 'Sua senha temporária expirou. Peça uma nova à Auto Visão.', login: digitado };
+    return { erro: `Sua senha temporária expirou. ${FALE}`, login: digitado };
   }
   await registrar(true, data.user.id);
   redirect(perfil.deve_trocar_senha ? '/trocar-senha' : perfil.perfil === 'loja' ? '/loja' : '/app');
