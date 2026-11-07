@@ -73,7 +73,7 @@ export async function gerarPdfRelatorio(d: {
           </View>
         )}
         <View style={s.rodape} fixed>
-          <Text>{d.titulo} · {d.filtros[0]}</Text>
+          <Text>{d.titulo} · {d.filtros[0]} · Sistema Domma Tecnologia · Site desenvolvido por Agência RedBox</Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>

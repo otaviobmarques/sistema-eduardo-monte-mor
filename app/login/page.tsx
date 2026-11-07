@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Logo, Mosaico, RecorteSimbolo } from '@/components/marca';
 import { LoginForm } from './form';
 import { CONTATO_GESTOR } from '@/lib/contato';
+import { Creditos } from '@/components/creditos';
 
 export const metadata: Metadata = { title: 'Entrar' };
 
@@ -37,6 +38,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               {CONTATO_GESTOR.nome} · {CONTATO_GESTOR.telefone}
             </a>
           </div>
+          <div className="mt-10 border-t border-divider pt-6"><Creditos /></div>
         </div>
       </section>
     </main>

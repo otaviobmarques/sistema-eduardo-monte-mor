@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Logo, Mosaico } from './marca';
 import { Icone, type IconeNome } from './icone';
 import { ContadorMenu } from './notificacoes';
+import { Creditos } from './creditos';
 
 export interface ItemMenu { href: string; label: string; icone: IconeNome; badge?: number; contador?: 'alertas' | 'todas' }
 export interface GrupoMenu { titulo: string; itens: ItemMenu[] }
@@ -62,6 +63,7 @@ export function Shell({
           <form action={sairAction}><button className="text-xs text-white/70 underline-offset-2 hover:underline">Sair</button></form>
         </div>
       </div>
+      <div className="border-t border-white/10 px-5 py-3"><Creditos tema="escuro" compacto /></div>
       <Mosaico modulo={10} />
     </nav>
   );
