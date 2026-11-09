@@ -22,7 +22,7 @@ export function SlaAoVivo({ entrada, cfg, compacta, comPrazo }: { entrada: SlaEn
   );
 }
 
-const ORIGEM = { frustracao: 'Frustração', pendencia: 'Pendência', aprovacao_preco: 'Aprovação de preço' } as const;
+const ORIGEM = { frustracao: 'Frustração', pendencia: 'Pendência', aprovacao_preco: 'Aprovação de preço', manual: 'Pausa manual' } as const;
 
 /** Barra de SLA com marcos: abertura, 1º alerta, 2º alerta e prazo (seção 7, ficha). */
 export function BarraSla({ entrada, cfg, pausas }: {

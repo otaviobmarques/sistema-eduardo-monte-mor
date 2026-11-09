@@ -186,3 +186,38 @@ export async function concluirSemLaudo(form: FormData): Promise<Resultado> {
   atualizar(numero);
   return { ok: true };
 }
+
+/** Reabre uma OS vistoriada ou cancelada (só Gestor com conclusão livre). */
+export async function reabrirOs(osId: string, numero: number, motivo: string): Promise<Resultado> {
+  const s = await sessao('loja');
+  if (!s.perfil.conclusao_livre) return { ok: false, erro: 'Você não tem permissão para reabrir OS.' };
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('reabrir_os', { p_os: osId, p_motivo: motivo.trim().slice(0, 500) });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+/** Pausa (ou retoma) o prazo da OS à mão (só Gestor com conclusão livre). */
+export async function pausarOs(osId: string, numero: number, motivo: string): Promise<Resultado> {
+  const s = await sessao('loja');
+  if (!s.perfil.conclusao_livre) return { ok: false, erro: 'Você não tem permissão para pausar OS.' };
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('pausar_os', { p_os: osId, p_motivo: motivo.trim().slice(0, 500) });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+export async function retomarOs(osId: string, numero: number): Promise<Resultado> {
+  const s = await sessao('loja');
+  if (!s.perfil.conclusao_livre) return { ok: false, erro: 'Você não tem permissão para retomar OS.' };
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('retomar_os', { p_os: osId });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}

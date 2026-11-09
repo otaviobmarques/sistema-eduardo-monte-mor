@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { exigirPerfil } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { mensagemErroBanco, type Resultado } from '@/lib/cadastros';
+import { CORES, STATUS_COM_COR, type CorStatus, type StatusComCor } from '@/lib/cores-status';
 
 const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use o formato 08:00.');
 const schema = z.object({
@@ -14,6 +15,7 @@ const schema = z.object({
     .refine((h) => h.inicio < h.fim, { message: 'O fim precisa ser depois do início.', path: ['fim'] }),
   escalonar_minutos: z.coerce.number().int().min(5, 'Mínimo de 5 minutos.').max(1440, 'Máximo de 24 horas.'),
   ajuste_preco_habilitado: z.coerce.boolean(),
+  cores_status: z.object(Object.fromEntries(STATUS_COM_COR.map((s) => [s, z.enum(Object.keys(CORES) as [CorStatus, ...CorStatus[]])])) as Record<StatusComCor, z.ZodEnum<[CorStatus, ...CorStatus[]]>>),
 });
 export type ConfigDados = z.input<typeof schema>;
 
@@ -28,6 +30,6 @@ export async function salvarConfiguracoes(dados: ConfigDados): Promise<Resultado
   const supabase = await createClient();
   const { error } = await supabase.from('configuracoes').update(p.data).eq('loja_id', s.perfil.loja_id!);
   if (error) return { ok: false, erro: mensagemErroBanco(error) };
-  revalidatePath('/loja/configuracoes');
+  revalidatePath('/', 'layout');
   return { ok: true };
 }

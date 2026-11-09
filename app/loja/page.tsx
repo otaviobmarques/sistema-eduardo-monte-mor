@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Hero } from '@/components/hero';
-import { Busca, Chips, TabelaOs } from '@/components/os/tabela-os';
+import { Busca, Chips, qsDe, TabelaOs } from '@/components/os/tabela-os';
 import { Kpi } from '@/components/kpi';
 import { Icone } from '@/components/icone';
-import { buscarOs, ordenarPorUrgencia } from '@/lib/fila';
+import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia } from '@/lib/fila';
+import { FiltroLocal } from '@/components/os/filtro-local';
 import { hora, moeda } from '@/lib/formato';
 import { numerosDoMes, vistoriadoresHoje } from '@/lib/paineis';
 import { nomeDoMes } from '@/lib/regras/financeiro';
@@ -21,11 +22,14 @@ const FILTROS = {
   pausadas: { rotulo: 'Pausadas', f: (c: string) => c === 'cinza' },
 } as const;
 
-export default async function FilaPage({ searchParams }: { searchParams: Promise<{ q?: string; sla?: string; ver?: string }> }) {
-  const { q = '', sla = '', ver = '' } = await searchParams;
+export default async function FilaPage({ searchParams }: { searchParams: Promise<{ q?: string; sla?: string; ver?: string; local?: string | string[] }> }) {
+  const { q = '', sla = '', ver = '', local } = await searchParams;
+  const locais = lerLocais(local);
   const supabase = await createClient();
   const encerradas = ver === 'encerradas';
-  const { linhas: todas, cfg } = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000 });
+  const { linhas: semLocal, cfg } = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000 });
+  const opcoesLocal = opcoesDeLocal(semLocal);
+  const todas = filtrarPorLocal(semLocal, locais);
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
@@ -35,7 +39,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
   const mesNome = nomeDoMes(n.mes).split(' ')[0];
-  const exportar = (formato: string) => `/api/fila?${new URLSearchParams({ formato, ...(q ? { q } : {}), ...(sla ? { sla } : {}) })}`;
+  const exportar = (formato: string) => `/api/fila?${qsDe({ formato, q: q || undefined, sla: sla || undefined, local: locais })}`;
 
   return (
     <div className="space-y-6">
@@ -71,21 +75,22 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         </section>
       </div>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <Busca valor={q} placeholder="Placa, Renavam, modelo, solicitante ou nº da OS" extra={{ sla: sla || undefined, ver: ver || undefined }} />
+        <Busca valor={q} placeholder="Placa, Renavam, modelo, solicitante ou nº da OS" extra={{ sla: sla || undefined, ver: ver || undefined, local: locais }} />
         <nav className="abas" aria-label="Situação">
-          <Link href={`?${new URLSearchParams(q ? { q } : {})}`} className="aba" aria-current={!encerradas ? 'page' : undefined}>Em andamento</Link>
-          <Link href={`?${new URLSearchParams({ ...(q ? { q } : {}), ver: 'encerradas' })}`} className="aba" aria-current={encerradas ? 'page' : undefined}>Encerradas</Link>
+          <Link href={`?${qsDe({ q: q || undefined, local: locais })}`} className="aba" aria-current={!encerradas ? 'page' : undefined}>Em andamento</Link>
+          <Link href={`?${qsDe({ q: q || undefined, ver: 'encerradas', local: locais })}`} className="aba" aria-current={encerradas ? 'page' : undefined}>Encerradas</Link>
         </nav>
       </div>
+      <FiltroLocal opcoes={opcoesLocal} selecionados={locais} extra={{ q: q || undefined, sla: sla || undefined, ver: ver || undefined }} />
       {!encerradas && (
-        <Chips param="sla" atual={sla in FILTROS ? sla : ''} extra={{ q: q || undefined }}
+        <Chips param="sla" atual={sla in FILTROS ? sla : ''} extra={{ q: q || undefined, local: locais }}
           opcoes={(Object.keys(FILTROS) as (keyof typeof FILTROS)[]).map((k) => ({ valor: k, rotulo: FILTROS[k].rotulo, qtd: conta(k) }))} />
       )}
       <div className="flex justify-end gap-3">
         <a href={exportar('xlsx')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar Excel</a>
         <a href={exportar('pdf')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar PDF</a>
       </div>
-      <TabelaOs cfg={cfg} linhas={linhas} modo="loja" vazio={q ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
+      <TabelaOs cfg={cfg} linhas={linhas} modo="loja" vazio={q || locais.length ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
     </div>
   );
 }

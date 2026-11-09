@@ -21,9 +21,11 @@ export async function middleware(request: NextRequest) {
       },
     },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  if (!user && !PUBLICAS.some((p) => path.startsWith(p))) {
+  // Falha passageira (rede/servidor do Auth) não derruba a sessão: só manda para o login quando não há sessão válida
+  const passageira = !!error && error.name !== 'AuthSessionMissingError' && (!('status' in error) || !error.status || (error.status as number) >= 500);
+  if (!user && !passageira && !PUBLICAS.some((p) => path.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';

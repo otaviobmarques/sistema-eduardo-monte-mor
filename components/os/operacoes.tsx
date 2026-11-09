@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { abrirPendencia, agendar, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, resolverPendencia, responderPendencia } from '@/app/os/operacao';
+import { abrirPendencia, agendar, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Icone } from '@/components/icone';
 import { Aviso, Modal } from '@/components/ui';
@@ -92,6 +92,8 @@ export interface DadosAcoes {
   semLaudo?: boolean;
   /** Gestor sem travas: conclui com pendência aberta, OS frustrada ou atraso sem justificativa, sem motivo. */
   conclusaoLivre?: boolean;
+  /** Prazo pausado à mão (botão “Retomar”). */
+  pausadoManual?: boolean;
 }
 
 export function AcoesLoja({ d }: { d: DadosAcoes }) {
@@ -100,7 +102,9 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
   const ativa = aberta || os.status === 'frustrado';
   const [etapaMsg, setEtapaMsg] = useState<string | null>(null);
   const [pendEtapa, iniciarEtapa] = useTransition();
-  if (!ativa && os.status !== 'vistoriado') return null;
+  const [pendPausa, iniciarPausa] = useTransition();
+  const encerrada = os.status === 'vistoriado' || os.status === 'cancelado';
+  if (!ativa && os.status !== 'vistoriado' && !(d.conclusaoLivre && encerrada)) return null;
 
   return (
     <section className="card p-4" aria-label="Ações da OS">
@@ -199,6 +203,39 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
         )}
 
         {ativa && <CancelarOs osId={os.id} numero={os.numero} motivos={d.motivos.cancelamento} />}
+
+        {ativa && d.conclusaoLivre && !d.pausadoManual && (
+          <ModalForm titulo="Pausar o prazo" rotulo="Pausar"
+            descricao={`OS ${os.numero}: o prazo para de contar até você clicar em “Retomar”.`}
+            abrir={(f) => <button type="button" className="btn btn-secundario" onClick={f}><svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><rect x="6" y="4" width="4" height="16" fill="currentColor" /><rect x="14" y="4" width="4" height="16" fill="currentColor" /></svg>Pausar</button>}
+            enviar={(fd) => pausarOs(os.id, os.numero, String(fd.get('motivo') ?? ''))}>
+            {() => (
+              <Campo id="pa-motivo" rotulo="Motivo" opcional ajuda="Fica na linha do tempo.">
+                <input id="pa-motivo" name="motivo" className="campo" placeholder="Ex.: aguardando o cliente liberar o veículo" />
+              </Campo>
+            )}
+          </ModalForm>
+        )}
+        {ativa && d.conclusaoLivre && d.pausadoManual && (
+          <button type="button" className="btn btn-primario" disabled={pendPausa}
+            onClick={() => { setEtapaMsg(null); iniciarPausa(async () => { const r = await retomarOs(os.id, os.numero); if (!r.ok) setEtapaMsg(r.erro); }); }}>
+            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><path d="M7 4v16l13-8z" fill="currentColor" /></svg>{pendPausa ? 'Retomando…' : 'Retomar prazo'}
+          </button>
+        )}
+
+        {encerrada && d.conclusaoLivre && (
+          <ModalForm titulo="Reabrir OS" rotulo="Reabrir OS"
+            descricao={`OS ${os.numero} volta para “A vistoriar” (etapa Aberta). O tempo em que ficou encerrada não conta no prazo e o cliente é avisado.`}
+            abrir={(f) => <button type="button" className="btn btn-secundario" onClick={f}><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" /></svg>Reabrir OS</button>}
+            enviar={(fd) => reabrirOs(os.id, os.numero, String(fd.get('motivo') ?? ''))}>
+            {() => (<>
+              {os.status === 'vistoriado' && <Aviso tipo="atencao" titulo="O laudo enviado continua no histórico">Ao concluir de novo, envie uma nova versão do laudo (ou conclua sem laudo).</Aviso>}
+              <Campo id="ra-motivo" rotulo="Motivo" opcional ajuda="Fica na linha do tempo e vai no aviso ao cliente.">
+                <input id="ra-motivo" name="motivo" className="campo" placeholder="Ex.: refazer a vistoria" />
+              </Campo>
+            </>)}
+          </ModalForm>
+        )}
 
         {(aberta || (d.conclusaoLivre && os.status === 'frustrado')) && (
           <ModalForm titulo="Concluir OS sem laudo" rotulo="Concluir sem laudo" perigo

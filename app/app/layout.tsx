@@ -3,6 +3,7 @@ import { exigirPerfil } from '@/lib/sessao';
 import { sair } from '../login/actions';
 import { NotificacoesProvider, Sino, type Notificacao } from '@/components/notificacoes';
 import { createClient } from '@/lib/supabase/server';
+import { CoresStatus } from '@/components/cores-status';
 
 const GRUPOS: GrupoMenu[] = [
   { titulo: 'Vistorias', itens: [
@@ -31,6 +32,7 @@ export default async function ClienteLayout({ children }: { children: React.Reac
   const { data: naoLidas } = await supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'cliente').is('vista_em', null).order('criada_em', { ascending: false }).limit(50);
   return (
     <NotificacoesProvider modo="cliente" iniciais={(naoLidas ?? []) as Notificacao[]}>
+      <CoresStatus supabase={supabase} />
     <Shell grupos={GRUPOS} raiz="/app" usuario={empresa} subtitulo={`Usuário: ${s.perfil.login}`} barraInferior={BARRA} sairAction={sair} topo={<Sino />}>
       {children}
     </Shell>

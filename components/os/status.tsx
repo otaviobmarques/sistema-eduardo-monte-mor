@@ -1,5 +1,6 @@
 import type { SlaResultado } from '@/lib/regras/sla';
 import { ETAPA_LABEL, STATUS_LABEL } from '@/lib/formato';
+import { CORES, CORES_PADRAO } from '@/lib/cores-status';
 
 /** SLA: forma + cor + texto (verde círculo, âmbar losango, vermelho quadrado, cinza pausa). */
 export function SlaPilula({ sla, compacta = false }: { sla: Pick<SlaResultado, 'cor' | 'texto' | 'noPrazo'>; compacta?: boolean }) {
@@ -22,9 +23,12 @@ export function SlaPilula({ sla, compacta = false }: { sla: Pick<SlaResultado, '
 }
 
 export function StatusSelo({ status, etapa }: { status: keyof typeof STATUS_LABEL; etapa?: keyof typeof ETAPA_LABEL | null }) {
-  const cor = { a_vistoriar: 'bg-info-bg text-info', frustrado: 'bg-warn-bg text-warn', vistoriado: 'bg-ok-bg text-ok', cancelado: 'bg-surface text-text-secondary border border-divider' }[status];
+  // Cor escolhida pela Loja em Configurações (variáveis CSS); o padrão vale se nada foi escolhido
+  const padrao = CORES[CORES_PADRAO[status]];
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${cor}`}>
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold"
+      style={{ background: `var(--st-${status}-bg, ${padrao.bg})`, color: `var(--st-${status}-fg, ${padrao.fg})` }}>
+      <span aria-hidden className="h-2 w-2 rounded-full bg-current" />
       {STATUS_LABEL[status]}{status === 'a_vistoriar' && etapa ? <span className="font-medium opacity-80">· {ETAPA_LABEL[etapa]}</span> : null}
     </span>
   );

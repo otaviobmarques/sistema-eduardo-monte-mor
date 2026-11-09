@@ -2,12 +2,15 @@
 import { useState, useTransition } from 'react';
 import { Aviso } from '@/components/ui';
 import { salvarConfiguracoes } from './actions';
+import { CORES, STATUS_COM_COR, type CorStatus, type StatusComCor } from '@/lib/cores-status';
+import { STATUS_LABEL } from '@/lib/formato';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 interface Config {
   alerta1_horas: number; alerta2_horas_antes: number; contagem: 'corridas' | 'uteis';
   horario_util: { dias: number[]; inicio: string; fim: string }; escalonar_minutos: number; ajuste_preco_habilitado: boolean;
+  cores_status: Record<StatusComCor, CorStatus>;
 }
 
 export function ConfigForm({ inicial }: { inicial: Config }) {
@@ -97,6 +100,35 @@ export function ConfigForm({ inicial }: { inicial: Config }) {
           <span><span className="block font-semibold">Ajuste de preço com aprovação do cliente</span>
             <span className="text-text-secondary">A Loja propõe novo valor; o SLA fica pausado até o cliente aprovar ou recusar.</span></span>
         </label>
+      </section>
+
+      <section className="card space-y-4 p-6" aria-labelledby="cfg-cores">
+        <h2 id="cfg-cores" className="h3">Cores dos status</h2>
+        <p className="text-sm text-text-secondary">A cor de cada status nas listas e nas fichas. Vale para a Loja e para os clientes dela.</p>
+        <div className="space-y-4">
+          {STATUS_COM_COR.map((st) => (
+            <fieldset key={st} className="flex flex-col gap-2 md:flex-row md:items-center">
+              <legend className="sr-only">Cor de {STATUS_LABEL[st]}</legend>
+              <span className="w-36 shrink-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: CORES[c.cores_status[st]].bg, color: CORES[c.cores_status[st]].fg }}>
+                  <span aria-hidden className="h-2 w-2 rounded-full bg-current" />{STATUS_LABEL[st]}
+                </span>
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(CORES) as CorStatus[]).map((cor) => {
+                  const on = c.cores_status[st] === cor;
+                  return (
+                    <label key={cor} className={`flex min-h-toque cursor-pointer items-center gap-2 rounded-campo border-[1.5px] px-3 text-sm font-semibold ${on ? 'border-impact bg-surface' : 'border-border'}`}>
+                      <input type="radio" name={`cor-${st}`} className="sr-only" checked={on} onChange={() => set('cores_status', { ...c.cores_status, [st]: cor })} />
+                      <span aria-hidden className="h-4 w-4 rounded-full border border-black/10" style={{ background: CORES[cor].fg }} />
+                      {CORES[cor].rotulo}{on && <span className="sr-only"> (escolhida)</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
       </section>
 
       {msg && <Aviso tipo={msg.ok ? 'ok' : 'erro'} titulo={msg.ok ? 'Tudo certo' : 'Não foi possível salvar'}>{msg.texto}</Aviso>}

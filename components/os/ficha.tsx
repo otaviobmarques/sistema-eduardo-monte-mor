@@ -138,6 +138,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
           vistoriadores: vistoriadores ?? [], motivos: { frustracao: porTipo('frustracao'), cancelamento: porTipo('cancelamento'), reagendamento: porTipo('reagendamento') },
           agendamento: agAtual ? { data_hora: agAtual.data_hora, vistoriador_id: agAtual.vistoriador_id, local_texto: agAtual.local_texto } : null,
           pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length, semLaudo: !!os.sem_laudo, conclusaoLivre: !!(await getSessao())?.perfil.conclusao_livre,
+          pausadoManual: (pausas ?? []).some((p) => (p.origem as string) === 'manual' && !p.fim),
         }} />
       )}
       {modo === 'cliente' && (os.status === 'a_vistoriar' || os.status === 'frustrado') && (
@@ -155,7 +156,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
         <Aviso tipo="info" titulo="Observação do cliente"><p className="whitespace-pre-line">{os.observacao}</p></Aviso>
       )}
 
-      <BarraSla entrada={entradaSla} cfg={cfg} pausas={(pausas ?? []) as { inicio: string; fim: string | null; origem: 'frustracao' | 'pendencia' | 'aprovacao_preco' }[]} />
+      <BarraSla entrada={entradaSla} cfg={cfg} pausas={(pausas ?? []) as { inicio: string; fim: string | null; origem: 'frustracao' | 'pendencia' | 'aprovacao_preco' | 'manual' }[]} />
 
       {(os.status === 'a_vistoriar' || os.status === 'frustrado') && sla.restanteMs < 0 && !justificativas?.length && (
         <div className="aviso aviso-erro flex-col sm:flex-row sm:items-center sm:justify-between" role="alert">

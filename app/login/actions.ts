@@ -65,12 +65,12 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
   const lojaP = perfil?.lojas as unknown as { nome: string; telefone: string | null } | null;
   const contato = perfil?.perfil === 'cliente' && lojaP ? `Fale com a ${lojaP.nome}${lojaP.telefone ? `: ${telefone(lojaP.telefone)}` : ''}.` : perfil?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
   if (!perfil || perfil.bloqueado) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     await registrar(false, perfil ? 'acesso bloqueado' : 'sem perfil', data.user.id);
     return { erro: perfil ? `Acesso bloqueado. ${contato}` : 'Usuário sem perfil configurado.', login: digitado };
   }
   if (perfil.deve_trocar_senha && perfil.senha_expira_em && new Date(perfil.senha_expira_em) < new Date()) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     await registrar(false, 'senha temporária expirada', data.user.id);
     return { erro: `Sua senha temporária expirou. ${contato}`, login: digitado };
   }
@@ -78,7 +78,7 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
   // Loja bloqueada por atraso: o Gestor entra só para pagar (Assinatura); clientes e Loja desativada ficam de fora
   const soPagamento = perfil.perfil === 'loja' && !!loja?.ativo && !!loja?.bloqueada;
   if (perfil.loja_id && !soPagamento && (!loja?.ativo || loja.bloqueada)) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     await registrar(false, 'loja suspensa', data.user.id);
     return { erro: perfil.perfil === 'loja' ? 'O acesso da sua Loja está suspenso. Regularize a assinatura com o administrador do sistema.' : `O sistema está temporariamente indisponível. Fale com a ${loja?.nome || 'sua unidade Auto Visão'}${loja?.telefone ? `: ${telefone(loja.telefone)}` : ''}.`, login: digitado };
   }
@@ -88,6 +88,6 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
 
 export async function sair() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'local' });
   redirect('/login');
 }

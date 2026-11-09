@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { Hero } from '@/components/hero';
 import { Busca, Chips, TabelaOs } from '@/components/os/tabela-os';
 import { Kpi } from '@/components/kpi';
-import { buscarOs, ordenarPorUrgencia } from '@/lib/fila';
+import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia } from '@/lib/fila';
+import { FiltroLocal } from '@/components/os/filtro-local';
 import { moeda } from '@/lib/formato';
 import { numerosDoMes } from '@/lib/paineis';
 import { nomeDoMes } from '@/lib/regras/financeiro';
@@ -15,11 +16,14 @@ export const metadata: Metadata = { title: 'Painel' };
 
 const STATUS = { '': 'Todas', a_vistoriar: 'A vistoriar', frustrado: 'Frustradas', vistoriado: 'Vistoriadas', cancelado: 'Canceladas' } as const;
 
-export default async function PainelCliente({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+export default async function PainelCliente({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; local?: string | string[] }> }) {
   const s = await exigirPerfil('cliente');
-  const { q = '', status = '' } = await searchParams;
+  const { q = '', status = '', local } = await searchParams;
+  const locais = lerLocais(local);
   const supabase = await createClient();
-  const { linhas: todas, cfg } = await buscarOs(supabase, { q, comLaudo: true });
+  const { linhas: semLocal, cfg } = await buscarOs(supabase, { q, comLaudo: true });
+  const opcoesLocal = opcoesDeLocal(semLocal);
+  const todas = filtrarPorLocal(semLocal, locais);
   const st = status in STATUS ? status : '';
   const filtradas = st ? todas.filter((o) => o.status === st) : todas;
   const linhas = st === '' || st === 'a_vistoriar' || st === 'frustrado'
@@ -55,11 +59,14 @@ export default async function PainelCliente({ searchParams }: { searchParams: Pr
         <Kpi rotulo={`Canceladas em ${mesNome}`} valor={n.canceladasNoMes} />
         <Kpi rotulo="Não pagas" valor={n.qtdAReceber} detalhe={moeda(n.aReceber)} />
       </div>
-      <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined }} />
-      <Chips param="status" atual={st} extra={{ q: q || undefined }}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined, local: locais }} />
+        {opcoesLocal.length > 0 || locais.length ? <FiltroLocal opcoes={opcoesLocal} selecionados={locais} extra={{ q: q || undefined, status: st || undefined }} /> : null}
+      </div>
+      <Chips param="status" atual={st} extra={{ q: q || undefined, local: locais }}
         opcoes={(Object.keys(STATUS) as (keyof typeof STATUS)[]).map((k) => ({ valor: k, rotulo: STATUS[k], qtd: k ? todas.filter((o) => o.status === k).length : todas.length }))} />
       <TabelaOs cfg={cfg} linhas={linhas} modo="cliente"
-        vazio={q || st ? 'Nenhuma OS encontrada.' : <>Nenhuma OS ainda. <Link className="font-semibold text-action underline" href="/app/nova-os">Abra a primeira</Link>.</>} />
+        vazio={q || st || locais.length ? 'Nenhuma OS encontrada.' : <>Nenhuma OS ainda. <Link className="font-semibold text-action underline" href="/app/nova-os">Abra a primeira</Link>.</>} />
     </div>
   );
 }

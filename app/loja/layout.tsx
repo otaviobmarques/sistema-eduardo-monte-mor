@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { exigirPerfil, lojaSoPagamento } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
+import { CoresStatus } from '@/components/cores-status';
 import { data as fmtData, moeda } from '@/lib/formato';
 import Link from 'next/link';
 import { sair } from '../login/actions';
@@ -50,6 +51,7 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
   const suspensao = vencida && loja ? new Date(Date.parse(`${vencida.vencimento}T12:00:00-03:00`) + (loja.dias_tolerancia + 1) * 86400_000) : null;
   return (
     <NotificacoesProvider modo="loja" iniciais={(naoLidas ?? []) as Notificacao[]}>
+      <CoresStatus supabase={supabase} />
     <Shell grupos={GRUPOS} raiz="/loja" usuario={s.perfil.nome_exibicao} subtitulo={loja?.nome ?? 'Loja'} sairAction={sair} topo={<Sino />}
       barraInferior={bloqueada ? [...BARRA, { href: '/loja/assinatura', label: 'Assinatura', icone: 'financeiro' }] : BARRA}
       liberados={bloqueada ? ['/loja/assinatura'] : undefined}>

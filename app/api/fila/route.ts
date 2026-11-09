@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { NextResponse, type NextRequest } from 'next/server';
-import { buscarOs, ordenarPorUrgencia } from '@/lib/fila';
+import { buscarOs, filtrarPorLocal, lerLocais, ordenarPorUrgencia } from '@/lib/fila';
 import { data as fmtData, dataHora, ETAPA_LABEL, STATUS_LABEL } from '@/lib/formato';
 import { gerarPdfRelatorio } from '@/lib/pdf/relatorio';
 import { gerarXlsx } from '@/lib/planilha';
@@ -17,10 +17,12 @@ export async function GET(req: NextRequest) {
   await exigirPerfil('loja');
   const sp = req.nextUrl.searchParams;
   const sb = await createClient();
-  const { linhas: todas } = await buscarOs(sb, { status: ['a_vistoriar', 'frustrado'], q: sp.get('q') ?? '', limite: 1000 });
+  const locais = lerLocais(sp.getAll('local'));
+  const { linhas: semLocal } = await buscarOs(sb, { status: ['a_vistoriar', 'frustrado'], q: sp.get('q') ?? '', limite: 1000 });
+  const todas = filtrarPorLocal(semLocal, locais);
   const chip = CHIP[(sp.get('sla') ?? '') as keyof typeof CHIP];
   const linhas = ordenarPorUrgencia(chip ? todas.filter((o) => o.sla.cor === chip) : todas);
-  const filtros = [`${linhas.length} OS em andamento`, sp.get('q') ? `Busca: ${sp.get('q')}` : null, chip ? `Prazo: ${SLA[chip]}` : null].filter(Boolean) as string[];
+  const filtros = [`${linhas.length} OS em andamento`, sp.get('q') ? `Busca: ${sp.get('q')}` : null, chip ? `Prazo: ${SLA[chip]}` : null, locais.length ? `Unidade/Pátio: ${locais.map((l) => l.slice(2)).join(', ')}` : null].filter(Boolean) as string[];
   const dados = linhas.map((o) => ({
     o, etapa: o.status === 'a_vistoriar' && o.etapa ? ETAPA_LABEL[o.etapa as keyof typeof ETAPA_LABEL] : '',
     prazo: o.sla.prazo ? dataHora(o.sla.prazo) : 'Pausado', sla: `${SLA[o.sla.cor]} · ${o.sla.texto}`,

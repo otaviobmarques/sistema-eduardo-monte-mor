@@ -24,6 +24,13 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    fecha a placa sem travas: sem motivo nem confirmação, com OS frustrada, com pendência aberta (encerrada junto, pausas
    fechadas) e com atraso sem justificativa (`app.conclusao_livre` na transação pula `tg_exigir_justificativa`).
    Vale para “Concluir sem laudo” e “Enviar laudo”. Os demais Gestores continuam com as travas.
+11. **Melhorias (09/11/2026)**: o mesmo Gestor (`conclusao_livre`) **reabre** OS vistoriada/cancelada (`reabrir_os()`,
+   volta para A vistoriar · Aberta; o tempo encerrada não conta) e **pausa/retoma** o prazo à mão (`pausar_os()` /
+   `retomar_os()`, pausa `origem = 'manual'`). **Cores dos status** em Configurações (`configuracoes.cores_status`:
+   amarelo, roxo, vermelho, verde ou azul, `lib/cores-status.ts`), aplicadas por variáveis CSS (`components/cores-status.tsx`)
+   para a Loja e os clientes dela. **Filtro “Unidade / Pátio”** com várias escolhas (parâmetro `local=p:<pátio>`/`u:<unidade>`,
+   `lib/fila.ts`) na fila da Loja, na exportação e no painel do cliente. **Sessão**: “Sair” encerra só o aparelho
+   (`signOut({ scope: 'local' })`), o middleware não desloga por falha passageira e `ManterSessao` renova o acesso.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
