@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Aviso } from '@/components/ui';
+import { Aviso, Selo } from '@/components/ui';
 import { CAMPOS_TECNICOS, ROTULO_CAMPO, valorLegivel } from '@/lib/auditoria';
 import { data as fmtDataCurta, dataHora, ETAPA_LABEL, moeda, PAGAMENTO_LABEL, STATUS_LABEL, telefone } from '@/lib/formato';
 import { carregarConfigSla, slaDaOs } from '@/lib/os-leitura';
@@ -119,6 +119,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
             <h1 className="h2 mt-1">{os.marca_modelo ?? 'Modelo não informado'}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusSelo status={os.status} etapa={modo === 'loja' ? os.etapa : null} />
+              {os.status === 'vistoriado' && os.sem_laudo && <Selo tom="atencao"><span aria-hidden>◆</span>Sem laudo</Selo>}
               <SlaAoVivo entrada={entradaSla} cfg={cfg} />
               {tempoCancelada && <span className="text-sm text-text-secondary">Cancelada há {tempoCancelada}</span>}
             </div>
@@ -135,7 +136,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
           os: { id: os.id, numero: os.numero, status: os.status, etapa: os.etapa, local: os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome ?? '' : os.endereco ?? '' },
           vistoriadores: vistoriadores ?? [], motivos: { frustracao: porTipo('frustracao'), cancelamento: porTipo('cancelamento'), reagendamento: porTipo('reagendamento') },
           agendamento: agAtual ? { data_hora: agAtual.data_hora, vistoriador_id: agAtual.vistoriador_id, local_texto: agAtual.local_texto } : null,
-          pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length,
+          pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length, semLaudo: !!os.sem_laudo,
         }} />
       )}
       {modo === 'cliente' && (os.status === 'a_vistoriar' || os.status === 'frustrado') && (
@@ -179,6 +180,16 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
         </section>
       )}
 
+      {os.status === 'vistoriado' && os.sem_laudo && (
+        <div className="aviso aviso-atencao flex-col sm:flex-row sm:items-center sm:justify-between" role="status">
+          <div>
+            <p className="font-display text-base font-extrabold">Concluída sem laudo</p>
+            <p>{modo === 'loja'
+              ? <>Motivo: {os.sem_laudo_motivo} · em {dataHora(os.concluida_em)}. Anexe o PDF quando tiver, pelo botão “Anexar laudo”.</>
+              : 'A vistoria foi concluída, mas o laudo em PDF ainda não foi anexado. Você será avisado quando estiver disponível.'}</p>
+          </div>
+        </div>
+      )}
       {laudoAtual && (
         <section className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>

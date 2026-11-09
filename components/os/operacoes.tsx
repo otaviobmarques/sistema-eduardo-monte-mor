@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { abrirPendencia, agendar, cancelar, enviarLaudo, frustrar, mudarEtapa, resolverPendencia, responderPendencia } from '@/app/os/operacao';
+import { abrirPendencia, agendar, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, resolverPendencia, responderPendencia } from '@/app/os/operacao';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Icone } from '@/components/icone';
 import { Aviso, Modal } from '@/components/ui';
@@ -88,6 +88,8 @@ export interface DadosAcoes {
   agendamento: { data_hora: string; vistoriador_id: string | null; local_texto: string | null } | null;
   pendenciasAbertas: number;
   precisaJustificar: boolean;
+  /** OS concluída sem laudo e ainda sem PDF: o botão vira “Anexar laudo”. */
+  semLaudo?: boolean;
 }
 
 export function AcoesLoja({ d }: { d: DadosAcoes }) {
@@ -196,12 +198,44 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
 
         {ativa && <CancelarOs osId={os.id} numero={os.numero} motivos={d.motivos.cancelamento} />}
 
-        {(aberta || os.status === 'vistoriado') && (
-          <ModalForm titulo={os.status === 'vistoriado' ? 'Enviar nova versão do laudo' : 'Enviar laudo'} rotulo="Enviar laudo"
-            descricao={os.status === 'vistoriado' ? 'O cliente passa a ver a versão nova; as anteriores ficam no histórico.' : 'O envio conclui a OS, encerra o prazo, congela o valor e avisa o cliente.'}
+        {aberta && (
+          <ModalForm titulo="Concluir OS sem laudo" rotulo="Concluir sem laudo" perigo
+            descricao={`OS ${os.numero}: a vistoria será dada como concluída sem o PDF do laudo.`}
             abrir={(f) => (
-              <button type="button" className="btn btn-primario sm:ml-auto" onClick={f} disabled={aberto(d)}>
-                <Icone nome="download" className="h-4 w-4 rotate-180" />{os.status === 'vistoriado' ? 'Nova versão do laudo' : 'Enviar laudo'}
+              <button type="button" className="btn btn-secundario sm:ml-auto" onClick={f} disabled={aberto(d)}>
+                <Icone nome="check" className="h-4 w-4" />Concluir sem laudo
+              </button>
+            )}
+            enviar={(fd) => { fd.set('os_id', os.id); fd.set('numero', String(os.numero)); return concluirSemLaudo(fd); }}>
+            {(e) => (<>
+              <div className="flex gap-3 rounded-card border-l-4 border-error bg-error-bg p-4 text-sm" role="alert">
+                <span aria-hidden className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-error font-bold text-white">!</span>
+                <div className="space-y-1">
+                  <p className="font-display text-base font-extrabold text-error">Atenção: você está concluindo esta OS sem laudo</p>
+                  <p>A OS passa para <strong>Vistoriado</strong>, o prazo para de contar e o valor é congelado. O cliente é avisado de que a vistoria foi concluída, mas <strong>não terá o PDF para baixar</strong>.</p>
+                  <p>A ficha fica marcada como “Concluída sem laudo” até você anexar o laudo (botão “Anexar laudo”, depois).</p>
+                </div>
+              </div>
+              <Campo id="sl-motivo" rotulo="Por que concluir sem laudo?" erro={e.motivo} ajuda="Fica na linha do tempo e na auditoria.">
+                <textarea id="sl-motivo" name="motivo" className="campo" rows={3} placeholder="Ex.: laudo entregue em papel ao cliente; vistoria feita por outro sistema" {...inv(e.motivo)} />
+              </Campo>
+              <div>
+                <label className="flex min-h-toque cursor-pointer items-start gap-3 text-sm">
+                  <input type="checkbox" name="ciente" className="check mt-0.5" aria-invalid={e.ciente ? true : undefined} />
+                  <span>Entendo que esta OS será concluída <strong>sem laudo anexado</strong>.</span>
+                </label>
+                {e.ciente && <p className="erro-campo">{e.ciente}</p>}
+              </div>
+            </>)}
+          </ModalForm>
+        )}
+
+        {(aberta || os.status === 'vistoriado') && (
+          <ModalForm titulo={d.semLaudo ? 'Anexar laudo' : os.status === 'vistoriado' ? 'Enviar nova versão do laudo' : 'Enviar laudo'} rotulo={d.semLaudo ? 'Anexar laudo' : 'Enviar laudo'}
+            descricao={d.semLaudo ? 'A OS foi concluída sem laudo. Ao anexar, o cliente é avisado de que o laudo está disponível.' : os.status === 'vistoriado' ? 'O cliente passa a ver a versão nova; as anteriores ficam no histórico.' : 'O envio conclui a OS, encerra o prazo, congela o valor e avisa o cliente.'}
+            abrir={(f) => (
+              <button type="button" className={`btn btn-primario ${aberta ? '' : 'sm:ml-auto'}`} onClick={f} disabled={aberto(d)}>
+                <Icone nome="download" className="h-4 w-4 rotate-180" />{d.semLaudo ? 'Anexar laudo' : os.status === 'vistoriado' ? 'Nova versão do laudo' : 'Enviar laudo'}
               </button>
             )}
             enviar={(fd) => { fd.set('os_id', os.id); fd.set('numero', String(os.numero)); return enviarLaudo(fd); }}>
@@ -214,7 +248,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
       </div>
       {aberta && (d.pendenciasAbertas > 0 || d.precisaJustificar) && (
         <p className="mt-3 text-sm text-text-secondary">
-          Para enviar o laudo: {[d.pendenciasAbertas > 0 && 'resolva as pendências abertas', d.precisaJustificar && 'justifique o atraso'].filter(Boolean).join(' e ')}.
+          Para concluir (com ou sem laudo): {[d.pendenciasAbertas > 0 && 'resolva as pendências abertas', d.precisaJustificar && 'justifique o atraso'].filter(Boolean).join(' e ')}.
         </p>
       )}
       {etapaMsg && <p className="erro-campo" role="alert">{etapaMsg}</p>}

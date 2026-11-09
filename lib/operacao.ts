@@ -13,8 +13,8 @@ const MSG: Record<string, string> = {
   SOLICITANTE_OBRIGATORIO: 'Informe o nome de quem pediu.',
   OS_NAO_PERMITE_LAUDO: 'Esta OS não aceita laudo agora (frustrada ou cancelada).',
   VERSAO_CONFLITO: 'Outra pessoa enviou um laudo agora mesmo. Atualize a página e tente de novo.',
-  PENDENCIA_ABERTA: 'Resolva as pendências abertas antes de enviar o laudo.',
-  JUSTIFICATIVA_OBRIGATORIA: 'A OS passou do prazo: justifique o atraso antes de enviar o laudo.',
+  PENDENCIA_ABERTA: 'Resolva as pendências abertas antes de concluir a OS (com ou sem laudo).',
+  JUSTIFICATIVA_OBRIGATORIA: 'A OS passou do prazo: justifique o atraso antes de concluir (com ou sem laudo).',
 };
 
 export function mensagemOperacao(erro: { message?: string } | null | undefined): string {

@@ -168,3 +168,20 @@ export async function enviarLaudo(form: FormData): Promise<Resultado<{ versao: n
   atualizar(numero);
   return { ok: true, dados: { versao } };
 }
+
+/** Conclui a OS sem laudo (alerta na tela, motivo e confirmação obrigatórios). O laudo pode ser anexado depois. */
+export async function concluirSemLaudo(form: FormData): Promise<Resultado> {
+  await sessao('loja');
+  const osId = String(form.get('os_id') ?? ''), numero = Number(form.get('numero'));
+  const motivo = String(form.get('motivo') ?? '').trim();
+  const campos: Record<string, string> = {};
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  if (motivo.length < 5) campos.motivo = 'Explique por que a OS está sendo concluída sem laudo (ex.: laudo entregue em papel ao cliente).';
+  if (form.get('ciente') !== 'on') campos.ciente = 'Marque a confirmação para concluir sem laudo.';
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('concluir_sem_laudo', { p_os: osId, p_motivo: motivo });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}

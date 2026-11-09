@@ -17,6 +17,9 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    o **pátio** é reconhecido pelo nome da unidade (`acharPatioPorUnidade`). **Loja importando** (`lotes_importacao.modo =
    'historico'`): valem Data, Status, Pagamento e Valor da linha; vistoriadas entram com `sla_indisponivel` (fora das
    métricas de prazo) e sem rajada de alertas. **Cliente importando**: tudo vira OS nova “A vistoriar”, valor pela tabela.
+9. **Concluir OS sem laudo (09/11/2026)**: a Loja pode finalizar sem PDF (`concluir_sem_laudo()`), com alerta na tela,
+   motivo e confirmação obrigatórios e as mesmas travas do laudo (pendência aberta; atraso exige justificativa).
+   A OS fica `sem_laudo = true` (selo “Sem laudo” na ficha) até um laudo ser anexado (“Anexar laudo”).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
