@@ -68,6 +68,7 @@ export async function TelaRelatorios({ sb, modo, params }: { sb: Sb; modo: 'loja
           <div><label htmlFor="rel-ate" className="rotulo">Até</label><input id="rel-ate" name="ate" type="date" defaultValue={f.ate} className="campo" /></div>
           {modo === 'loja' && <Selecao id="rel-cliente" rotulo="Cliente" nome="cliente" valor={f.cliente} todos="Todos" opcoes={op.clientes.map((c) => ({ v: c.id, t: c.nome }))} />}
           <Selecao id="rel-cidade" rotulo="Cidade" nome="cidade" valor={f.cidade} todos="Todas" opcoes={op.cidades.map((c) => ({ v: c, t: c }))} />
+          {op.unidades.length > 0 && <Selecao id="rel-unidade" rotulo="Unidade" nome="unidade" valor={f.unidade} todos="Todas" opcoes={op.unidades.map((u) => ({ v: u, t: u }))} />}
           <Selecao id="rel-patio" rotulo="Pátio" nome="patio" valor={f.patio} todos="Todos" opcoes={op.patios.map((p) => ({ v: p.id, t: p.nome }))} />
           {modo === 'loja' && <Selecao id="rel-vist" rotulo="Vistoriador" nome="vistoriador" valor={f.vistoriador} todos="Todos" opcoes={op.vistoriadores.map((v) => ({ v: v.id, t: v.nome }))} />}
           <Selecao id="rel-status" rotulo="Status" nome="status" valor={f.status} todos="Todos" opcoes={Object.entries(STATUS_REL).map(([v, t]) => ({ v, t }))} />

@@ -31,7 +31,8 @@ describe('importação em lote', () => {
   it('acha o cabeçalho na linha 4 e ignora colunas extras', () => {
     const c = mapearCabecalho(creditas);
     expect(c?.indice).toBe(3);
-    expect(c?.colunas).toEqual({ placa: 2, modelo: 3, renavam: 4, patio: 5, obs: 9 });
+    expect(c?.colunas).toMatchObject({ placa: 2, modelo: 3, renavam: 4, patio: 5, obs: 9 });
+    expect(c?.colunas).toMatchObject({ status: 6, data: 7, solicitante: 8 }); // colunas da Creditas agora reconhecidas
   });
   it('analisa a planilha no formato da Creditas', () => {
     const a = analisarPlanilha(creditas, ref);

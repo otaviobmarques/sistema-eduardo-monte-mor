@@ -6,7 +6,7 @@ export interface LinhaRel {
   patio: string | null; vistoriador: string | null; valor: number | string | null; pagamento_status: 'pendente' | 'pago' | 'faturado';
   mes_abertura: string | null; no_prazo: boolean | null; horas_conclusao: number | string | null; horas_atraso: number | string | null;
   vencida_aberta: boolean | null; pausada: boolean | null; foi_frustrada: boolean | null; motivo_frustracao: string | null;
-  motivo_atraso: string | null; motivo_cancelamento: string | null;
+  motivo_atraso: string | null; motivo_cancelamento: string | null; unidade?: string | null;
 }
 
 export const TIPOS_RELATORIO = {
@@ -15,6 +15,7 @@ export const TIPOS_RELATORIO = {
   patio: { titulo: 'Por pátio', descricao: 'Volume e prazo em cada pátio.', dimensao: 'Pátio', metrica: 'os', base: 'abertura' },
   vistoriador: { titulo: 'Por vistoriador', descricao: 'Produção e prazo de cada vistoriador.', dimensao: 'Vistoriador', metrica: 'os', base: 'abertura', soLoja: true },
   cliente: { titulo: 'Por cliente', descricao: 'Volume, prazo e valores por cliente.', dimensao: 'Cliente', metrica: 'os', base: 'abertura', soLoja: true },
+  unidade: { titulo: 'Por unidade', descricao: 'Volume, prazo e valores por unidade do cliente (ex.: filiais do despachante).', dimensao: 'Unidade', metrica: 'os', base: 'abertura' },
   sla: { titulo: 'Desempenho de SLA', descricao: 'Concluídas no prazo, atrasadas e vencidas em aberto.', dimensao: 'Situação do prazo', metrica: 'os', base: 'abertura' },
   frustracoes: { titulo: 'Frustrados e cancelados', descricao: 'Motivos de frustração e de cancelamento.', dimensao: 'Motivo', metrica: 'os', base: 'abertura' },
   pagamentos: { titulo: 'Pagamentos', descricao: 'Pago, faturado e pendente das vistoriadas.', dimensao: 'Pagamento', metrica: 'valor', base: 'conclusao' },
@@ -56,6 +57,7 @@ export function chaves(tipo: TipoRelatorio, l: LinhaRel): string[] {
     case 'patio': return [l.patio ?? (l.local_tipo === 'endereco' ? 'Outro endereço' : 'Sem pátio')];
     case 'vistoriador': return [l.vistoriador ?? 'Sem vistoriador'];
     case 'cliente': case 'fechamento': return [l.cliente ?? '—'];
+    case 'unidade': return [l.unidade?.trim() || 'Sem unidade'];
     case 'sla': return [situacaoSla(l)];
     case 'pagamentos': return [PAG[l.pagamento_status]];
     case 'frustracoes': {

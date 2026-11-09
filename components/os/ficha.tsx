@@ -213,11 +213,12 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
           <h2 id="sol-titulo" className="h3 mb-4">Solicitação</h2>
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Dado rotulo="Solicitante">{os.nome_solicitante}</Dado>
+            {os.unidade && <Dado rotulo="Unidade">{os.unidade}</Dado>}
             <Dado rotulo="Telefone">{os.telefone_contato ? <a className="text-action hover:underline" href={`tel:${os.telefone_contato}`}>{telefone(os.telefone_contato)}</a> : null}</Dado>
             <Dado rotulo="Serviço">{(os.servicos as { nome: string } | null)?.nome} · SLA {os.sla_horas}h</Dado>
             <Dado rotulo="Local">{os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome : os.endereco}</Dado>
             <Dado rotulo="Cidade">{os.cidade}{os.uf ? ` / ${os.uf}` : ''}</Dado>
-            <Dado rotulo="Origem">{os.lote_id ? `Importação em lote · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : 'Abertura individual'}</Dado>
+            <Dado rotulo="Origem">{os.origem_historico ? `Histórico importado da planilha · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : os.lote_id ? `Importação em lote · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : 'Abertura individual'}</Dado>
             {modo === 'loja' && <Dado rotulo="Vistoriador">{(os.vistoriadores as { nome: string } | null)?.nome}</Dado>}
           </dl>
         </section>

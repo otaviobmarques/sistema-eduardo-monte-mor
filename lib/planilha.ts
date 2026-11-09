@@ -1,6 +1,6 @@
 import 'server-only';
 import ExcelJS from 'exceljs';
-import { lerCsv, type Celula } from './regras/importacao';
+import { lerCsv, mapearCabecalho, type Celula } from './regras/importacao';
 
 function valorCelula(v: ExcelJS.CellValue): Celula {
   if (v === null || v === undefined) return null;
@@ -23,14 +23,21 @@ export async function lerPlanilha(arquivo: File): Promise<Celula[][]> {
   }
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf as unknown as ArrayBuffer);
-  const ws = wb.worksheets.find((w) => w.actualRowCount > 0) ?? wb.worksheets[0];
-  const linhas: Celula[][] = [];
-  ws?.eachRow({ includeEmpty: true }, (row, n) => {
-    const valores = (row.values as ExcelJS.CellValue[]).slice(1).map(valorCelula);
-    linhas[n - 1] = valores;
-  });
-  for (let i = 0; i < linhas.length; i++) linhas[i] ??= [];
-  return linhas;
+  const ler = (ws: ExcelJS.Worksheet) => {
+    const linhas: Celula[][] = [];
+    ws.eachRow({ includeEmpty: true }, (row, n) => {
+      linhas[n - 1] = (row.values as ExcelJS.CellValue[]).slice(1).map(valorCelula);
+    });
+    for (let i = 0; i < linhas.length; i++) linhas[i] ??= [];
+    return linhas;
+  };
+  // A aba certa é a que tem o cabeçalho com PLACA (a planilha de controle tem também a aba “Database” com listas)
+  const comConteudo = wb.worksheets.filter((w) => w.actualRowCount > 0);
+  for (const ws of comConteudo) {
+    const linhas = ler(ws);
+    if (mapearCabecalho(linhas)) return linhas;
+  }
+  return comConteudo[0] ? ler(comConteudo[0]) : [];
 }
 
 export async function gerarXlsx(abas: { nome: string; colunas: { titulo: string; largura?: number; formato?: string }[]; linhas: (string | number | null)[][] }[]) {

@@ -5,8 +5,17 @@ import { getSessao } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { lerPlanilha } from '@/lib/planilha';
-import { analisarPlanilha, contar, validarLinha, type Referencias } from '@/lib/regras/importacao';
+import { analisarPlanilha, CAMPOS_EXTRAS, contar, validarLinha, type Bruto, type LinhaAnalisada, type Referencias } from '@/lib/regras/importacao';
 import type { Resultado } from '@/lib/cadastros';
+
+/** Campos de uma linha analisada que vão para lote_linhas. */
+const colunasLinha = (l: Omit<LinhaAnalisada, 'linha' | 'dados_originais'>) => ({
+  placa_normalizada: l.placa_normalizada || null, placa_corrigida: l.placa_corrigida, renavam: l.renavam, modelo: l.modelo,
+  patio_id: l.patio_id, servico_id: l.servico_id, observacao: l.observacao, resultado: l.resultado, mensagens: l.mensagens,
+  unidade: l.unidade, data_planilha: l.data_planilha, nome_solicitante: l.nome_solicitante, telefone: l.telefone, ano: l.ano, cor: l.cor,
+  valor: l.valor, deslocamento: l.deslocamento, pagamento_forma: l.pagamento_forma, pagamento_forma_original: l.pagamento_forma_original,
+  pagamento_status: l.pagamento_status, status_os: l.status_os,
+});
 
 async function sessao() {
   const s = await getSessao();
@@ -19,7 +28,7 @@ async function referencias(empresaId: string): Promise<Referencias> {
   const { data: emp } = await admin.from('empresas_clientes').select('loja_id').eq('id', empresaId).single();
   const loja = emp?.loja_id ?? '00000000-0000-0000-0000-000000000000';
   const [{ data: patios }, { data: apelidos }, { data: servicos }, { data: abertas }] = await Promise.all([
-    admin.from('patios').select('id, nome').eq('ativo', true).eq('loja_id', loja),
+    admin.from('patios').select('id, nome, cidade').eq('ativo', true).eq('loja_id', loja),
     admin.from('patio_apelidos').select('patio_id, apelido').eq('loja_id', loja),
     admin.from('servicos').select('id, nome, padrao').eq('ativo', true).eq('loja_id', loja),
     admin.from('ordens_servico').select('placa, numero').eq('empresa_cliente_id', empresaId).in('status', ['a_vistoriar', 'frustrado']),
@@ -61,15 +70,15 @@ export async function preverLote(form: FormData): Promise<Resultado<{ loteId: st
   const { data: lote, error } = await admin.from('lotes_importacao').insert({
     loja_id: emp.loja_id, empresa_cliente_id: empresaId, nome_solicitante: nome, telefone_contato: telefone || null, arquivo_nome: arq.name,
     total: c.total, validas: c.prontas, com_erro: c.comErro, duplicadas: c.duplicadas, criado_por: s.userId,
+    // Loja importando: a planilha é o histórico (valem Data, Status, Pagamento e Valor). Cliente: pedidos novos.
+    modo: s.perfil.perfil === 'loja' ? 'historico' : 'novo',
   }).select('id').single();
   if (error || !lote) return { ok: false, erro: 'Não foi possível gravar a prévia. Tente de novo.' };
   const caminho = `${empresaId}/${lote.id}/${arq.name.replace(/[^\w.-]+/g, '_')}`;
   await admin.storage.from('importacoes').upload(caminho, arq, { contentType: arq.type || 'application/octet-stream' });
   await admin.from('lotes_importacao').update({ arquivo_path: caminho }).eq('id', lote.id);
   const { error: e2 } = await admin.from('lote_linhas').insert(analise.linhas.map((l) => ({
-    lote_id: lote.id, linha: l.linha, dados_originais: l.dados_originais, placa_normalizada: l.placa_normalizada || null,
-    placa_corrigida: l.placa_corrigida, renavam: l.renavam, modelo: l.modelo, patio_id: l.patio_id, servico_id: l.servico_id,
-    observacao: l.observacao, resultado: l.resultado, mensagens: l.mensagens,
+    lote_id: lote.id, linha: l.linha, dados_originais: l.dados_originais, ...colunasLinha(l),
   })));
   if (e2) return { ok: false, erro: 'Não foi possível gravar a prévia. Tente de novo.' };
   return { ok: true, dados: { loteId: lote.id } };
@@ -82,21 +91,22 @@ async function loteDoUsuario(loteId: string) {
   return { s, lote };
 }
 
-export async function corrigirLinha(loteId: string, linhaId: string, bruto: { placa: string; modelo: string; renavam: string; patio: string; servico: string; obs: string }): Promise<Resultado> {
+export async function corrigirLinha(loteId: string, linhaId: string, corrigido: { placa: string; modelo: string; renavam: string; patio: string; servico: string; obs: string }): Promise<Resultado> {
   const { lote } = await loteDoUsuario(loteId);
   if (!lote || lote.status !== 'previa') return { ok: false, erro: 'Esta prévia não pode mais ser alterada.' };
   const admin = createAdminClient();
-  const { data: outras } = await admin.from('lote_linhas').select('id, linha, placa_normalizada, resultado').eq('lote_id', loteId);
+  const { data: outras } = await admin.from('lote_linhas').select('id, linha, placa_normalizada, resultado, dados_originais').eq('lote_id', loteId);
   const ref = await referencias(lote.empresa_cliente_id);
   const anteriores = new Map<string, number>();
   for (const o of outras ?? []) if (o.id !== linhaId && o.placa_normalizada && o.resultado !== 'erro') anteriores.set(o.placa_normalizada, o.linha);
-  const r = validarLinha(bruto, ref, anteriores);
   const original = (outras ?? []).find((o) => o.id === linhaId);
   if (!original) return { ok: false, erro: 'Linha não encontrada.' };
-  await admin.from('lote_linhas').update({
-    placa_normalizada: r.placa_normalizada || null, placa_corrigida: r.placa_corrigida, renavam: r.renavam, modelo: r.modelo,
-    patio_id: r.patio_id, servico_id: r.servico_id, observacao: r.observacao, resultado: r.resultado, mensagens: r.mensagens,
-  }).eq('id', linhaId);
+  // Mantém os dados da planilha que a correção não mostra (unidade, data, status, pagamento, valor…)
+  const orig = (original.dados_originais ?? {}) as Record<string, string>;
+  const bruto: Bruto = { ...corrigido };
+  for (const k of CAMPOS_EXTRAS) bruto[k] = orig[k] ?? '';
+  const r = validarLinha(bruto, ref, anteriores);
+  await admin.from('lote_linhas').update(colunasLinha(r)).eq('id', linhaId);
   await recontar(loteId);
   revalidatePath('/app/importar'); revalidatePath('/loja/importar');
   return r.resultado === 'ok' ? { ok: true } : { ok: false, erro: r.mensagens.join(' ') };

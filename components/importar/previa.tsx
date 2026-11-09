@@ -10,11 +10,17 @@ export interface LinhaPrevia {
   id: string; linha: number; dados_originais: Record<string, string>; placa_normalizada: string | null; placa_corrigida: boolean;
   renavam: string | null; modelo: string | null; patio_id: string | null; servico_id: string | null; observacao: string | null;
   resultado: 'ok' | 'erro' | 'duplicada'; mensagens: string[];
+  unidade?: string | null; data_planilha?: string | null; status_os?: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado' | null;
+  pagamento_status?: 'pendente' | 'pago' | 'faturado' | null; valor?: number | null; deslocamento?: number | null;
 }
+const STATUS_ROT = { a_vistoriar: 'A vistoriar', frustrado: 'Frustrado', vistoriado: 'Vistoriado', cancelado: 'Cancelado' } as const;
+const PAG_ROT = { pendente: 'Pendente', pago: 'Pago', faturado: 'Faturado' } as const;
+const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const dataBr = (d: string) => d.split('-').reverse().join('/');
 type Filtro = 'todas' | 'ok' | 'erro' | 'duplicada' | 'corrigidas';
 
-export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos, base }: {
-  loteId: string; arquivo: string; solicitante: string; linhas: LinhaPrevia[];
+export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos, base, historico = false }: {
+  loteId: string; arquivo: string; solicitante: string; linhas: LinhaPrevia[]; historico?: boolean;
   patios: { id: string; nome: string }[]; servicos: { id: string; nome: string; padrao: boolean }[]; base: string;
 }) {
   const router = useRouter();
@@ -31,6 +37,22 @@ export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos,
   }), [linhas]);
   const visiveis = linhas.filter((l) => filtro === 'todas' || (filtro === 'corrigidas' ? l.placa_corrigida : l.resultado === filtro));
   const nomePatio = (id: string | null) => patios.find((p) => p.id === id)?.nome;
+  const temUnidade = linhas.some((l) => l.unidade);
+  // Mostra só a parte que muda entre as unidades (ex.: “Despachante Dukar SP Utinga” → “Utinga”); o nome completo fica no título
+  const prefixo = useMemo(() => {
+    const us = [...new Set(linhas.map((l) => l.unidade).filter(Boolean) as string[])];
+    if (us.length < 2) return '';
+    let p = us[0];
+    for (const u of us) while (p && !u.startsWith(p)) p = p.slice(0, -1);
+    return p.slice(0, p.lastIndexOf(' ') + 1);
+  }, [linhas]);
+  const curta = (u: string | null | undefined) => (u ? u.slice(prefixo.length) || u : '—');
+  const temPlanilha = linhas.some((l) => l.data_planilha || l.status_os || l.pagamento_status || l.valor !== null && l.valor !== undefined);
+  const resumo = useMemo(() => {
+    const ok = linhas.filter((l) => l.resultado === 'ok');
+    const st = (s: string) => ok.filter((l) => (l.status_os ?? 'a_vistoriar') === s).length;
+    return { vistoriado: st('vistoriado'), frustrado: st('frustrado'), cancelado: st('cancelado'), aVistoriar: st('a_vistoriar'), pagos: ok.filter((l) => l.pagamento_status === 'pago' || l.pagamento_status === 'faturado').length };
+  }, [linhas]);
   const nomeServ = (id: string | null) => servicos.find((s) => s.id === id)?.nome;
 
   const cards: { k: Filtro; rot: string; cls: string }[] = [
@@ -58,14 +80,17 @@ export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos,
         <button type="button" className={`rounded-full border-[1.5px] px-3 py-1 font-semibold ${filtro === 'todas' ? 'border-impact bg-impact text-white' : 'border-border'}`} onClick={() => setFiltro('todas')}>Todas ({n.todas})</button>
         {filtro !== 'todas' && <span className="font-semibold">{cards.find((c) => c.k === filtro)?.rot} ({visiveis.length})</span>}
       </div>
+      {temPlanilha && (historico
+        ? <Aviso tipo="info" titulo="Importação do histórico (feita pela Loja)">Valem a <strong>data</strong>, o <strong>status</strong>, o <strong>pagamento</strong> e o <strong>valor</strong> de cada linha. Das prontas: {resumo.vistoriado} vistoriada(s), {resumo.frustrado} frustrada(s), {resumo.cancelado} cancelada(s), {resumo.aVistoriar} a vistoriar; {resumo.pagos} paga(s). As vistoriadas não entram nas métricas de prazo (a planilha não traz o horário do laudo).</Aviso>
+        : <Aviso tipo="info" titulo="Pedidos novos">Todas as linhas viram OS novas “A vistoriar”, com a abertura de agora. Data, status, pagamento e valor da planilha não são usados: o valor segue a tabela de preços da Auto Visão.</Aviso>)}
       {msg && <Aviso tipo={msg.tipo} titulo={msg.tipo === 'ok' ? 'Tudo certo' : 'Atenção'}>{msg.t}</Aviso>}
 
       <div className="overflow-x-auto">
         <table className="tabela tabela-cartoes">
-          <thead><tr><th scope="col">Linha</th><th scope="col">Placa</th><th scope="col">Modelo</th><th scope="col">Renavam</th><th scope="col">Pátio</th><th scope="col">Serviço</th><th scope="col">Situação</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
+          <thead><tr><th scope="col">Linha</th><th scope="col">Placa</th><th scope="col">Modelo</th><th scope="col">Renavam</th>{temUnidade && <th scope="col">Unidade</th>}<th scope="col">Pátio</th><th scope="col">Serviço</th>{historico && temPlanilha && <th scope="col">Na planilha</th>}<th scope="col">Situação</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
           <tbody>
             {visiveis.map((l) => editando === l.id ? (
-              <LinhaEdicao key={l.id} l={l} patios={patios} servicos={servicos} onCancelar={() => setEditando(null)}
+              <LinhaEdicao key={l.id} l={l} patios={patios} servicos={servicos} colUnidade={temUnidade} unidadeCurta={curta(l.unidade)} colPlanilha={historico && temPlanilha} onCancelar={() => setEditando(null)}
                 onSalvar={(b) => iniciar(async () => {
                   const r = await corrigirLinha(loteId, l.id, b);
                   setMsg(r.ok ? { tipo: 'ok', t: `Linha ${l.linha} pronta.` } : { tipo: 'erro', t: `Linha ${l.linha}: ${r.erro}` });
@@ -80,8 +105,15 @@ export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos,
                 </td>
                 <td data-rotulo="Modelo" className="max-w-[240px]">{l.modelo ?? <span className="text-text-secondary">—</span>}</td>
                 <td data-rotulo="Renavam" className="whitespace-nowrap">{l.renavam ?? (l.dados_originais.renavam ? <span className="text-error">{l.dados_originais.renavam}</span> : '—')}</td>
+                {temUnidade && <td data-rotulo="Unidade" className="max-w-[160px] text-sm" title={l.unidade ?? undefined}>{curta(l.unidade)}</td>}
                 <td data-rotulo="Pátio">{nomePatio(l.patio_id) ?? <span className="text-error">{l.dados_originais.patio ?? '—'}</span>}</td>
                 <td data-rotulo="Serviço">{nomeServ(l.servico_id) ?? <span className="text-error">{l.dados_originais.servico ?? '—'}</span>}</td>
+                {historico && temPlanilha && (
+                  <td data-rotulo="Na planilha" className="whitespace-nowrap text-xs">
+                    <span className="block">{l.data_planilha ? dataBr(l.data_planilha) : 'Sem data'} · {STATUS_ROT[l.status_os ?? 'a_vistoriar']}</span>
+                    <span className="block text-text-secondary">{PAG_ROT[l.pagamento_status ?? 'pendente']}{l.valor !== null && l.valor !== undefined ? ` · ${brl(Number(l.valor) + Number(l.deslocamento ?? 0))}` : ' · tabela'}</span>
+                  </td>
+                )}
                 <td data-rotulo="Situação" className="max-w-[300px]">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${l.resultado === 'ok' ? 'bg-ok-bg text-ok' : l.resultado === 'erro' ? 'bg-error-bg text-error' : 'bg-warn-bg text-warn'}`}>
                     {l.resultado === 'ok' ? '● Pronta' : l.resultado === 'erro' ? '■ Com erro' : '◆ Já com OS'}
@@ -102,7 +134,7 @@ export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos,
       <div className="fixed inset-x-0 bottom-[56px] z-20 border-t border-divider bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,.08)] backdrop-blur min-[900px]:bottom-0 min-[900px]:left-64">
         <div className="mx-auto flex max-w-[1200px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p className="text-sm" aria-live="polite">
-            <strong className="font-display text-lg font-black">{n.ok} OS</strong> serão criadas com abertura às <strong>{hora(agora)}</strong>
+            <strong className="font-display text-lg font-black">{n.ok} OS</strong> serão criadas {historico && linhas.some((l) => l.data_planilha) ? <>com a <strong>data de cada linha</strong></> : <>com abertura às <strong>{hora(agora)}</strong></>}
             {n.erro + n.duplicada > 0 && <span className="text-text-secondary"> · {n.erro + n.duplicada} linha{n.erro + n.duplicada === 1 ? '' : 's'} fica{n.erro + n.duplicada === 1 ? '' : 'm'} de fora</span>}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -119,8 +151,8 @@ export function Previa({ loteId, arquivo, solicitante, linhas, patios, servicos,
   );
 }
 
-function LinhaEdicao({ l, patios, servicos, onSalvar, onCancelar }: {
-  l: LinhaPrevia; patios: { id: string; nome: string }[]; servicos: { id: string; nome: string }[];
+function LinhaEdicao({ l, patios, servicos, onSalvar, onCancelar, colUnidade, colPlanilha, unidadeCurta }: {
+  l: LinhaPrevia; patios: { id: string; nome: string }[]; servicos: { id: string; nome: string }[]; colUnidade?: boolean; colPlanilha?: boolean; unidadeCurta?: string;
   onSalvar: (b: { placa: string; modelo: string; renavam: string; patio: string; servico: string; obs: string }) => void; onCancelar: () => void;
 }) {
   const [b, setB] = useState({
@@ -135,6 +167,7 @@ function LinhaEdicao({ l, patios, servicos, onSalvar, onCancelar }: {
       <td data-rotulo="Placa"><label className="sr-only" htmlFor={`e-placa-${l.id}`}>Placa</label><input id={`e-placa-${l.id}`} className="campo h-10 w-28 uppercase" value={b.placa} onChange={set('placa')} autoFocus /></td>
       <td data-rotulo="Modelo"><label className="sr-only" htmlFor={`e-mod-${l.id}`}>Modelo</label><input id={`e-mod-${l.id}`} className="campo h-10" value={b.modelo} onChange={set('modelo')} /></td>
       <td data-rotulo="Renavam"><label className="sr-only" htmlFor={`e-ren-${l.id}`}>Renavam</label><input id={`e-ren-${l.id}`} className="campo h-10 w-32" inputMode="numeric" value={b.renavam} onChange={set('renavam')} /></td>
+      {colUnidade && <td data-rotulo="Unidade" className="max-w-[160px] text-sm" title={l.unidade ?? undefined}>{unidadeCurta}</td>}
       <td data-rotulo="Pátio">
         <label className="sr-only" htmlFor={`e-pat-${l.id}`}>Pátio</label>
         <select id={`e-pat-${l.id}`} className="campo h-10" value={patios.some((p) => p.nome === b.patio) ? b.patio : ''} onChange={set('patio')}>
@@ -147,6 +180,7 @@ function LinhaEdicao({ l, patios, servicos, onSalvar, onCancelar }: {
           <option value="">Padrão</option>{servicos.map((s) => <option key={s.id} value={s.nome}>{s.nome}</option>)}
         </select>
       </td>
+      {colPlanilha && <td data-rotulo="Na planilha" className="text-xs text-text-secondary">mantidos</td>}
       <td data-rotulo="Situação" className="text-xs">{l.mensagens.join(' ')}</td>
       <td data-rotulo="" className="whitespace-nowrap text-right">
         <button type="button" className="btn btn-primario btn-sm" onClick={() => onSalvar(b)}>Salvar</button>

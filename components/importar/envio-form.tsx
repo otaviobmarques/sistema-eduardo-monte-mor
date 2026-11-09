@@ -60,8 +60,8 @@ export function EnvioForm({ empresas, empresaFixa, nomeEmpresa }: { empresas?: {
       <aside className="painel space-y-3 p-6">
         <p className="rotulo-card">Passo 1 · Modelo</p>
         <h2 className="h3">Use o modelo</h2>
-        <p className="text-sm text-text-secondary">Colunas: <strong>PLACA, MODELO, RENAVAM, PÁTIO</strong>, e opcionalmente SERVIÇO e OBS. A planilha que vocês já usam também funciona, desde que tenha essas colunas.</p>
-        <a href="/api/importacao/modelo" className="btn btn-secundario w-full"><Icone nome="download" className="h-4 w-4" />Baixar modelo .xlsx</a>
+        <p className="text-sm text-text-secondary">Use a <strong>planilha de controle</strong> (Data, Cliente, Solicitação, Placa, Veículo, Renavam, Serviço, Valor, Pagamento, Status, Obs.). O pátio é reconhecido pela unidade na coluna Cliente. A planilha de vocês pode ser enviada como está; o modelo antigo (PLACA, MODELO, RENAVAM, PÁTIO) também continua valendo.</p>
+        <a href="/api/importacao/modelo" className="btn btn-secundario w-full"><Icone nome="download" className="h-4 w-4" />Baixar planilha modelo (.xlsx)</a>
       </aside>
     </div>
   );

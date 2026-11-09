@@ -59,7 +59,7 @@ async function limpar() {
     await cli.goto(B + '/login'); await cli.fill('#login', LOGIN); await cli.fill('#senha', SENHA); await cli.click('button:has-text("Entrar")');
     await cli.waitForURL('**/app');
     await cli.goto(B + '/app/importar');
-    const [modelo] = await Promise.all([cli.waitForEvent('download'), cli.click('text=Baixar modelo .xlsx')]);
+    const [modelo] = await Promise.all([cli.waitForEvent('download'), cli.click('text=Baixar planilha modelo')]);
     const mwb = new ExcelJS.Workbook(); await mwb.xlsx.readFile(await modelo.path());
     log('modelo baixado:', modelo.suggestedFilename(), '| colunas:', mwb.worksheets[0].getRow(1).values.slice(1).join(', '), '| abas:', mwb.worksheets.map((w) => w.name).join(', '));
     await cli.click('button:has-text("Ver prévia")');

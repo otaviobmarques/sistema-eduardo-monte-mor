@@ -12,10 +12,10 @@ export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: {
   const supabase = await createClient();
   const base = modo === 'loja' ? '/loja/importar' : '/app/importar';
   const cab = <Cabecalho kicker={modo === 'loja' ? 'Fila de OS' : 'Vistorias'} titulo={modo === 'loja' ? 'Importar lote' : 'Importar planilha'}
-    descricao="Várias placas de uma vez: envie a planilha, confira a prévia e crie todas as OS com o mesmo horário de abertura." />;
+    descricao="Várias placas de uma vez: envie a planilha (modelo novo ou a planilha de controle de vocês), confira a prévia e crie as OS." />;
 
   const lote = loteId && /^[0-9a-f-]{36}$/.test(loteId)
-    ? (await supabase.from('lotes_importacao').select('id, status, arquivo_nome, nome_solicitante, criado_em, confirmado_em, validas, empresas_clientes(nome_fantasia, razao_social)').eq('id', loteId).maybeSingle()).data
+    ? (await supabase.from('lotes_importacao').select('id, status, modo, arquivo_nome, nome_solicitante, criado_em, confirmado_em, validas, empresas_clientes(nome_fantasia, razao_social)').eq('id', loteId).maybeSingle()).data
     : null;
 
   if (!lote) {
@@ -68,7 +68,7 @@ export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: {
         <Passos atual={4} />
         <MarcarVistas loteId={lote.id} />
         <div className="mb-6"><Aviso tipo="ok" titulo={`${lote.validas} OS criadas · ${emp?.nome_fantasia || emp?.razao_social}`}>
-          Todas com abertura às {hora(lote.confirmado_em)} de {dataHora(lote.confirmado_em).slice(0, 10)}. {modo === 'cliente' ? 'A Auto Visão já foi avisada.' : ''}
+          {lote.modo === 'historico' ? 'Com a data, o status, o pagamento e o valor de cada linha da planilha.' : `Todas com abertura às ${hora(lote.confirmado_em)} de ${dataHora(lote.confirmado_em).slice(0, 10)}.`} {modo === 'cliente' ? 'A Auto Visão já foi avisada.' : ''}
         </Aviso></div>
         <div className="mb-4 flex flex-wrap gap-3">
           <Link href={modo === 'loja' ? '/loja' : '/app'} className="btn btn-primario">{modo === 'loja' ? 'Ir para a fila' : 'Acompanhar no painel'}</Link>
@@ -92,7 +92,7 @@ export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: {
   }
 
   const [{ data: linhas }, { data: patios }, { data: servicos }] = await Promise.all([
-    supabase.from('lote_linhas').select('id, linha, dados_originais, placa_normalizada, placa_corrigida, renavam, modelo, patio_id, servico_id, observacao, resultado, mensagens').eq('lote_id', lote.id).order('linha'),
+    supabase.from('lote_linhas').select('id, linha, dados_originais, placa_normalizada, placa_corrigida, renavam, modelo, patio_id, servico_id, observacao, resultado, mensagens, unidade, data_planilha, status_os, pagamento_status, valor, deslocamento').eq('lote_id', lote.id).order('linha'),
     supabase.from('patios').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('servicos').select('id, nome, padrao').eq('ativo', true).order('nome'),
   ]);
@@ -101,7 +101,7 @@ export async function TelaImportar({ modo, loteId, empresaFixa, nomeEmpresa }: {
       {cab}
       <Passos atual={3} />
       {modo === 'loja' && <p className="mb-4 font-semibold">Cliente: {emp?.nome_fantasia || emp?.razao_social}</p>}
-      <Previa loteId={lote.id} arquivo={lote.arquivo_nome ?? ''} solicitante={lote.nome_solicitante} base={base}
+      <Previa loteId={lote.id} arquivo={lote.arquivo_nome ?? ''} solicitante={lote.nome_solicitante} base={base} historico={lote.modo === 'historico'}
         linhas={(linhas ?? []) as LinhaPrevia[]} patios={patios ?? []} servicos={servicos ?? []} />
     </>
   );

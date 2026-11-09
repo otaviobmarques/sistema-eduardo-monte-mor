@@ -11,6 +11,12 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 5. SLA: **horas corridas** (padrão). `lib/regras/sla.ts` já suporta horas úteis + feriados.
 6. Pátios: endereço/cidade **provisórios** até confirmação do franqueado.
 7. Importação em lote: a planilha não traz categoria; as OS do lote nascem como **Carro** (1ª categoria) e a Loja corrige na ficha se preciso.
+8. **Modelo novo da importação (09/11/2026)**: planilha de controle (Data, Cliente/unidade, Solicitação, Placa, Veículo, Renavam,
+   Ano/Modelo, Cor, Serviço, Valor, Deslocamento, Forma de Pagamento, Pagamento Efetuado, Status, Obs.). O modelo antigo
+   (PLACA, MODELO, RENAVAM, PÁTIO) continua aceito. A **unidade** (coluna Cliente) é campo da OS (`ordens_servico.unidade`);
+   o **pátio** é reconhecido pelo nome da unidade (`acharPatioPorUnidade`). **Loja importando** (`lotes_importacao.modo =
+   'historico'`): valem Data, Status, Pagamento e Valor da linha; vistoriadas entram com `sla_indisponivel` (fora das
+   métricas de prazo) e sem rajada de alertas. **Cliente importando**: tudo vira OS nova “A vistoriar”, valor pela tabela.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
@@ -49,7 +55,8 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
   rotas que geram PDF precisam das fontes do pdfkit em `outputFileTracingIncludes` (next.config.ts).
 - Cabeçalhos de segurança e CSP em `next.config.ts`: serviço externo novo chamado pelo navegador precisa entrar em `connect-src`.
 - Docs de operação: `docs/DEPLOY.md`, `docs/BACKUP.md`, `docs/SEGURANCA.md`. E2E: `npm run test:e2e`
-  (`PLANILHA=` com a planilha da Creditas para `etapa6-importacao` e `criterio-pronto`).
+  (`PLANILHA=` com a planilha da Creditas para `etapa6-importacao` e `criterio-pronto`; `PLANILHA_DUKAR=` com a planilha de
+  controle da Dukar para `importacao-modelo-novo`).
 - Login por usuário: `loginParaEmail()` converte em e-mail sintético `@LOGIN_EMAIL_DOMAIN`.
 - Marca: arquivos oficiais em `/public/brand/` extraídos do **Design System Auto Visão 1.1** (PDF oficial, 45 p.):
   `logo-colorido.png` / `logo-branco.png` (2048×474, proporção 4,3207), `simbolo.png`, `simbolo-mono.png`, `mosaico.png`.
