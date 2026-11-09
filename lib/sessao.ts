@@ -15,6 +15,8 @@ export interface Perfil {
   deve_trocar_senha: boolean;
   senha_expira_em: string | null;
   bloqueado: boolean;
+  /** Gestor que conclui OS sem travas (motivo, pendência, justificativa de atraso). */
+  conclusao_livre?: boolean;
 }
 
 export interface Sessao {

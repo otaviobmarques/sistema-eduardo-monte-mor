@@ -90,6 +90,8 @@ export interface DadosAcoes {
   precisaJustificar: boolean;
   /** OS concluída sem laudo e ainda sem PDF: o botão vira “Anexar laudo”. */
   semLaudo?: boolean;
+  /** Gestor sem travas: conclui com pendência aberta, OS frustrada ou atraso sem justificativa, sem motivo. */
+  conclusaoLivre?: boolean;
 }
 
 export function AcoesLoja({ d }: { d: DadosAcoes }) {
@@ -198,7 +200,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
 
         {ativa && <CancelarOs osId={os.id} numero={os.numero} motivos={d.motivos.cancelamento} />}
 
-        {aberta && (
+        {(aberta || (d.conclusaoLivre && os.status === 'frustrado')) && (
           <ModalForm titulo="Concluir OS sem laudo" rotulo="Concluir sem laudo" perigo
             descricao={`OS ${os.numero}: a vistoria será dada como concluída sem o PDF do laudo.`}
             abrir={(f) => (
@@ -214,27 +216,28 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
                   <p className="font-display text-base font-extrabold text-error">Atenção: você está concluindo esta OS sem laudo</p>
                   <p>A OS passa para <strong>Vistoriado</strong>, o prazo para de contar e o valor é congelado. O cliente é avisado de que a vistoria foi concluída, mas <strong>não terá o PDF para baixar</strong>.</p>
                   <p>A ficha fica marcada como “Concluída sem laudo” até você anexar o laudo (botão “Anexar laudo”, depois).</p>
+                  {d.conclusaoLivre && (d.pendenciasAbertas > 0 || os.status === 'frustrado') && <p>As pendências abertas serão <strong>encerradas</strong> junto com a OS.</p>}
                 </div>
               </div>
-              <Campo id="sl-motivo" rotulo="Por que concluir sem laudo?" erro={e.motivo} ajuda="Fica na linha do tempo e na auditoria.">
+              <Campo id="sl-motivo" rotulo="Por que concluir sem laudo?" opcional={d.conclusaoLivre} erro={e.motivo} ajuda="Fica na linha do tempo e na auditoria.">
                 <textarea id="sl-motivo" name="motivo" className="campo" rows={3} placeholder="Ex.: laudo entregue em papel ao cliente; vistoria feita por outro sistema" {...inv(e.motivo)} />
               </Campo>
-              <div>
+              {!d.conclusaoLivre && <div>
                 <label className="flex min-h-toque cursor-pointer items-start gap-3 text-sm">
                   <input type="checkbox" name="ciente" className="check mt-0.5" aria-invalid={e.ciente ? true : undefined} />
                   <span>Entendo que esta OS será concluída <strong>sem laudo anexado</strong>.</span>
                 </label>
                 {e.ciente && <p className="erro-campo">{e.ciente}</p>}
-              </div>
+              </div>}
             </>)}
           </ModalForm>
         )}
 
-        {(aberta || os.status === 'vistoriado') && (
+        {(aberta || os.status === 'vistoriado' || (d.conclusaoLivre && os.status === 'frustrado')) && (
           <ModalForm titulo={d.semLaudo ? 'Anexar laudo' : os.status === 'vistoriado' ? 'Enviar nova versão do laudo' : 'Enviar laudo'} rotulo={d.semLaudo ? 'Anexar laudo' : 'Enviar laudo'}
             descricao={d.semLaudo ? 'A OS foi concluída sem laudo. Ao anexar, o cliente é avisado de que o laudo está disponível.' : os.status === 'vistoriado' ? 'O cliente passa a ver a versão nova; as anteriores ficam no histórico.' : 'O envio conclui a OS, encerra o prazo, congela o valor e avisa o cliente.'}
             abrir={(f) => (
-              <button type="button" className={`btn btn-primario ${aberta ? '' : 'sm:ml-auto'}`} onClick={f} disabled={aberto(d)}>
+              <button type="button" className={`btn btn-primario ${os.status === 'vistoriado' ? 'sm:ml-auto' : ''}`} onClick={f} disabled={aberto(d)}>
                 <Icone nome="download" className="h-4 w-4 rotate-180" />{d.semLaudo ? 'Anexar laudo' : os.status === 'vistoriado' ? 'Nova versão do laudo' : 'Enviar laudo'}
               </button>
             )}
@@ -246,7 +249,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
           </ModalForm>
         )}
       </div>
-      {aberta && (d.pendenciasAbertas > 0 || d.precisaJustificar) && (
+      {aberta && !d.conclusaoLivre && (d.pendenciasAbertas > 0 || d.precisaJustificar) && (
         <p className="mt-3 text-sm text-text-secondary">
           Para concluir (com ou sem laudo): {[d.pendenciasAbertas > 0 && 'resolva as pendências abertas', d.precisaJustificar && 'justifique o atraso'].filter(Boolean).join(' e ')}.
         </p>
@@ -255,7 +258,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
     </section>
   );
 }
-const aberto = (d: DadosAcoes) => d.os.status === 'a_vistoriar' && (d.pendenciasAbertas > 0 || d.precisaJustificar);
+const aberto = (d: DadosAcoes) => !d.conclusaoLivre && d.os.status === 'a_vistoriar' && (d.pendenciasAbertas > 0 || d.precisaJustificar);
 
 export function CancelarOs({ osId, numero, motivos, cliente }: { osId: string; numero: number; motivos: Opcao[]; cliente?: boolean }) {
   return (

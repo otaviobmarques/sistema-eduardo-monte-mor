@@ -6,6 +6,7 @@ import { data as fmtDataCurta, dataHora, ETAPA_LABEL, moeda, PAGAMENTO_LABEL, ST
 import { carregarConfigSla, slaDaOs } from '@/lib/os-leitura';
 import { formatarDuracao } from '@/lib/regras/sla';
 import { createClient } from '@/lib/supabase/server';
+import { getSessao } from '@/lib/sessao';
 import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './ficha-acoes';
 import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
 import { AcoesLoja, CancelarOs, Pendencias, type PendenciaVista } from './operacoes';
@@ -136,7 +137,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
           os: { id: os.id, numero: os.numero, status: os.status, etapa: os.etapa, local: os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome ?? '' : os.endereco ?? '' },
           vistoriadores: vistoriadores ?? [], motivos: { frustracao: porTipo('frustracao'), cancelamento: porTipo('cancelamento'), reagendamento: porTipo('reagendamento') },
           agendamento: agAtual ? { data_hora: agAtual.data_hora, vistoriador_id: agAtual.vistoriador_id, local_texto: agAtual.local_texto } : null,
-          pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length, semLaudo: !!os.sem_laudo,
+          pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length, semLaudo: !!os.sem_laudo, conclusaoLivre: !!(await getSessao())?.perfil.conclusao_livre,
         }} />
       )}
       {modo === 'cliente' && (os.status === 'a_vistoriar' || os.status === 'frustrado') && (

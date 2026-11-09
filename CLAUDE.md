@@ -20,6 +20,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 9. **Concluir OS sem laudo (09/11/2026)**: a Loja pode finalizar sem PDF (`concluir_sem_laudo()`), com alerta na tela,
    motivo e confirmação obrigatórios e as mesmas travas do laudo (pendência aberta; atraso exige justificativa).
    A OS fica `sem_laudo = true` (selo “Sem laudo” na ficha) até um laudo ser anexado (“Anexar laudo”).
+10. **Conclusão livre (09/11/2026)**: o Gestor com `perfis_usuario.conclusao_livre = true` (ligado para o `eduardo`)
+   fecha a placa sem travas: sem motivo nem confirmação, com OS frustrada, com pendência aberta (encerrada junto, pausas
+   fechadas) e com atraso sem justificativa (`app.conclusao_livre` na transação pula `tg_exigir_justificativa`).
+   Vale para “Concluir sem laudo” e “Enviar laudo”. Os demais Gestores continuam com as travas.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
