@@ -18,6 +18,16 @@ async function sessao(perfil?: 'loja') {
   return s;
 }
 
+/** Data da conclusão escolhida (só Gestor com conclusão livre). Vazia = agora. */
+function dataConclusao(form: FormData, livre: boolean): { iso: string | null; erro?: string } {
+  const bruto = String(form.get('concluida_em') ?? '').trim();
+  if (!livre || !bruto) return { iso: null };
+  const iso = deBrasilia(bruto);
+  if (!iso) return { iso: null, erro: 'Informe data e hora válidas.' };
+  if (new Date(iso) > new Date(Date.now() + 5 * 60_000)) return { iso: null, erro: 'A conclusão não pode estar no futuro.' };
+  return { iso };
+}
+
 function atualizar(numero: number) {
   revalidatePath(`/loja/os/${numero}`); revalidatePath(`/app/os/${numero}`);
   revalidatePath('/loja'); revalidatePath('/app'); revalidatePath('/loja/pendencias'); revalidatePath('/app/pendencias'); revalidatePath('/loja/agenda');
@@ -146,7 +156,9 @@ export async function cancelar(osId: string, numero: number, d: { nome: string; 
 }
 
 export async function enviarLaudo(form: FormData): Promise<Resultado<{ versao: number }>> {
-  await sessao('loja');
+  const s = await sessao('loja');
+  const quando = dataConclusao(form, !!s.perfil.conclusao_livre);
+  if (quando.erro) return { ok: false, erro: 'Confira os campos.', campos: { concluida_em: quando.erro } };
   const osId = String(form.get('os_id')), numero = Number(form.get('numero'));
   const arq = form.get('arquivo');
   if (!(arq instanceof File) || !arq.size) return { ok: false, erro: 'Escolha o PDF do laudo.' };
@@ -160,7 +172,7 @@ export async function enviarLaudo(form: FormData): Promise<Resultado<{ versao: n
   const caminho = `${os.empresa_cliente_id}/${osId}/v${versao}.pdf`;
   const { error: up } = await supabase.storage.from('laudos').upload(caminho, arq, { contentType: 'application/pdf', upsert: false });
   if (up) return { ok: false, erro: up.message.includes('exists') ? 'Outra pessoa enviou um laudo agora mesmo. Atualize a página.' : 'Não foi possível enviar o arquivo. Tente de novo.' };
-  const { error } = await supabase.rpc('registrar_laudo', { p_os: osId, p_versao: versao, p_path: caminho, p_nome: arq.name, p_tamanho: arq.size });
+  const { error } = await supabase.rpc('registrar_laudo', { p_os: osId, p_versao: versao, p_path: caminho, p_nome: arq.name, p_tamanho: arq.size, p_concluida_em: quando.iso });
   if (error) {
     await supabase.storage.from('laudos').remove([caminho]);
     return { ok: false, erro: mensagemOperacao(error) };
@@ -179,9 +191,11 @@ export async function concluirSemLaudo(form: FormData): Promise<Resultado> {
   if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
   if (!livre && motivo.length < 5) campos.motivo = 'Explique por que a OS está sendo concluída sem laudo (ex.: laudo entregue em papel ao cliente).';
   if (!livre && form.get('ciente') !== 'on') campos.ciente = 'Marque a confirmação para concluir sem laudo.';
+  const quando = dataConclusao(form, livre);
+  if (quando.erro) campos.concluida_em = quando.erro;
   if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
   const supabase = await createClient();
-  const { error } = await supabase.rpc('concluir_sem_laudo', { p_os: osId, p_motivo: motivo });
+  const { error } = await supabase.rpc('concluir_sem_laudo', { p_os: osId, p_motivo: motivo, p_concluida_em: quando.iso });
   if (error) return { ok: false, erro: mensagemOperacao(error) };
   atualizar(numero);
   return { ok: true };

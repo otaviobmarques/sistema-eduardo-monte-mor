@@ -4,6 +4,8 @@ const MSG: Record<string, string> = {
   OS_NAO_ABERTA: 'Esta OS não está mais em andamento. Atualize a página.',
   OS_NAO_ENCONTRADA: 'OS não encontrada.',
   OS_NAO_ENCERRADA: 'Só dá para reabrir OS vistoriada ou cancelada. Atualize a página.',
+  DATA_CONCLUSAO_FUTURA: 'A data da conclusão não pode estar no futuro.',
+  DATA_CONCLUSAO_ANTES_ABERTURA: 'A data da conclusão não pode ser anterior à abertura da OS.',
   JA_PAUSADA: 'O prazo desta OS já está pausado.',
   NAO_PAUSADA: 'O prazo desta OS não está pausado manualmente. Atualize a página.',
   VISTORIADOR_INVALIDO: 'Escolha um vistoriador ativo.',

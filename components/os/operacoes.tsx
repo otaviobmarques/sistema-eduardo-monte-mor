@@ -15,6 +15,16 @@ function agoraLocal(deslocMin = 0) {
   const d = new Date(Date.now() + deslocMin * 60_000 - 3 * 3600_000);
   return d.toISOString().slice(0, 16);
 }
+/** Campo “Data e hora da conclusão” (só Gestor com conclusão livre): pode ser anterior a hoje; o SLA vale por ela. */
+function CampoConclusao({ erro, abertaEm }: { erro?: string; abertaEm?: string }) {
+  const min = abertaEm ? new Date(new Date(abertaEm).getTime() - 3 * 3600_000).toISOString().slice(0, 16) : undefined;
+  return (
+    <Campo id="conclusao-quando" rotulo="Data e hora da conclusão" erro={erro}
+      ajuda="Pode ser uma data anterior a hoje. O prazo (no prazo ou atrasada) é calculado por esta data.">
+      <input id="conclusao-quando" name="concluida_em" type="datetime-local" className="campo" defaultValue={agoraLocal()} min={min} max={agoraLocal(5)} {...inv(erro)} />
+    </Campo>
+  );
+}
 function hojeMais(dias: number) {
   return new Date(Date.now() - 3 * 3600_000 + dias * 86400_000).toISOString().slice(0, 10);
 }
@@ -82,7 +92,7 @@ function Responsavel({ erro, padrao = 'cliente' }: { erro?: string; padrao?: str
 }
 
 export interface DadosAcoes {
-  os: { id: string; numero: number; status: string; etapa: string | null; local: string };
+  os: { id: string; numero: number; status: string; etapa: string | null; local: string; aberta_em?: string };
   vistoriadores: { id: string; nome: string }[];
   motivos: { frustracao: Opcao[]; cancelamento: Opcao[]; reagendamento: Opcao[] };
   agendamento: { data_hora: string; vistoriador_id: string | null; local_texto: string | null } | null;
@@ -256,6 +266,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
                   {d.conclusaoLivre && (d.pendenciasAbertas > 0 || os.status === 'frustrado') && <p>As pendências abertas serão <strong>encerradas</strong> junto com a OS.</p>}
                 </div>
               </div>
+              {d.conclusaoLivre && <CampoConclusao erro={e.concluida_em} abertaEm={os.aberta_em} />}
               <Campo id="sl-motivo" rotulo="Por que concluir sem laudo?" opcional={d.conclusaoLivre} erro={e.motivo} ajuda="Fica na linha do tempo e na auditoria.">
                 <textarea id="sl-motivo" name="motivo" className="campo" rows={3} placeholder="Ex.: laudo entregue em papel ao cliente; vistoria feita por outro sistema" {...inv(e.motivo)} />
               </Campo>
@@ -279,7 +290,8 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
               </button>
             )}
             enviar={(fd) => { fd.set('os_id', os.id); fd.set('numero', String(os.numero)); return enviarLaudo(fd); }}>
-            {() => (<>
+            {(e) => (<>
+              {d.conclusaoLivre && os.status !== 'vistoriado' && <CampoConclusao erro={e.concluida_em} abertaEm={os.aberta_em} />}
               <div><p className="rotulo">Laudo em PDF</p><ArquivoInput name="arquivo" accept=".pdf,application/pdf" obrigatorio rotuloBotao="Escolher PDF" /></div>
               <p className="ajuda">Até 20 MB.</p>
             </>)}

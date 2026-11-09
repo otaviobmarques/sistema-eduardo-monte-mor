@@ -31,6 +31,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    para a Loja e os clientes dela. **Filtro “Unidade / Pátio”** com várias escolhas (parâmetro `local=p:<pátio>`/`u:<unidade>`,
    `lib/fila.ts`) na fila da Loja, na exportação e no painel do cliente. **Sessão**: “Sair” encerra só o aparelho
    (`signOut({ scope: 'local' })`), o middleware não desloga por falha passageira e `ManterSessao` renova o acesso.
+12. **Data da conclusão (09/11/2026)**: o Gestor com `conclusao_livre` escolhe data/hora da conclusão (pode ser anterior a
+   hoje; nunca antes da abertura nem no futuro) em “Concluir sem laudo” e “Enviar laudo” (`p_concluida_em`,
+   `data_conclusao()`). O SLA (no prazo/atrasada, tempo de conclusão, mês do fechamento) vale por essa data; pausas abertas
+   fecham nela. Gestor comum: sempre “agora”.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
