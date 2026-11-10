@@ -50,6 +50,17 @@ const falha = (m) => { throw new Error(m); };
       await p.goto(`${B}/loja`);
       const kpi = await p.locator('div:has(> p:has-text("A receber em"))').first().innerText();
       if (!kpi.includes('1.000,00') || !kpi.includes('4 placas')) falha('A receber: ' + kpi);
+      const kv = async (r) => (await p.locator(`[aria-label="Indicadores"] div:has(> p:text-is("${r}"))`).first().innerText()).replace(/\s+/g, ' ');
+      const [kA, kP] = [await kv('A vistoriar'), await kv('Pausadas')];
+      if (!/A vistoriar 0 /i.test(kA) || !/Pausadas 2 /i.test(kP) || !kP.includes('1 pausa manual') || !kP.includes('1 com pendência')) falha(`cards: ${kA} | ${kP}`);
+      log(`card “Pausadas” = 2 (1 pausa manual, 1 com pendência) e elas saem de “A vistoriar” (= 0); frustrada continua à parte`);
+      await g.rpc('retomar_os', { p_os: a.id });
+      await p.reload();
+      if (!/A vistoriar 1 /i.test(await kv('A vistoriar')) || !/Pausadas 1 /i.test(await kv('Pausadas'))) falha('retomar não voltou para A vistoriar');
+      log('ao retomar, a OS volta a contar em “A vistoriar”');
+      await p.click('a[aria-label^="Pausadas"]'); await p.waitForURL(/sla=pausadas/);
+      log('clicar no card “Pausadas” abre a fila filtrada');
+      await p.goto(`${B}/loja`);
       log('“A receber” do mês soma as 4 placas não canceladas (pausada, com pendência, frustrada e vistoriada): R$ 1.000,00; a cancelada (R$ 1.000) fica de fora');
 
       const itens = await p.$$eval('section[aria-labelledby="card-patios"] li', (ls) => ls.map((l) => l.innerText.replace(/\s+/g, ' ')));

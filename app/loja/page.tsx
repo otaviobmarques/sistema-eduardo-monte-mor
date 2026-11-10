@@ -38,6 +38,11 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
     encerradas ? buscarOs(supabase, { status: ['a_vistoriar', 'frustrado'], limite: 1000 }) : Promise.resolve({ linhas: todas }),
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
+  // Pausadas (a partir da pausa) saem de “A vistoriar” e ganham o próprio card
+  const pausadas = abertas.filter((o) => o.status === 'a_vistoriar' && o.sla.pausada);
+  const aVistoriar = abertas.filter((o) => o.status === 'a_vistoriar' && !o.sla.pausada);
+  const qtdManual = pausadas.filter((o) => o.motivoPausa?.includes('Pausa manual')).length;
+  const qtdPendencia = pausadas.filter((o) => o.motivoPausa?.includes('Pendência')).length;
   const mesNome = nomeDoMes(n.mes).split(' ')[0];
   const exportar = (formato: string) => `/api/fila?${qsDe({ formato, q: q || undefined, sla: sla || undefined, local: locais })}`;
 
@@ -47,13 +52,19 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <Link href="/loja/os/nova" className="btn btn-claro">Abrir OS para cliente</Link>
         <Link href="/loja/importar" className="btn btn-contorno-claro">Importar lote</Link>
       </Hero>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3" aria-label="Indicadores">
-        <Kpi rotulo="A vistoriar" valor={abertas.filter((o) => o.status === 'a_vistoriar').length} detalhe={`${abertas.filter((o) => o.status === 'frustrado').length} frustradas aguardando`} tom="escuro" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Indicadores">
+        <Kpi rotulo="A vistoriar" valor={aVistoriar.length} detalhe={`${abertas.filter((o) => o.status === 'frustrado').length} frustradas aguardando · sem as pausadas`} tom="escuro" />
+        <Link href="?sla=pausadas" className="block rounded-card transition-colors duration-[120ms] [&>div:hover]:border-impact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact" aria-label={`Pausadas: ${pausadas.length}. Ver na fila`}>
+          <Kpi rotulo="Pausadas" valor={pausadas.length}
+            detalhe={pausadas.length ? [qtdManual && `${qtdManual} pausa${qtdManual === 1 ? '' : 's'} manual${qtdManual === 1 ? '' : 'is'}`, qtdPendencia && `${qtdPendencia} com pendência`].filter(Boolean).join(' · ') || 'prazo parado' : 'nenhuma pausada'} />
+        </Link>
         <Kpi rotulo="Vencendo" valor={cor('amarelo')} detalhe="passaram de 24h" />
         <Kpi rotulo="Vencidas" valor={cor('vermelho')} detalhe={cor('vermelho') ? 'precisam de justificativa' : 'nenhuma atrasada'} tom={cor('vermelho') ? 'alerta' : undefined} />
         <Kpi rotulo={`Vistoriadas em ${mesNome}`} valor={n.vistoriadas} detalhe={`${formatarPct(n.pctNoPrazo)} no prazo`} />
         <Kpi rotulo={`Frustradas / canceladas`} valor={`${n.frustradasNoMes} / ${n.canceladasNoMes}`} detalhe={`em ${mesNome}`} />
-        <Kpi rotulo={`A receber em ${mesNome}`} valor={moeda(n.aReceberMes)} detalhe={`${n.qtdAReceberMes} placa${n.qtdAReceberMes === 1 ? '' : 's'} do mês · exceto canceladas`} />
+        <div className="col-span-2">
+          <Kpi rotulo={`A receber em ${mesNome}`} valor={moeda(n.aReceberMes)} detalhe={`${n.qtdAReceberMes} placa${n.qtdAReceberMes === 1 ? '' : 's'} do mês · exceto canceladas`} />
+        </div>
       </div>
       <section className="card p-5" aria-labelledby="card-patios">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

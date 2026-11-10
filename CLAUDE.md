@@ -39,6 +39,8 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    descrição da pendência/frustração). KPI **“A receber em <mês>”** soma todas as placas abertas no mês com pagamento
    pendente, em qualquer status menos cancelado (`numerosDoMes().aReceberMes`). Card **“Vistorias por pátio”**: ranking das
    OS abertas no mês (sem canceladas) por pátio, com quantas já vistoriadas.
+   Card **“Pausadas”** (clicável → `?sla=pausadas`): OS “A vistoriar” com o prazo pausado (pausa manual ou pendência);
+   a partir da pausa elas **saem do card “A vistoriar”** e voltam a contar ao retomar. Frustradas seguem à parte.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
