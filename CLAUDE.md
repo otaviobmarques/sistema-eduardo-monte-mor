@@ -41,6 +41,12 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    OS abertas no mês (sem canceladas) por pátio, com quantas já vistoriadas.
    Card **“Pausadas”** (clicável → `?sla=pausadas`): OS “A vistoriar” com o prazo pausado (pausa manual ou pendência);
    a partir da pausa elas **saem do card “A vistoriar”** e voltam a contar ao retomar. Frustradas seguem à parte.
+14. **Sessão no iPhone/iPad (10/11/2026)**: o acesso_log mostrou o Gestor deslogando no iOS logo após o servidor renovar
+   o acesso (Safari congela a aba e a renovação fica para o servidor). Agora, quando o servidor não reconhece a sessão mas o
+   navegador ainda tem o cookie do Supabase, middleware/`semSessao()` mandam para **`/sessao`**, que renova pelo navegador e
+   volta à página (proteção contra voltas: 2ª tentativa em 30 s vai ao login com “Sua sessão terminou neste aparelho”).
+   `ManterSessao` também renova no `pageshow` (volta da memória no iOS). Log `{"diag":"sem-sessao",…}` (só nomes de cookie,
+   nunca valores) nos logs da Vercel. Várias sessões do mesmo usuário ao mesmo tempo são permitidas (uma por aparelho).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

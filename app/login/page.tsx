@@ -7,6 +7,7 @@ import { Creditos } from '@/components/creditos';
 export const metadata: Metadata = { title: 'Entrar' };
 
 const ERROS: Record<string, string> = {
+  sessao: 'Sua sessão terminou neste aparelho. Entre de novo.',
   loja_suspensa: 'O acesso desta Loja está suspenso. Fale com o administrador do sistema.',
   bloqueado: `Acesso bloqueado. Fale com ${CONTATO_GESTOR.nome}: ${CONTATO_GESTOR.telefone}.` };
 

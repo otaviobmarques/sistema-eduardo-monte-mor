@@ -21,8 +21,11 @@ export function ManterSessao() {
     document.addEventListener('visibilitychange', aoVoltar);
     window.addEventListener('focus', aoVoltar);
     window.addEventListener('online', aoVoltar);
+    // iPhone/iPad: a página volta da memória (bfcache) sem recarregar; renova na hora
+    const aoMostrar = () => void renovar();
+    window.addEventListener('pageshow', aoMostrar);
     void renovar();
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', aoVoltar); window.removeEventListener('focus', aoVoltar); window.removeEventListener('online', aoVoltar); };
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', aoVoltar); window.removeEventListener('focus', aoVoltar); window.removeEventListener('online', aoVoltar); window.removeEventListener('pageshow', aoMostrar); };
   }, []);
   return null;
 }

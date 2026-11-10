@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -55,9 +56,22 @@ export const lojaSoPagamento = (s: Sessao) => s.perfil.perfil === 'loja' && !!s.
  * Garante sessão válida, perfil certo, não bloqueado, Loja em dia e senha já trocada.
  * Loja bloqueada: o Gestor é levado à Assinatura (só ela aceita `permitirLojaBloqueada`); os clientes ficam de fora.
  */
+/**
+ * Sem sessão reconhecida no servidor. Se o navegador ainda tem o cookie da sessão, manda para /sessao, que renova pelo
+ * navegador e volta à página (evita “deslogar sozinho” quando a renovação do acesso falha no servidor, comum no iPhone).
+ */
+export async function semSessao(): Promise<never> {
+  const [jar, h] = await Promise.all([cookies(), headers()]);
+  const nomes = jar.getAll().filter((c) => c.name.includes('-auth-token') && c.value).map((c) => c.name);
+  const caminho = h.get('x-url') ?? h.get('x-caminho') ?? '/';
+  console.log(JSON.stringify({ diag: 'sem-sessao', onde: 'servidor', path: caminho, recuperar: nomes.length > 0, cookies: nomes, ua: h.get('user-agent')?.slice(0, 120) }));
+  if (nomes.length) redirect(`/sessao?volta=${encodeURIComponent(caminho)}`);
+  redirect('/login');
+}
+
 export async function exigirPerfil(perfil: TipoPerfil, opcoes: { permitirLojaBloqueada?: boolean } = {}): Promise<Sessao> {
   const s = await getSessao();
-  if (!s) redirect('/login');
+  if (!s) return semSessao();
   if (s.perfil.bloqueado) redirect('/login?erro=bloqueado');
   if (s.loja && lojaSoPagamento(s)) {
     if (!opcoes.permitirLojaBloqueada) redirect('/loja/assinatura');
@@ -69,7 +83,7 @@ export async function exigirPerfil(perfil: TipoPerfil, opcoes: { permitirLojaBlo
 
 export async function exigirUmDe(perfis: TipoPerfil[]): Promise<Sessao> {
   const s = await getSessao();
-  if (!s) redirect('/login');
+  if (!s) return semSessao();
   if (s.perfil.bloqueado || s.perfil.deve_trocar_senha || !perfis.includes(s.perfil.perfil)) redirect(ROTA_INICIAL[s.perfil.perfil]);
   return s;
 }
