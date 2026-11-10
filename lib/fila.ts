@@ -32,6 +32,21 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
       laudos = new Map((ls ?? []).map((l) => [l.os_id, { id: l.id, nome: l.nome_arquivo }]));
     }
   }
+  // Motivo das pausas abertas (pausa manual, pendência ou frustração)
+  const pausas = new Map<string, string>();
+  const pausadas = (data ?? []).filter((o) => o.pausado_desde && (o.status === 'a_vistoriar' || o.status === 'frustrado')).map((o) => o.id);
+  if (pausadas.length) {
+    const { data: ps } = await supabase.from('sla_pausas').select('os_id, origem, motivo, referencia_id, inicio').in('os_id', pausadas).is('fim', null).order('inicio');
+    const refs = (ps ?? []).filter((p) => p.origem !== 'manual' && p.referencia_id).map((p) => p.referencia_id as string);
+    const { data: pend } = refs.length ? await supabase.from('pendencias').select('id, descricao').in('id', refs) : { data: [] as { id: string; descricao: string }[] };
+    const desc = new Map((pend ?? []).map((p) => [p.id, p.descricao]));
+    const ROTULO = { manual: 'Pausa manual', pendencia: 'Pendência', frustracao: 'Frustração', aprovacao_preco: 'Aguardando aprovação de preço' } as Record<string, string>;
+    for (const p of ps ?? []) {
+      const detalhe = p.origem === 'manual' ? p.motivo : p.referencia_id ? desc.get(p.referencia_id) : null;
+      const texto = [ROTULO[p.origem] ?? 'Pausa', detalhe].filter(Boolean).join(': ');
+      pausas.set(p.os_id, pausas.has(p.os_id) ? `${pausas.get(p.os_id)} · ${texto}` : texto);
+    }
+  }
   const linhas: LinhaOs[] = (data ?? []).map((o) => {
     const emp = o.empresas_clientes as unknown as { razao_social: string; nome_fantasia: string | null } | null;
     return {
@@ -43,6 +58,7 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
       entrada: { aberta_em: o.aberta_em, sla_horas: o.sla_horas, status: o.status, total_pausado_ms: intervaloMs(o.total_pausado), pausado_desde: o.pausado_desde, concluida_em: o.concluida_em, cancelada_em: o.cancelada_em },
       laudo: laudos.get(o.id) ?? null,
       patio: (o.patios as unknown as { nome: string } | null)?.nome ?? null, unidade: o.unidade ?? null,
+      motivoPausa: pausas.get(o.id) ?? null,
     };
   });
   return { linhas, cfg };

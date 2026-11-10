@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const filtros = [`${linhas.length} OS em andamento`, sp.get('q') ? `Busca: ${sp.get('q')}` : null, chip ? `Prazo: ${SLA[chip]}` : null, locais.length ? `Unidade/Pátio: ${locais.map((l) => l.slice(2)).join(', ')}` : null].filter(Boolean) as string[];
   const dados = linhas.map((o) => ({
     o, etapa: o.status === 'a_vistoriar' && o.etapa ? ETAPA_LABEL[o.etapa as keyof typeof ETAPA_LABEL] : '',
-    prazo: o.sla.prazo ? dataHora(o.sla.prazo) : 'Pausado', sla: `${SLA[o.sla.cor]} · ${o.sla.texto}`,
+    prazo: o.sla.prazo ? dataHora(o.sla.prazo) : 'Pausado', sla: `${SLA[o.sla.cor]} · ${o.sla.texto}${o.motivoPausa ? ` · ${o.motivoPausa}` : ''}`,
   }));
 
   if (sp.get('formato') === 'pdf') {

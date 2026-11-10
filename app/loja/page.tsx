@@ -53,8 +53,30 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <Kpi rotulo="Vencidas" valor={cor('vermelho')} detalhe={cor('vermelho') ? 'precisam de justificativa' : 'nenhuma atrasada'} tom={cor('vermelho') ? 'alerta' : undefined} />
         <Kpi rotulo={`Vistoriadas em ${mesNome}`} valor={n.vistoriadas} detalhe={`${formatarPct(n.pctNoPrazo)} no prazo`} />
         <Kpi rotulo={`Frustradas / canceladas`} valor={`${n.frustradasNoMes} / ${n.canceladasNoMes}`} detalhe={`em ${mesNome}`} />
-        <Kpi rotulo="A receber" valor={moeda(n.aReceber)} detalhe={`${n.qtdAReceber} placa${n.qtdAReceber === 1 ? '' : 's'} vistoriada${n.qtdAReceber === 1 ? '' : 's'}`} />
+        <Kpi rotulo={`A receber em ${mesNome}`} valor={moeda(n.aReceberMes)} detalhe={`${n.qtdAReceberMes} placa${n.qtdAReceberMes === 1 ? '' : 's'} do mês · exceto canceladas`} />
       </div>
+      <section className="card p-5" aria-labelledby="card-patios">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="card-patios" className="h3">Vistorias por pátio em {mesNome}</h2>
+          <Link href="/loja/relatorios?tipo=patio" className="btn btn-texto btn-sm">Ver relatório</Link>
+        </div>
+        {n.rankingPatios.length === 0 ? <p className="text-sm text-text-secondary">Nenhuma OS aberta no mês.</p> : (
+          <ol className="space-y-3 text-sm">
+            {n.rankingPatios.map((p, i) => (
+              <li key={p.patio} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3">
+                <span className="font-display text-lg font-black tabular-nums text-text-secondary">{i + 1}º</span>
+                <div className="min-w-0">
+                  <div className="flex justify-between gap-2"><span className="truncate font-semibold">{p.patio}</span></div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
+                    <div className="h-full rounded-full bg-brand-graphite" style={{ width: `${Math.max(4, Math.round((p.total / n.rankingPatios[0].total) * 100))}%` }} />
+                  </div>
+                </div>
+                <span className="text-right tabular-nums"><span className="font-semibold">{p.total}</span> OS<span className="block text-xs text-text-secondary">{p.vistoriadas} vistoriada{p.vistoriadas === 1 ? '' : 's'}</span></span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
       <div className="grid gap-4 md:grid-cols-2">
         <section className="card p-5" aria-labelledby="card-atraso">
           <div className="mb-3 flex items-center justify-between gap-3"><h2 id="card-atraso" className="h3">Motivos de atraso em {mesNome}</h2><Link href="/loja/relatorios?tipo=sla" className="btn btn-texto btn-sm">Ver relatório</Link></div>

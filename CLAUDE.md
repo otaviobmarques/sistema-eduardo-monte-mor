@@ -35,6 +35,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    hoje; nunca antes da abertura nem no futuro) em “Concluir sem laudo” e “Enviar laudo” (`p_concluida_em`,
    `data_conclusao()`). O SLA (no prazo/atrasada, tempo de conclusão, mês do fechamento) vale por essa data; pausas abertas
    fecham nela. Gestor comum: sempre “agora”.
+13. **Painel de OS (10/11/2026)**: OS pausada mostra o motivo na fila e na exportação (`sla_pausas.motivo` da pausa manual;
+   descrição da pendência/frustração). KPI **“A receber em <mês>”** soma todas as placas abertas no mês com pagamento
+   pendente, em qualquer status menos cancelado (`numerosDoMes().aReceberMes`). Card **“Vistorias por pátio”**: ranking das
+   OS abertas no mês (sem canceladas) por pátio, com quantas já vistoriadas.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

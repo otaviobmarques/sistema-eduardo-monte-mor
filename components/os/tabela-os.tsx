@@ -12,6 +12,8 @@ export interface LinhaOs {
   cidade: string | null; local: string | null; cliente?: string | null; pagamento_status: 'pendente' | 'pago' | 'faturado';
   sla: SlaResultado; entrada: SlaEntrada; laudo?: { id: string; nome: string } | null;
   patio?: string | null; unidade?: string | null;
+  /** Por que está pausada (pausa manual, pendência, frustração). */
+  motivoPausa?: string | null;
 }
 
 export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig }) {
@@ -44,6 +46,7 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
               <td data-rotulo="Status"><StatusSelo status={o.status} etapa={modo === 'loja' ? o.etapa : null} /></td>
               <td data-rotulo="Prazo">
                 <SlaAoVivo entrada={o.entrada} cfg={cfg} compacta comPrazo />
+                {o.motivoPausa && <span className="mt-1 block max-w-[16rem] break-words text-xs text-text-secondary"><span className="sr-only">Motivo da pausa: </span>{o.motivoPausa}</span>}
               </td>
               {modo === 'cliente' && <td data-rotulo="Pagamento">{PAGAMENTO_LABEL[o.pagamento_status]}</td>}
               <td data-rotulo="" className="whitespace-nowrap text-right">
