@@ -64,6 +64,12 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    (vazio = pátio/endereço de cada OS). `agendar_lote()` chama `agendar_os()` para cada uma (histórico, etapa “Agendada”,
    Agenda); OS já agendada vira reagendamento com o motivo escolhido; falhas voltam por OS. A fila mostra o agendamento
    (dia, hora, vistoriador) embaixo do status. Uso típico: filtrar pelo pátio → selecionar todas → agendar.
+19. **Relatório da agenda (11/11/2026)**: `/loja/relatorios/agenda` (chip “Agenda dos vistoriadores” em Relatórios e botão
+   na Agenda). Lê o agendamento **atual** de cada OS (`os_agendamentos.atual`) com data/hora no período (padrão: mês atual
+   inteiro). Situação: Realizada (OS vistoriada) · Agendada (ainda por vir) · Não realizada (passou o horário e segue a
+   vistoriar) · Frustrada · Cancelada (`lib/regras/agenda-relatorio.ts`, testado). Agrupa por vistoriador, dia ou pátio
+   (com um vistoriador filtrado, por dia); % realizadas = realizadas ÷ (realizadas + não realizadas + frustradas).
+   Exporta Excel/PDF em `/api/relatorios/agenda`.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

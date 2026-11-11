@@ -47,6 +47,13 @@ export async function TelaRelatorios({ sb, modo, params }: { sb: Sb; modo: 'loja
               </Link>
             </li>
           ))}
+          {modo === 'loja' && (
+            <li className="shrink-0">
+              <Link href="/loja/relatorios/agenda" className="flex min-h-toque items-center gap-1 whitespace-nowrap rounded-full border border-border bg-white px-4 text-sm font-semibold text-text transition-colors duration-[120ms] hover:bg-surface">
+                <Icone nome="agenda" className="h-4 w-4" />Agenda dos vistoriadores
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { StatusSelo } from '@/components/os/status';
 import { Cabecalho } from '@/components/ui';
+import { Icone } from '@/components/icone';
 import { hora } from '@/lib/formato';
 import { createClient } from '@/lib/supabase/server';
 
@@ -55,7 +56,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <Cabecalho kicker="Operação" titulo="Agenda" descricao="Vistorias agendadas por vistoriador. Clique para abrir a OS." />
+      <Cabecalho kicker="Operação" titulo="Agenda" descricao="Vistorias agendadas por vistoriador. Clique para abrir a OS."
+        acoes={<Link href={`/loja/relatorios/agenda?de=${dias[0]}&ate=${dias.at(-1)}${f.vistoriador ? `&vistoriador=${f.vistoriador}` : ''}`} className="btn btn-secundario"><Icone nome="relatorio" className="h-4 w-4" />Relatório da agenda</Link>} />
       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Link href={qs({ data: somar(ref, -passo) })} className="btn btn-secundario btn-sm" aria-label={visao === 'dia' ? 'Dia anterior' : 'Semana anterior'}>←</Link>
