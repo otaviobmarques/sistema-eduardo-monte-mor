@@ -49,7 +49,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    nunca valores) nos logs da Vercel. Várias sessões do mesmo usuário ao mesmo tempo são permitidas (uma por aparelho).
 15. **Pendências inclui pausas manuais (11/11/2026)**: a tela Pendências da Loja lista também as OS com pausa manual aberta
    (`sla_pausas.origem = 'manual'`), com motivo, “aberta há”, chip “Pausa manual” e botão **Retomar prazo** (só Gestor com
-   `conclusao_livre`). O KPI “Abertas” soma pendências + pausadas.
+   `conclusao_livre`). O KPI “Abertas” soma pendências + pausadas. Coluna “Abertura da OS” (Loja e cliente).
 16. **Data de abertura (11/11/2026)**: coluna **Abertura** na fila (Loja e cliente) e no PDF da fila. O Gestor com
    `conclusao_livre` escolhe a abertura em “Abrir OS para cliente” e corrige na ficha (botão “Abertura”) via
    `alterar_abertura()`: nunca no futuro nem depois da conclusão/cancelamento; recalcula `prazo_em` e marca como enviados os

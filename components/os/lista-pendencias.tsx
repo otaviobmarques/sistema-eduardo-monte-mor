@@ -4,7 +4,7 @@ import { Placa } from './placa';
 import { ResolverPendencia, ResponderPendencia, RetomarPrazo } from './operacoes';
 import { getSessao } from '@/lib/sessao';
 import { GradeKpi, Kpi } from '@/components/kpi';
-import { data as fmtData } from '@/lib/formato';
+import { data as fmtData, dataHora } from '@/lib/formato';
 import { TIPO_PENDENCIA_LABEL } from '@/lib/operacao';
 import { formatarDuracao } from '@/lib/regras/sla';
 import type { createClient } from '@/lib/supabase/server';
@@ -14,7 +14,7 @@ type Sb = Awaited<ReturnType<typeof createClient>>;
 export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase: Sb; modo: 'loja' | 'cliente'; tipo: string; ver: string }) {
   const resolvidas = ver === 'resolvidas';
   let q = supabase.from('pendencias')
-    .select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, ordens_servico!inner(numero, placa, marca_modelo, status, empresas_clientes(nome_fantasia, razao_social))')
+    .select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, ordens_servico!inner(numero, placa, marca_modelo, status, aberta_em, empresas_clientes(nome_fantasia, razao_social))')
     .order('created_at', { ascending: resolvidas ? false : true }).limit(500);
   q = resolvidas ? q.not('resolvida_em', 'is', null) : q.is('resolvida_em', null);
   // Na Loja, as OS com o prazo pausado à mão (botão “Pausar”) também aparecem aqui: estão paradas como uma pendência
@@ -22,7 +22,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
   const [{ data }, { data: pausasManuais }, sessao] = await Promise.all([
     q,
     comPausas
-      ? supabase.from('sla_pausas').select('id, os_id, inicio, motivo, ordens_servico!inner(id, numero, placa, marca_modelo, status, empresas_clientes(nome_fantasia, razao_social))')
+      ? supabase.from('sla_pausas').select('id, os_id, inicio, motivo, ordens_servico!inner(id, numero, placa, marca_modelo, status, aberta_em, empresas_clientes(nome_fantasia, razao_social))')
           .eq('origem', 'manual').is('fim', null).in('ordens_servico.status', ['a_vistoriar', 'frustrado']).order('inicio').limit(500)
       : Promise.resolve({ data: [] as never[] }),
     comPausas ? getSessao() : Promise.resolve(null),
@@ -59,16 +59,17 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
         <div className="overflow-x-auto">
           <table className="tabela tabela-cartoes">
             <thead><tr>
-              <th scope="col">Placa</th>{modo === 'loja' && <th scope="col">Cliente</th>}<th scope="col">Pendência</th>
+              <th scope="col">Placa</th>{modo === 'loja' && <th scope="col">Cliente</th>}<th scope="col">Abertura da OS</th><th scope="col">Pendência</th>
               <th scope="col">Responsável</th><th scope="col">{resolvidas ? 'Resolvida' : 'Aberta há'}</th><th scope="col">Previsão</th><th scope="col"><span className="sr-only">Ações</span></th>
             </tr></thead>
             <tbody>
               {pausas.map((pz) => {
-                const os = pz.ordens_servico as unknown as { id: string; numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
+                const os = pz.ordens_servico as unknown as { aberta_em: string; id: string; numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
                 return (
                   <tr key={`pausa-${pz.id}`}>
                     <td data-rotulo="Placa"><Link href={`${base}/os/${os.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={os.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {os.numero}</span></Link></td>
                     <td data-rotulo="Cliente">{os.empresas_clientes?.nome_fantasia || os.empresas_clientes?.razao_social}</td>
+                    <td data-rotulo="Abertura da OS" className="whitespace-nowrap text-sm">{dataHora(os.aberta_em).slice(0, 10)}<span className="block text-xs text-text-secondary">{dataHora(os.aberta_em).slice(11)}</span></td>
                     <td data-rotulo="Pendência" className="max-w-md">
                       <span className="font-semibold">Pausa manual</span>
                       <span className="block text-sm">{pz.motivo || 'Sem motivo informado'}</span>
@@ -84,12 +85,13 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
                 );
               })}
               {lista.map((p) => {
-                const os = p.ordens_servico as unknown as { numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
+                const os = p.ordens_servico as unknown as { aberta_em: string; numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
                 const v = vencida(p);
                 return (
                   <tr key={p.id} className={v ? 'shadow-[inset_4px_0_0_#B42318]' : ''}>
                     <td data-rotulo="Placa"><Link href={`${base}/os/${os.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={os.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {os.numero}</span></Link></td>
                     {modo === 'loja' && <td data-rotulo="Cliente">{os.empresas_clientes?.nome_fantasia || os.empresas_clientes?.razao_social}</td>}
+                    <td data-rotulo="Abertura da OS" className="whitespace-nowrap text-sm">{dataHora(os.aberta_em).slice(0, 10)}<span className="block text-xs text-text-secondary">{dataHora(os.aberta_em).slice(11)}</span></td>
                     <td data-rotulo="Pendência" className="max-w-md">
                       <span className="font-semibold">{TIPO_PENDENCIA_LABEL[p.tipo as keyof typeof TIPO_PENDENCIA_LABEL]}</span>
                       <span className="block text-sm">{p.descricao}</span>
