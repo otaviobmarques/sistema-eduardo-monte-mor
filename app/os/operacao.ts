@@ -251,3 +251,33 @@ export async function alterarAbertura(osId: string, numero: number, local: strin
   atualizar(numero);
   return { ok: true };
 }
+
+export type ResultadoLote = { agendadas: number; falhas: { numero: number | null; erro: string }[] };
+
+/** Agenda várias OS de uma vez para um vistoriador (Fila de OS). Cada uma aparece na Agenda. */
+export async function agendarLote(ids: string[], d: { data: string; hora: string; intervalo: string; vistoriador_id: string; local: string; motivo_id: string }): Promise<Resultado<ResultadoLote>> {
+  await sessao('loja');
+  const campos: Record<string, string> = {};
+  const lista = [...new Set(ids)].filter((id) => uuid.safeParse(id).success);
+  if (!lista.length) return { ok: false, erro: 'Selecione pelo menos uma OS.' };
+  if (lista.length > 500) return { ok: false, erro: 'Selecione no máximo 500 OS por vez.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data)) campos.data = 'Informe o dia.';
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(d.hora)) campos.hora = 'Informe a hora (ex.: 08:00).';
+  if (!uuid.safeParse(d.vistoriador_id).success) campos.vistoriador_id = 'Escolha o vistoriador.';
+  const intervalo = Math.max(0, Math.min(240, Number(d.intervalo) || 0));
+  if (Object.keys(campos).length) return { ok: false, erro: 'Confira os campos.', campos };
+  const inicio = deBrasilia(`${d.data}T${d.hora}`);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('agendar_lote', {
+    p_os: lista, p_inicio: inicio, p_intervalo_min: intervalo, p_vistoriador: d.vistoriador_id,
+    p_local: d.local.trim() || null, p_motivo: uuid.safeParse(d.motivo_id).success ? d.motivo_id : null,
+  });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  const linhas = (data ?? []) as { os_id: string; numero: number | null; ok: boolean; erro: string | null }[];
+  const falhas = linhas.filter((l) => !l.ok).map((l) => ({
+    numero: l.numero,
+    erro: (l.erro ?? '').includes('MOTIVO_OBRIGATORIO') ? 'já estava agendada: escolha o motivo do reagendamento' : mensagemOperacao({ message: l.erro ?? '' }),
+  }));
+  revalidatePath('/loja'); revalidatePath('/loja/agenda'); revalidatePath('/loja/pendencias');
+  return { ok: true, dados: { agendadas: linhas.filter((l) => l.ok).length, falhas } };
+}

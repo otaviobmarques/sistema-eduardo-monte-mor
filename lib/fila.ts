@@ -9,7 +9,7 @@ type Sb = Awaited<ReturnType<typeof createClient>>;
 
 const SELECT = 'id, numero, placa, renavam, marca_modelo, status, etapa, aberta_em, sla_horas, pausado_desde, total_pausado, concluida_em, cancelada_em, nome_solicitante, cidade, endereco, local_tipo, pagamento_status, unidade, patios(nome), empresas_clientes(razao_social, nome_fantasia)';
 
-export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: string; limite?: number; comLaudo?: boolean }) {
+export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: string; limite?: number; comLaudo?: boolean; comAgenda?: boolean }) {
   let q = supabase.from('ordens_servico').select(SELECT).order('aberta_em', { ascending: false }).limit(opts.limite ?? 500);
   if (opts.status?.length) q = q.in('status', opts.status);
   const termo = (opts.q ?? '').trim();
@@ -47,6 +47,15 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
       pausas.set(p.os_id, pausas.has(p.os_id) ? `${pausas.get(p.os_id)} · ${texto}` : texto);
     }
   }
+  // Agendamento atual (Fila da Loja: mostra “Agendada · dia hora · vistoriador” e permite agendar em lote)
+  const agenda = new Map<string, { quando: string; vistoriador: string | null }>();
+  if (opts.comAgenda && data?.length) {
+    const ids = data.filter((o) => o.status === 'a_vistoriar').map((o) => o.id);
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data: ag } = await supabase.from('os_agendamentos').select('os_id, data_hora, vistoriadores(nome)').eq('atual', true).in('os_id', ids.slice(i, i + 300));
+      for (const a of ag ?? []) agenda.set(a.os_id, { quando: a.data_hora, vistoriador: (a.vistoriadores as unknown as { nome: string } | null)?.nome ?? null });
+    }
+  }
   const linhas: LinhaOs[] = (data ?? []).map((o) => {
     const emp = o.empresas_clientes as unknown as { razao_social: string; nome_fantasia: string | null } | null;
     return {
@@ -59,6 +68,7 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
       laudo: laudos.get(o.id) ?? null,
       patio: (o.patios as unknown as { nome: string } | null)?.nome ?? null, unidade: o.unidade ?? null,
       motivoPausa: pausas.get(o.id) ?? null,
+      agenda: agenda.get(o.id) ?? null,
     };
   });
   return { linhas, cfg };

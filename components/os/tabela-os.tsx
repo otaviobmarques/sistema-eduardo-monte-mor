@@ -1,4 +1,5 @@
 import { dataHora } from '@/lib/formato';
+import { FORM_LOTE } from '@/lib/lote';
 import Link from 'next/link';
 import type { SlaConfig, SlaEntrada, SlaResultado } from '@/lib/regras/sla';
 import { PAGAMENTO_LABEL } from '@/lib/formato';
@@ -15,9 +16,12 @@ export interface LinhaOs {
   patio?: string | null; unidade?: string | null;
   /** Por que está pausada (pausa manual, pendência, frustração). */
   motivoPausa?: string | null;
+  /** Agendamento atual (Fila da Loja). */
+  agenda?: { quando: string; vistoriador: string | null } | null;
 }
 
-export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig }) {
+
+export function TabelaOs({ linhas, modo, vazio, cfg, selecionavel }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig; selecionavel?: boolean }) {
   const base = modo === 'loja' ? '/loja' : '/app';
   if (!linhas.length) return <div className="card p-10 text-center text-text-secondary">{vazio}</div>;
   return (
@@ -25,6 +29,13 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
       <table className="tabela tabela-cartoes">
         <thead>
           <tr>
+            {selecionavel && (
+              <th scope="col" className="w-10">
+                <label className="flex min-h-toque cursor-pointer items-center justify-center">
+                  <input type="checkbox" className="check" form={FORM_LOTE} data-todas aria-label="Selecionar todas as OS a vistoriar desta lista" />
+                </label>
+              </th>
+            )}
             <th scope="col">Placa</th><th scope="col">Veículo</th>
             {modo === 'loja' && <th scope="col">Cliente</th>}
             <th scope="col">Local</th><th scope="col">Abertura</th><th scope="col">Status</th><th scope="col">Prazo</th>
@@ -35,6 +46,16 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
         <tbody>
           {linhas.map((o) => (
             <tr key={o.id} className={corBarraSla(o.sla.cor)}>
+              {selecionavel && (
+                <td data-rotulo="Selecionar" className="w-10">
+                  {o.status === 'a_vistoriar' ? (
+                    <label className="flex min-h-toque cursor-pointer items-center justify-end md:justify-center">
+                      <input type="checkbox" className="check" form={FORM_LOTE} name="os" value={o.id} data-agendada={o.agenda ? '1' : undefined}
+                        aria-label={`Selecionar OS ${o.numero}, placa ${o.placa}`} />
+                    </label>
+                  ) : <span className="sr-only">Frustrada: resolva a pendência para agendar</span>}
+                </td>
+              )}
               <td data-rotulo="Placa">
                 <Link href={`${base}/os/${o.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start" aria-label={`OS ${o.numero}, placa ${o.placa}`}>
                   <Placa placa={o.placa} tamanho="sm" />
@@ -45,7 +66,10 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
               {modo === 'loja' && <td data-rotulo="Cliente">{o.cliente}</td>}
               <td data-rotulo="Local">{o.local ?? '—'}<span className="block text-xs text-text-secondary">{[o.unidade, o.cidade].filter(Boolean).join(" · ")}</span></td>
               <td data-rotulo="Abertura" className="whitespace-nowrap text-sm" title={dataHora(o.aberta_em)}>{dataHora(o.aberta_em).slice(0, 10)}<span className="block text-xs text-text-secondary">{dataHora(o.aberta_em).slice(11)}</span></td>
-              <td data-rotulo="Status"><StatusSelo status={o.status} etapa={modo === 'loja' ? o.etapa : null} /></td>
+              <td data-rotulo="Status">
+                <StatusSelo status={o.status} etapa={modo === 'loja' ? o.etapa : null} />
+                {o.agenda && <span className="mt-1 block text-xs text-text-secondary">{dataHora(o.agenda.quando).slice(0, 5)} {dataHora(o.agenda.quando).slice(11)}{o.agenda.vistoriador ? ` · ${o.agenda.vistoriador}` : ''}</span>}
+              </td>
               <td data-rotulo="Prazo">
                 <SlaAoVivo entrada={o.entrada} cfg={cfg} compacta comPrazo />
                 {o.motivoPausa && <span className="mt-1 block max-w-[16rem] break-words text-xs text-text-secondary"><span className="sr-only">Motivo da pausa: </span>{o.motivoPausa}</span>}

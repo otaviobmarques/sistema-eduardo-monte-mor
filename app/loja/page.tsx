@@ -6,6 +6,7 @@ import { Kpi } from '@/components/kpi';
 import { Icone } from '@/components/icone';
 import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia } from '@/lib/fila';
 import { FiltroLocal } from '@/components/os/filtro-local';
+import { AgendarLote } from '@/components/os/agendar-lote';
 import { hora, moeda } from '@/lib/formato';
 import { numerosDoMes, vistoriadoresHoje } from '@/lib/paineis';
 import { nomeDoMes } from '@/lib/regras/financeiro';
@@ -27,15 +28,17 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const locais = lerLocais(local);
   const supabase = await createClient();
   const encerradas = ver === 'encerradas';
-  const { linhas: semLocal, cfg } = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000 });
+  const { linhas: semLocal, cfg } = await buscarOs(supabase, { status: encerradas ? ['vistoriado', 'cancelado'] : ['a_vistoriar', 'frustrado'], q, limite: encerradas ? 200 : 1000, comAgenda: !encerradas });
   const opcoesLocal = opcoesDeLocal(semLocal);
   const todas = filtrarPorLocal(semLocal, locais);
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
-  const [n, agenda, { linhas: abertas }] = await Promise.all([
+  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }] = await Promise.all([
     numerosDoMes(supabase), vistoriadoresHoje(supabase),
     encerradas ? buscarOs(supabase, { status: ['a_vistoriar', 'frustrado'], limite: 1000 }) : Promise.resolve({ linhas: todas }),
+    supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('motivos').select('id, descricao').eq('tipo', 'reagendamento').eq('ativo', true).order('ordem'),
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
   // Pausadas (a partir da pausa) saem de “A vistoriar” e ganham o próprio card
@@ -123,7 +126,8 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <a href={exportar('xlsx')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar Excel</a>
         <a href={exportar('pdf')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar PDF</a>
       </div>
-      <TabelaOs cfg={cfg} linhas={linhas} modo="loja" vazio={q || locais.length ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
+      {!encerradas && <AgendarLote vistoriadores={vistoriadores ?? []} motivos={motivosReag ?? []} />}
+      <TabelaOs cfg={cfg} linhas={linhas} modo="loja" selecionavel={!encerradas} vazio={q || locais.length ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
     </div>
   );
 }
