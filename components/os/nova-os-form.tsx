@@ -22,6 +22,8 @@ export interface DadosNovaOs {
   precosPadrao: Record<string, number>;
   precosProprios: Record<string, Record<string, number>>;
   taxas: { cidade: string; uf: string; valor: number }[];
+  /** Gestor com conclusão livre: escolhe a data/hora de abertura (pode ser anterior a hoje). */
+  podeEscolherAbertura?: boolean;
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -42,6 +44,10 @@ export function NovaOsForm(p: DadosNovaOs) {
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const [agora, setAgora] = useState(() => new Date());
+  // Abertura escolhida (datetime-local em Brasília); vazio = automática (agora)
+  const [abertura, setAbertura] = useState('');
+  const inicio = abertura ? new Date(`${abertura}:00-03:00`) : agora;
+  const localDe = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString().slice(0, 16);
   const tocados = useRef(new Set<string>());
   useEffect(() => { const t = setInterval(() => setAgora(new Date()), 30_000); return () => clearInterval(t); }, []);
 
@@ -76,7 +82,7 @@ export function NovaOsForm(p: DadosNovaOs) {
   const renStatus = !renDig ? null : renDig.length < 9 ? 'curto' : renavamValido(renDig) ? 'ok' : 'erro';
 
   const sla = Math.min(servico?.sla_horas ?? 48, empresa?.sla_horas ?? 48, 48);
-  const prazo = new Date(agora.getTime() + sla * 3600_000);
+  const prazo = new Date(inicio.getTime() + sla * 3600_000);
   const chave = `${v.servico_id}:${v.categoria_id}`;
   const base = (empresa?.usa_tabela_propria ? p.precosProprios[v.empresa_id]?.[chave] : undefined) ?? p.precosPadrao[chave] ?? 0;
   const desl = v.local_tipo === 'endereco' ? p.taxas.find((t) => norm(t.cidade) === norm(v.cidade) && t.uf === v.uf)?.valor ?? 0 : 0;
@@ -108,6 +114,7 @@ export function NovaOsForm(p: DadosNovaOs) {
     }
     const fd = new FormData();
     fd.set('dados', JSON.stringify(dados));
+    if (p.podeEscolherAbertura && abertura) fd.set('aberta_em', abertura);
     arquivos.forEach((f) => fd.append('anexos', f));
     iniciar(async () => {
       const res = await abrirOs(fd);
@@ -154,7 +161,14 @@ export function NovaOsForm(p: DadosNovaOs) {
               {ajudaOuErro('telefone')}
             </div>
           </div>
-          <p className="legenda">Abertura automática: {dataHora(agora)}</p>
+          {p.podeEscolherAbertura ? (
+            <div className="max-w-xs">
+              <label className="rotulo" htmlFor="os-aberta_em">Data e hora da abertura</label>
+              <input className="campo" type="datetime-local" {...aria('aberta_em')} value={abertura || localDe(agora)} max={localDe(new Date(Date.now() + 5 * 60_000))}
+                onChange={(e) => setAbertura(e.target.value)} />
+              {ajudaOuErro('aberta_em', abertura ? 'O prazo é contado a partir desta data.' : 'Agora, se não mudar. Pode ser uma data anterior a hoje.')}
+            </div>
+          ) : <p className="legenda">Abertura automática: {dataHora(agora)}</p>}
         </section>
 
         {/* Veículo */}

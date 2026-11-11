@@ -1,4 +1,5 @@
 'use server';
+import { mensagemOperacao } from '@/lib/operacao';
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -61,6 +62,15 @@ export async function abrirOs(form: FormData): Promise<Resultado<{ numero: numbe
     return { ok: false, erro: 'Confira os campos destacados.', campos };
   }
   const d = parsed.data;
+  // Abertura escolhida (só Gestor com conclusão livre); vazia = agora
+  let abertaEm: string | null = null;
+  const brutoAbertura = String(form.get('aberta_em') ?? '').trim();
+  if (brutoAbertura && s.perfil.perfil === 'loja' && s.perfil.conclusao_livre) {
+    const t = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(brutoAbertura) ? new Date(`${brutoAbertura}:00-03:00`) : null;
+    if (!t || Number.isNaN(t.getTime())) return { ok: false, erro: 'Confira os campos destacados.', campos: { aberta_em: 'Informe data e hora válidas.' } };
+    if (t.getTime() > Date.now() + 5 * 60_000) return { ok: false, erro: 'Confira os campos destacados.', campos: { aberta_em: 'A abertura não pode estar no futuro.' } };
+    if (Math.abs(Date.now() - t.getTime()) > 2 * 60_000) abertaEm = t.toISOString();
+  }
   if (s.perfil.perfil === 'loja' && !d.empresa_id) return { ok: false, erro: 'Escolha o cliente.', campos: { empresa_id: 'Escolha o cliente.' } };
   const arquivos = form.getAll('anexos').filter((f): f is File => f instanceof File && f.size > 0);
   for (const f of arquivos) {
@@ -82,6 +92,10 @@ export async function abrirOs(form: FormData): Promise<Resultado<{ numero: numbe
     return { ok: false, erro: m.texto, campos: m.campo ? { [m.campo]: m.texto } : undefined };
   }
   const { id, numero } = data[0] as { id: string; numero: number };
+  if (abertaEm) {
+    const { error: eA } = await supabase.rpc('alterar_abertura', { p_os: id, p_aberta_em: abertaEm });
+    if (eA) return { ok: true, dados: { numero }, erro: `A OS ${numero} foi aberta, mas a data de abertura não foi alterada: ${mensagemOperacao(eA)}` } as Resultado<{ numero: number }>;
+  }
   const empresaId = s.perfil.perfil === 'loja' ? d.empresa_id! : s.perfil.empresa_cliente_id!;
   const falhas: string[] = [];
   for (const f of arquivos) {

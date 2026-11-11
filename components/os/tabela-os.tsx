@@ -1,3 +1,4 @@
+import { dataHora } from '@/lib/formato';
 import Link from 'next/link';
 import type { SlaConfig, SlaEntrada, SlaResultado } from '@/lib/regras/sla';
 import { PAGAMENTO_LABEL } from '@/lib/formato';
@@ -26,7 +27,7 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
           <tr>
             <th scope="col">Placa</th><th scope="col">Veículo</th>
             {modo === 'loja' && <th scope="col">Cliente</th>}
-            <th scope="col">Local</th><th scope="col">Status</th><th scope="col">Prazo</th>
+            <th scope="col">Local</th><th scope="col">Abertura</th><th scope="col">Status</th><th scope="col">Prazo</th>
             {modo === 'cliente' && <th scope="col">Pagamento</th>}
             <th scope="col"><span className="sr-only">Ações</span></th>
           </tr>
@@ -43,6 +44,7 @@ export function TabelaOs({ linhas, modo, vazio, cfg }: { linhas: LinhaOs[]; modo
               <td data-rotulo="Veículo"><span className="font-medium">{o.marca_modelo ?? '—'}</span><span className="block text-xs text-text-secondary">{o.nome_solicitante}</span></td>
               {modo === 'loja' && <td data-rotulo="Cliente">{o.cliente}</td>}
               <td data-rotulo="Local">{o.local ?? '—'}<span className="block text-xs text-text-secondary">{[o.unidade, o.cidade].filter(Boolean).join(" · ")}</span></td>
+              <td data-rotulo="Abertura" className="whitespace-nowrap text-sm" title={dataHora(o.aberta_em)}>{dataHora(o.aberta_em).slice(0, 10)}<span className="block text-xs text-text-secondary">{dataHora(o.aberta_em).slice(11)}</span></td>
               <td data-rotulo="Status"><StatusSelo status={o.status} etapa={modo === 'loja' ? o.etapa : null} /></td>
               <td data-rotulo="Prazo">
                 <SlaAoVivo entrada={o.entrada} cfg={cfg} compacta comPrazo />

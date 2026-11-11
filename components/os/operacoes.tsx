@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { abrirPendencia, agendar, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
+import { abrirPendencia, agendar, alterarAbertura, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Icone } from '@/components/icone';
 import { Aviso, Modal } from '@/components/ui';
@@ -231,6 +231,20 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
             onClick={() => { setEtapaMsg(null); iniciarPausa(async () => { const r = await retomarOs(os.id, os.numero); if (!r.ok) setEtapaMsg(r.erro); }); }}>
             <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><path d="M7 4v16l13-8z" fill="currentColor" /></svg>{pendPausa ? 'Retomando…' : 'Retomar prazo'}
           </button>
+        )}
+
+        {d.conclusaoLivre && os.aberta_em && (
+          <ModalForm titulo="Alterar data de abertura" rotulo="Salvar abertura"
+            descricao={`OS ${os.numero}: o prazo (SLA) passa a contar a partir da nova data. Fica registrado na linha do tempo.`}
+            abrir={(f) => <button type="button" className="btn btn-secundario" onClick={f}><Icone nome="agenda" className="h-4 w-4" />Abertura</button>}
+            enviar={(fd) => alterarAbertura(os.id, os.numero, String(fd.get('aberta_em') ?? ''))}>
+            {(e) => (
+              <Campo id="ab-quando" rotulo="Data e hora da abertura" erro={e.aberta_em} ajuda="Pode ser anterior a hoje; não pode estar no futuro nem depois da conclusão.">
+                <input id="ab-quando" name="aberta_em" type="datetime-local" className="campo" max={agoraLocal(5)}
+                  defaultValue={new Date(new Date(os.aberta_em!).getTime() - 3 * 3600_000).toISOString().slice(0, 16)} {...inv(e.aberta_em)} />
+              </Campo>
+            )}
+          </ModalForm>
         )}
 
         {encerrada && d.conclusaoLivre && (

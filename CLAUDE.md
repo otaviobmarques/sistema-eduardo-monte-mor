@@ -50,6 +50,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 15. **Pendências inclui pausas manuais (11/11/2026)**: a tela Pendências da Loja lista também as OS com pausa manual aberta
    (`sla_pausas.origem = 'manual'`), com motivo, “aberta há”, chip “Pausa manual” e botão **Retomar prazo** (só Gestor com
    `conclusao_livre`). O KPI “Abertas” soma pendências + pausadas.
+16. **Data de abertura (11/11/2026)**: coluna **Abertura** na fila (Loja e cliente) e no PDF da fila. O Gestor com
+   `conclusao_livre` escolhe a abertura em “Abrir OS para cliente” e corrige na ficha (botão “Abertura”) via
+   `alterar_abertura()`: nunca no futuro nem depois da conclusão/cancelamento; recalcula `prazo_em` e marca como enviados os
+   avisos (24h, 2º alerta, vencida) que já teriam passado, sem rajada. Linha do tempo “Abertura alterada”.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

@@ -236,3 +236,18 @@ export async function retomarOs(osId: string, numero: number): Promise<Resultado
   atualizar(numero);
   return { ok: true };
 }
+
+/** Informa/corrige a data de abertura (só Gestor com conclusão livre). O prazo é recalculado por ela. */
+export async function alterarAbertura(osId: string, numero: number, local: string): Promise<Resultado> {
+  const s = await sessao('loja');
+  if (!s.perfil.conclusao_livre) return { ok: false, erro: 'Você não tem permissão para alterar a abertura.' };
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  const iso = deBrasilia(local);
+  if (!iso) return { ok: false, erro: 'Confira os campos.', campos: { aberta_em: 'Informe data e hora válidas.' } };
+  if (new Date(iso) > new Date(Date.now() + 5 * 60_000)) return { ok: false, erro: 'Confira os campos.', campos: { aberta_em: 'A abertura não pode estar no futuro.' } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('alterar_abertura', { p_os: osId, p_aberta_em: iso });
+  if (error) return { ok: false, erro: mensagemOperacao(error), campos: { aberta_em: mensagemOperacao(error) } };
+  atualizar(numero);
+  return { ok: true };
+}
