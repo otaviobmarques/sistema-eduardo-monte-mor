@@ -113,7 +113,7 @@ export function JustificarAtraso({ osId, numero, motivos }: { osId: string; nume
   return (
     <>
       <button type="button" className="btn btn-primario" onClick={() => setAberto(true)}>Justificar atraso</button>
-      <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Justificar atraso" descricao="Obrigatório para concluir uma OS que passou do prazo.">
+      <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Justificar atraso" descricao="O motivo aparece na ficha, na Fila (motivos de atraso do mês) e nos relatórios.">
         <form className="space-y-4" onSubmit={(e) => {
           e.preventDefault();
           iniciar(async () => {
@@ -130,7 +130,7 @@ export function JustificarAtraso({ osId, numero, motivos }: { osId: string; nume
             {erros.motivo && <p className="erro-campo">{erros.motivo}</p>}
           </div>
           <div>
-            <label className="rotulo" htmlFor="ja-texto">Explicação</label>
+            <label className="rotulo" htmlFor="ja-texto">Explicação <span className="font-normal text-text-secondary">(opcional)</span></label>
             <textarea id="ja-texto" className="campo" rows={4} value={texto} onChange={(e) => { setTexto(e.target.value); setErros({}); }} aria-invalid={erros.texto ? true : undefined}
               placeholder="Ex.: pátio fechado por 2 dias; vistoria remarcada para quinta." />
             {erros.texto && <p className="erro-campo">{erros.texto}</p>}

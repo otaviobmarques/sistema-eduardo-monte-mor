@@ -139,3 +139,9 @@ export function formatarHoras(h: number | null): string {
   return d ? `${d}d ${r}h` : `${Math.round(h * 10) / 10}h`.replace('.', ',');
 }
 export const formatarPct = (p: number | null) => (p === null ? '—' : `${String(p).replace('.', ',')}%`);
+
+/** Motivos da OS para relatórios; atrasada sem justificativa aparece como tal. */
+export function motivosDaOs(l: Pick<LinhaRel, 'status' | 'no_prazo' | 'motivo_atraso' | 'motivo_frustracao' | 'motivo_cancelamento'>): string {
+  const atraso = l.motivo_atraso ? `Atraso: ${l.motivo_atraso}` : l.status === 'vistoriado' && l.no_prazo === false ? 'Atraso: sem justificativa registrada' : null;
+  return [atraso, l.motivo_frustracao && `Frustração: ${l.motivo_frustracao}`, l.motivo_cancelamento && `Cancelamento: ${l.motivo_cancelamento}`].filter(Boolean).join(' · ');
+}

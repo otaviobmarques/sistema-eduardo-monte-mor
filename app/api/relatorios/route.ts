@@ -5,7 +5,7 @@ import { data as fmtData, dataHora, moeda, STATUS_LABEL } from '@/lib/formato';
 import { gerarPdfRelatorio, type ColunaPdf } from '@/lib/pdf/relatorio';
 import { gerarXlsx } from '@/lib/planilha';
 import { descreverFiltros, montarRelatorio, normalizarFiltros, opcoesFiltro, type FiltrosRel } from '@/lib/relatorios';
-import { formatarHoras, formatarPct, situacaoSla, TIPOS_RELATORIO } from '@/lib/regras/relatorios';
+import { formatarHoras, formatarPct, motivosDaOs, situacaoSla, TIPOS_RELATORIO } from '@/lib/regras/relatorios';
 import { getSessao } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const k = rel.kpis;
   const loja = modo === 'loja';
   const nomeArq = `relatorio-${f.tipo}-${f.de}-a-${f.ate}`;
-  const motivo = (l: (typeof rel.linhas)[number]) => [l.motivo_atraso && `Atraso: ${l.motivo_atraso}`, l.motivo_frustracao && `Frustração: ${l.motivo_frustracao}`, l.motivo_cancelamento && `Cancelamento: ${l.motivo_cancelamento}`].filter(Boolean).join(' · ');
+  const motivo = (l: (typeof rel.linhas)[number]) => motivosDaOs(l);
   const somaValor = (pred: (l: (typeof rel.linhas)[number]) => boolean) => rel.linhas.filter(pred).reduce((a, l) => a + Math.round(Number(l.valor ?? 0) * 100), 0) / 100;
   const totais = {
     os: rel.linhas.length, vist: rel.linhas.filter((l) => l.status === 'vistoriado').length, frust: rel.linhas.filter((l) => l.foi_frustrada).length,

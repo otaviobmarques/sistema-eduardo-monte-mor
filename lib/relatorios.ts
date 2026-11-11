@@ -1,11 +1,11 @@
 import 'server-only';
 import type { createClient } from '@/lib/supabase/server';
 import { todasAsLinhas } from '@/lib/supabase/paginar';
-import { agregar, agrupar, dataValida, limitesPeriodo, periodoPadrao, TIPOS_RELATORIO, tipoValido, filtrarParaTipo, type LinhaRel, type TipoRelatorio } from '@/lib/regras/relatorios';
+import { agregar, agrupar, dataValida, limitesPeriodo, periodoPadrao, SITUACAO_SLA, situacaoSla, TIPOS_RELATORIO, tipoValido, filtrarParaTipo, type LinhaRel, type TipoRelatorio } from '@/lib/regras/relatorios';
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
 
-export interface FiltrosRel { tipo?: string; de?: string; ate?: string; cliente?: string; cidade?: string; patio?: string; vistoriador?: string; status?: string; pagamento?: string; unidade?: string }
+export interface FiltrosRel { tipo?: string; de?: string; ate?: string; cliente?: string; cidade?: string; patio?: string; vistoriador?: string; status?: string; pagamento?: string; unidade?: string; prazo?: string }
 export const STATUS_REL = { a_vistoriar: 'A vistoriar', frustrado: 'Frustrado', vistoriado: 'Vistoriado', cancelado: 'Cancelado' } as const;
 export const PAGAMENTO_REL = { pendente: 'Pendente', pago: 'Pago', faturado: 'Faturado' } as const;
 
@@ -23,6 +23,7 @@ export function normalizarFiltros(f: FiltrosRel, modo: 'loja' | 'cliente') {
     unidade: f.unidade?.trim() ? f.unidade.trim().slice(0, 120) : undefined,
     status: f.status && f.status in STATUS_REL ? (f.status as keyof typeof STATUS_REL) : undefined,
     pagamento: f.pagamento && f.pagamento in PAGAMENTO_REL ? (f.pagamento as keyof typeof PAGAMENTO_REL) : undefined,
+    prazo: (SITUACAO_SLA as readonly string[]).includes(f.prazo ?? '') ? (f.prazo as (typeof SITUACAO_SLA)[number]) : undefined,
   };
 }
 export type FiltrosNorm = ReturnType<typeof normalizarFiltros>;
@@ -46,7 +47,9 @@ export async function linhasRelatorio(sb: Sb, f: FiltrosNorm) {
 }
 
 export async function montarRelatorio(sb: Sb, f: FiltrosNorm) {
-  const linhas = await linhasRelatorio(sb, f);
+  const todas = await linhasRelatorio(sb, f);
+  // Situação do prazo (ex.: só as “Concluída com atraso”)
+  const linhas = f.prazo ? todas.filter((l) => situacaoSla(l) === f.prazo) : todas;
   const doTipo = filtrarParaTipo(f.tipo, linhas);
   return { linhas: doTipo, kpis: agregar(linhas), grupos: agrupar(f.tipo, linhas) };
 }
@@ -80,12 +83,13 @@ export function descreverFiltros(f: FiltrosNorm, op: Awaited<ReturnType<typeof o
   if (f.vistoriador) out.push(`Vistoriador: ${op.vistoriadores.find((v) => v.id === f.vistoriador)?.nome ?? '—'}`);
   if (f.status) out.push(`Status: ${STATUS_REL[f.status]}`);
   if (f.pagamento) out.push(`Pagamento: ${PAGAMENTO_REL[f.pagamento]}`);
+  if (f.prazo) out.push(`Prazo: ${f.prazo}`);
   return out;
 }
 
 export function filtrosParaQuery(f: FiltrosNorm, extra: Record<string, string> = {}) {
   const o: Record<string, string> = { tipo: f.tipo, de: f.de, ate: f.ate, ...extra };
-  for (const k of ['cliente', 'cidade', 'unidade', 'patio', 'vistoriador', 'status', 'pagamento'] as const) if (f[k]) o[k] = f[k]!;
+  for (const k of ['cliente', 'cidade', 'unidade', 'patio', 'vistoriador', 'status', 'pagamento', 'prazo'] as const) if (f[k]) o[k] = f[k]!;
   return new URLSearchParams(o).toString();
 }
 

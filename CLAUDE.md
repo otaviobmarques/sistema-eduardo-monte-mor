@@ -70,6 +70,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    vistoriar) · Frustrada · Cancelada (`lib/regras/agenda-relatorio.ts`, testado). Agrupa por vistoriador, dia ou pátio
    (com um vistoriador filtrado, por dia); % realizadas = realizadas ÷ (realizadas + não realizadas + frustradas).
    Exporta Excel/PDF em `/api/relatorios/agenda`.
+20. **Motivos das concluídas com atraso (11/11/2026)**: filtro **Situação do prazo** (`prazo=`) nos relatórios (ex.: Desempenho
+   de SLA › “Concluída com atraso”); OS vistoriada fora do prazo sem justificativa aparece como “Atraso: sem justificativa
+   registrada” (`motivosDaOs()`, tela e exportação). A ficha de uma OS concluída com atraso e sem motivo mostra o aviso e
+   o botão **Justificar atraso** (vale depois da conclusão; explicação opcional). Card “Motivos de atraso” da Fila → “Ver atrasadas”.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

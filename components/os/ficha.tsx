@@ -167,6 +167,15 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
           {modo === 'loja' && <JustificarAtraso osId={os.id} numero={os.numero} motivos={motivosAtraso ?? []} />}
         </div>
       )}
+      {os.status === 'vistoriado' && sla.noPrazo === false && !justificativas?.length && (
+        <div className="aviso aviso-atencao flex-col sm:flex-row sm:items-center sm:justify-between" role="status">
+          <div>
+            <p className="font-display text-base font-extrabold">Concluída com atraso, sem motivo registrado</p>
+            <p>{modo === 'loja' ? 'Registre o motivo do atraso: ele entra nos relatórios e nos motivos de atraso do mês.' : 'A vistoria foi concluída depois do prazo.'}</p>
+          </div>
+          {modo === 'loja' && <JustificarAtraso osId={os.id} numero={os.numero} motivos={motivosAtraso ?? []} />}
+        </div>
+      )}
       {!!justificativas?.length && (
         <section className="card p-6" aria-labelledby="just-titulo">
           <h2 id="just-titulo" className="h3 mb-3">Justificativa de atraso</h2>

@@ -4,7 +4,7 @@ import { Kpi } from '@/components/kpi';
 import { Placa } from '@/components/os/placa';
 import { data as fmtData, moeda, STATUS_LABEL } from '@/lib/formato';
 import { descreverFiltros, filtrosParaQuery, montarRelatorio, normalizarFiltros, opcoesFiltro, PAGAMENTO_REL, STATUS_REL, type FiltrosRel } from '@/lib/relatorios';
-import { formatarHoras, formatarPct, situacaoSla, TIPOS_RELATORIO, valorMetrica, type TipoRelatorio } from '@/lib/regras/relatorios';
+import { formatarHoras, formatarPct, motivosDaOs, SITUACAO_SLA, situacaoSla, TIPOS_RELATORIO, valorMetrica, type TipoRelatorio } from '@/lib/regras/relatorios';
 import type { createClient } from '@/lib/supabase/server';
 import { GraficoBarras } from './grafico';
 
@@ -80,6 +80,7 @@ export async function TelaRelatorios({ sb, modo, params }: { sb: Sb; modo: 'loja
           {modo === 'loja' && <Selecao id="rel-vist" rotulo="Vistoriador" nome="vistoriador" valor={f.vistoriador} todos="Todos" opcoes={op.vistoriadores.map((v) => ({ v: v.id, t: v.nome }))} />}
           <Selecao id="rel-status" rotulo="Status" nome="status" valor={f.status} todos="Todos" opcoes={Object.entries(STATUS_REL).map(([v, t]) => ({ v, t }))} />
           <Selecao id="rel-pag" rotulo="Pagamento" nome="pagamento" valor={f.pagamento} todos="Todos" opcoes={Object.entries(PAGAMENTO_REL).map(([v, t]) => ({ v, t }))} />
+          <Selecao id="rel-prazo" rotulo="Situação do prazo" nome="prazo" valor={f.prazo} todos="Todas" opcoes={SITUACAO_SLA.map((s) => ({ v: s, t: s }))} />
           <div className="flex items-end gap-3 sm:col-span-2 xl:col-span-4 xl:justify-end">
             <Link href={`?tipo=${f.tipo}`} className="btn btn-fantasma">Limpar filtros</Link>
             <button className="btn btn-primario">Aplicar filtros</button>
@@ -161,7 +162,7 @@ export async function TelaRelatorios({ sb, modo, params }: { sb: Sb; modo: 'loja
                       <td data-rotulo="Abertura" className="whitespace-nowrap">{fmtData(l.aberta_em)}</td>
                       <td data-rotulo="Status">{STATUS_LABEL[l.status]}</td>
                       <td data-rotulo="Prazo">{situacaoSla(l)}{l.horas_atraso ? <span className="block text-xs text-error">+{formatarHoras(Number(l.horas_atraso))}</span> : null}</td>
-                      <td data-rotulo="Motivo" className="max-w-[220px] text-sm">{[l.motivo_atraso && `Atraso: ${l.motivo_atraso}`, l.motivo_frustracao && `Frustração: ${l.motivo_frustracao}`, l.motivo_cancelamento && `Cancelamento: ${l.motivo_cancelamento}`].filter(Boolean).join(' · ') || '—'}</td>
+                      <td data-rotulo="Motivo" className={`max-w-[220px] text-sm ${!l.motivo_atraso && l.status === 'vistoriado' && l.no_prazo === false ? 'font-semibold text-error' : ''}`}>{motivosDaOs(l) || '—'}</td>
                       <td data-rotulo="Valor" className="whitespace-nowrap text-right tabular-nums">{moeda(l.valor)}</td>
                     </tr>
                   ))}

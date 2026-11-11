@@ -93,7 +93,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
       </section>
       <div className="grid gap-4 md:grid-cols-2">
         <section className="card p-5" aria-labelledby="card-atraso">
-          <div className="mb-3 flex items-center justify-between gap-3"><h2 id="card-atraso" className="h3">Motivos de atraso em {mesNome}</h2><Link href="/loja/relatorios?tipo=sla" className="btn btn-texto btn-sm">Ver relatório</Link></div>
+          <div className="mb-3 flex items-center justify-between gap-3"><h2 id="card-atraso" className="h3">Motivos de atraso em {mesNome}</h2><Link href={`/loja/relatorios?tipo=sla&prazo=${encodeURIComponent('Concluída com atraso')}`} className="btn btn-texto btn-sm">Ver atrasadas</Link></div>
           {n.motivosAtraso.length === 0 && !n.semMotivo ? <p className="text-sm text-text-secondary">Nenhuma vistoria atrasada no mês.</p> : (
             <ul className="divide-y divide-divider text-sm">
               {n.motivosAtraso.map((m) => <li key={m.motivo} className="flex justify-between gap-3 py-2"><span>{m.motivo}</span><span className="font-semibold tabular-nums">{m.qtd}</span></li>)}

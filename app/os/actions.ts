@@ -165,10 +165,9 @@ export async function justificarAtraso(osId: string, numero: number, motivoId: s
   const s = await sessaoValida();
   if (s.perfil.perfil !== 'loja') return { ok: false, erro: 'Sem permissão.' };
   if (!z.string().uuid().safeParse(motivoId).success) return { ok: false, erro: 'Escolha o motivo do atraso.', campos: { motivo: 'Escolha o motivo do atraso.' } };
-  if (texto.trim().length < 5) return { ok: false, erro: 'Explique o atraso em poucas palavras.', campos: { texto: 'Explique o atraso em poucas palavras.' } };
   const supabase = await createClient();
   const { error } = await supabase.rpc('justificar_atraso', { p_os: osId, p_motivo: motivoId, p_texto: texto.trim() });
-  if (error) return { ok: false, erro: error.message.includes('OS_ENCERRADA') ? 'A OS já foi encerrada.' : 'Não foi possível salvar a justificativa.' };
-  revalidatePath(`/loja/os/${numero}`);
+  if (error) return { ok: false, erro: error.message.includes('OS_ENCERRADA') ? 'Esta OS não terminou fora do prazo: não há atraso para justificar.' : 'Não foi possível salvar a justificativa.' };
+  revalidatePath(`/loja/os/${numero}`); revalidatePath('/loja'); revalidatePath('/loja/relatorios');
   return { ok: true };
 }
