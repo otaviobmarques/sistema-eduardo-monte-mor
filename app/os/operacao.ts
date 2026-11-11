@@ -29,6 +29,7 @@ function dataConclusao(form: FormData, livre: boolean): { iso: string | null; er
 }
 
 function atualizar(numero: number) {
+  revalidatePath('/loja/pendencias'); revalidatePath('/loja');
   revalidatePath(`/loja/os/${numero}`); revalidatePath(`/app/os/${numero}`);
   revalidatePath('/loja'); revalidatePath('/app'); revalidatePath('/loja/pendencias'); revalidatePath('/app/pendencias'); revalidatePath('/loja/agenda');
 }

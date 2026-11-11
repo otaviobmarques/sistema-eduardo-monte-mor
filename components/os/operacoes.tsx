@@ -394,3 +394,18 @@ export function ResponderPendencia({ id, numero }: { id: string; numero: number 
     </form>
   );
 }
+
+/** Retoma o prazo de uma OS pausada à mão (lista de Pendências). */
+export function RetomarPrazo({ osId, numero }: { osId: string; numero: number }) {
+  const [pendente, iniciar] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  return (
+    <div className="inline-flex flex-col items-end gap-1">
+      <button type="button" className="btn btn-secundario btn-sm" disabled={pendente}
+        onClick={() => { setErro(null); iniciar(async () => { const r = await retomarOs(osId, numero); if (!r.ok) setErro(r.erro); }); }}>
+        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><path d="M7 4v16l13-8z" fill="currentColor" /></svg>{pendente ? 'Retomando…' : 'Retomar prazo'}
+      </button>
+      {erro && <p className="erro-campo" role="alert">{erro}</p>}
+    </div>
+  );
+}

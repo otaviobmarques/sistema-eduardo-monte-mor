@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Chips } from './tabela-os';
 import { Placa } from './placa';
-import { ResolverPendencia, ResponderPendencia } from './operacoes';
+import { ResolverPendencia, ResponderPendencia, RetomarPrazo } from './operacoes';
+import { getSessao } from '@/lib/sessao';
 import { GradeKpi, Kpi } from '@/components/kpi';
 import { data as fmtData } from '@/lib/formato';
 import { TIPO_PENDENCIA_LABEL } from '@/lib/operacao';
@@ -16,11 +17,23 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
     .select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, ordens_servico!inner(numero, placa, marca_modelo, status, empresas_clientes(nome_fantasia, razao_social))')
     .order('created_at', { ascending: resolvidas ? false : true }).limit(500);
   q = resolvidas ? q.not('resolvida_em', 'is', null) : q.is('resolvida_em', null);
-  const { data } = await q;
+  // Na Loja, as OS com o prazo pausado à mão (botão “Pausar”) também aparecem aqui: estão paradas como uma pendência
+  const comPausas = modo === 'loja' && !resolvidas;
+  const [{ data }, { data: pausasManuais }, sessao] = await Promise.all([
+    q,
+    comPausas
+      ? supabase.from('sla_pausas').select('id, os_id, inicio, motivo, ordens_servico!inner(id, numero, placa, marca_modelo, status, empresas_clientes(nome_fantasia, razao_social))')
+          .eq('origem', 'manual').is('fim', null).in('ordens_servico.status', ['a_vistoriar', 'frustrado']).order('inicio').limit(500)
+      : Promise.resolve({ data: [] as never[] }),
+    comPausas ? getSessao() : Promise.resolve(null),
+  ]);
   const todas = data ?? [];
+  const pausas = (tipo === '' || tipo === 'pausa') ? (pausasManuais ?? []) : [];
+  const qtdPausas = (pausasManuais ?? []).length;
+  const podeRetomar = !!sessao?.perfil.conclusao_livre;
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   const vencida = (p: (typeof todas)[number]) => !p.resolvida_em && !!p.previsao && p.previsao < hoje;
-  const lista = tipo && tipo in TIPO_PENDENCIA_LABEL ? todas.filter((p) => p.tipo === tipo) : todas;
+  const lista = tipo === 'pausa' ? [] : tipo && tipo in TIPO_PENDENCIA_LABEL ? todas.filter((p) => p.tipo === tipo) : todas;
   const base = modo === 'loja' ? '/loja' : '/app';
   const agora = Date.now();
 
@@ -28,7 +41,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
     <div className="space-y-6">
       {!resolvidas && (
         <GradeKpi>
-          <Kpi rotulo="Abertas" valor={todas.length} tom="escuro" />
+          <Kpi rotulo="Abertas" valor={todas.length + qtdPausas} tom="escuro" detalhe={comPausas ? `${todas.length} pendência${todas.length === 1 ? '' : 's'} · ${qtdPausas} pausada${qtdPausas === 1 ? '' : 's'}` : undefined} />
           <Kpi rotulo="Previsão vencida" valor={todas.filter(vencida).length} tom={todas.some(vencida) ? 'alerta' : undefined} />
           <Kpi rotulo={modo === 'loja' ? 'Com o cliente' : 'Aguardam você'} valor={todas.filter((p) => p.responsavel === 'cliente').length} />
           <Kpi rotulo={modo === 'loja' ? 'Com a Loja' : 'Com a Auto Visão'} valor={todas.filter((p) => p.responsavel === 'loja').length} />
@@ -36,13 +49,13 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
       )}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <Chips param="tipo" atual={tipo in TIPO_PENDENCIA_LABEL ? tipo : ''} extra={{ ver: ver || undefined }}
-          opcoes={[{ valor: '', rotulo: 'Todas', qtd: todas.length }, ...Object.entries(TIPO_PENDENCIA_LABEL).map(([k, v]) => ({ valor: k, rotulo: v, qtd: todas.filter((p) => p.tipo === k).length }))]} />
+          opcoes={[{ valor: '', rotulo: 'Todas', qtd: todas.length + qtdPausas }, ...(comPausas ? [{ valor: 'pausa', rotulo: 'Pausa manual', qtd: qtdPausas }] : []), ...Object.entries(TIPO_PENDENCIA_LABEL).map(([k, v]) => ({ valor: k, rotulo: v, qtd: todas.filter((p) => p.tipo === k).length }))]} />
         <nav className="abas" aria-label="Situação">
           <Link className="aba" href="?" aria-current={!resolvidas ? 'page' : undefined}>Abertas</Link>
           <Link className="aba" href="?ver=resolvidas" aria-current={resolvidas ? 'page' : undefined}>Resolvidas</Link>
         </nav>
       </div>
-      {lista.length === 0 ? <div className="card p-10 text-center text-text-secondary">{resolvidas ? 'Nenhuma pendência resolvida.' : 'Nenhuma pendência aberta. 🎉'}</div> : (
+      {lista.length === 0 && pausas.length === 0 ? <div className="card p-10 text-center text-text-secondary">{resolvidas ? 'Nenhuma pendência resolvida.' : 'Nenhuma pendência aberta. 🎉'}</div> : (
         <div className="overflow-x-auto">
           <table className="tabela tabela-cartoes">
             <thead><tr>
@@ -50,6 +63,26 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
               <th scope="col">Responsável</th><th scope="col">{resolvidas ? 'Resolvida' : 'Aberta há'}</th><th scope="col">Previsão</th><th scope="col"><span className="sr-only">Ações</span></th>
             </tr></thead>
             <tbody>
+              {pausas.map((pz) => {
+                const os = pz.ordens_servico as unknown as { id: string; numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
+                return (
+                  <tr key={`pausa-${pz.id}`}>
+                    <td data-rotulo="Placa"><Link href={`${base}/os/${os.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={os.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {os.numero}</span></Link></td>
+                    <td data-rotulo="Cliente">{os.empresas_clientes?.nome_fantasia || os.empresas_clientes?.razao_social}</td>
+                    <td data-rotulo="Pendência" className="max-w-md">
+                      <span className="font-semibold">Pausa manual</span>
+                      <span className="block text-sm">{pz.motivo || 'Sem motivo informado'}</span>
+                      <span className="mt-1 block text-xs text-text-secondary">Prazo parado; a OS continua “A vistoriar”.</span>
+                    </td>
+                    <td data-rotulo="Responsável">Auto Visão</td>
+                    <td data-rotulo="Aberta há" className="whitespace-nowrap">{formatarDuracao(agora - new Date(pz.inicio).getTime())}</td>
+                    <td data-rotulo="Previsão" className="whitespace-nowrap">—</td>
+                    <td data-rotulo="" className="text-right">
+                      {podeRetomar ? <RetomarPrazo osId={os.id} numero={os.numero} /> : <Link href={`${base}/os/${os.numero}`} className="btn btn-texto btn-sm">Abrir OS</Link>}
+                    </td>
+                  </tr>
+                );
+              })}
               {lista.map((p) => {
                 const os = p.ordens_servico as unknown as { numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
                 const v = vencida(p);

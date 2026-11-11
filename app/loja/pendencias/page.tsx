@@ -10,7 +10,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const supabase = await createClient();
   return (
     <>
-      <Cabecalho kicker="Operação" titulo="Pendências" descricao="Abertas por frustração ou falta de documento. Enquanto abertas, o prazo da OS fica pausado." />
+      <Cabecalho kicker="Operação" titulo="Pendências" descricao="Abertas por frustração, falta de documento ou pausa manual do prazo. Enquanto abertas, o prazo da OS fica parado." />
       <ListaPendencias supabase={supabase} modo="loja" tipo={tipo} ver={ver} />
     </>
   );

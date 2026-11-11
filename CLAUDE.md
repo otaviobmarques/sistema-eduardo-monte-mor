@@ -47,6 +47,9 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    volta à página (proteção contra voltas: 2ª tentativa em 30 s vai ao login com “Sua sessão terminou neste aparelho”).
    `ManterSessao` também renova no `pageshow` (volta da memória no iOS). Log `{"diag":"sem-sessao",…}` (só nomes de cookie,
    nunca valores) nos logs da Vercel. Várias sessões do mesmo usuário ao mesmo tempo são permitidas (uma por aparelho).
+15. **Pendências inclui pausas manuais (11/11/2026)**: a tela Pendências da Loja lista também as OS com pausa manual aberta
+   (`sla_pausas.origem = 'manual'`), com motivo, “aberta há”, chip “Pausa manual” e botão **Retomar prazo** (só Gestor com
+   `conclusao_livre`). O KPI “Abertas” soma pendências + pausadas.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
