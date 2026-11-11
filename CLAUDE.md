@@ -54,6 +54,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    `conclusao_livre` escolhe a abertura em “Abrir OS para cliente” e corrige na ficha (botão “Abertura”) via
    `alterar_abertura()`: nunca no futuro nem depois da conclusão/cancelamento; recalcula `prazo_em` e marca como enviados os
    avisos (24h, 2º alerta, vencida) que já teriam passado, sem rajada. Linha do tempo “Abertura alterada”.
+17. **Pendências = tudo o que falta resolver (11/11/2026)**: na Loja, a tela Pendências lista também **todas as OS “A
+   vistoriar”** com o prazo correndo: **Fora do prazo** no topo (barra vermelha, a mais atrasada primeiro), depois pendências,
+   pausas manuais e as do prazo (a mais perto de vencer primeiro). Cards: Fora do prazo · A vistoriar · Pausa manual ·
+   Pendências. Filtro por tipo (`?tipo=atrasada|a_vistoriar|pausa|pendencias|<tipo da pendência>`). Cliente: só as pendências dele.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

@@ -101,7 +101,9 @@ async function limpar() {
     await loja.goto(B + '/loja/pendencias'); await loja.waitForSelector('text=Autorização enviada ao pátio');
     await loja.screenshot({ path: S + '/pendencias.png', fullPage: true });
     await loja.click('tbody button:has-text("Resolver")'); await loja.fill('dialog textarea', 'Pátio liberou.'); await loja.click('dialog button:has-text("Resolver")');
-    await loja.waitForSelector('text=Nenhuma pendência aberta'); log('Loja resolveu');
+    // Resolvida, a pendência sai da lista; a OS volta como “A vistoriar”
+    await loja.waitForSelector('tbody button:has-text("Resolver")', { state: 'detached' });
+    await loja.waitForSelector('tbody tr[data-tipo=a_vistoriar]'); log('Loja resolveu (a OS volta à lista como “A vistoriar”)');
     await loja.goto(B + `/loja/os/${A.numero}`);
     await loja.waitForSelector('text=Vence em'); log('OS voltou para A vistoriar; relógio retomado; etapa:', await loja.inputValue('#etapa'));
 
