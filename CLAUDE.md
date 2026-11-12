@@ -74,6 +74,11 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    de SLA › “Concluída com atraso”); OS vistoriada fora do prazo sem justificativa aparece como “Atraso: sem justificativa
    registrada” (`motivosDaOs()`, tela e exportação). A ficha de uma OS concluída com atraso e sem motivo mostra o aviso e
    o botão **Justificar atraso** (vale depois da conclusão; explicação opcional). Card “Motivos de atraso” da Fila → “Ver atrasadas”.
+21. **Vistorias feitas por vistoriador (12/11/2026)**: card na Fila de OS com **Hoje · Semana (segunda a domingo) ·
+   Quinzena (1–15 / 16–fim) · Mês**, contando OS vistoriadas pela data da conclusão (`lib/regras/producao.ts`, testado;
+   `producaoVistoriadores()` em `lib/paineis.ts`). O vistoriador vem de `ordens_servico.vistoriador_id`: definido no
+   agendamento, no campo “Vistoriador que fez” das janelas de conclusão ou na ficha (Vistoriador › Alterar/Definir,
+   também em OS concluída) via `definir_vistoriador()`. Sem vistoriador → linha “Sem vistoriador”.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

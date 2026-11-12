@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSessao } from '@/lib/sessao';
 import { BaixarAnexo, EditarVeiculo, EnviarAnexo, JustificarAtraso } from './ficha-acoes';
 import { BarraSla, SlaAoVivo } from './sla-ao-vivo';
-import { AcoesLoja, CancelarOs, Pendencias, type PendenciaVista } from './operacoes';
+import { AcoesLoja, CancelarOs, EditarVistoriador, Pendencias, type PendenciaVista } from './operacoes';
 import { MarcarVistas } from '@/components/notificacoes';
 import { BotaoPagamento } from '@/components/financeiro/baixa';
 import { SeloPagamento } from '@/components/financeiro/tabela';
@@ -134,7 +134,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
 
       {modo === 'loja' && (
         <AcoesLoja d={{
-          os: { id: os.id, numero: os.numero, status: os.status, etapa: os.etapa, aberta_em: os.aberta_em, local: os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome ?? '' : os.endereco ?? '' },
+          os: { id: os.id, numero: os.numero, status: os.status, etapa: os.etapa, aberta_em: os.aberta_em, vistoriador_id: os.vistoriador_id, local: os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome ?? '' : os.endereco ?? '' },
           vistoriadores: vistoriadores ?? [], motivos: { frustracao: porTipo('frustracao'), cancelamento: porTipo('cancelamento'), reagendamento: porTipo('reagendamento') },
           agendamento: agAtual ? { data_hora: agAtual.data_hora, vistoriador_id: agAtual.vistoriador_id, local_texto: agAtual.local_texto } : null,
           pendenciasAbertas: pendAbertas, precisaJustificar: sla.restanteMs < 0 && !justificativas?.length, semLaudo: !!os.sem_laudo, conclusaoLivre: !!(await getSessao())?.perfil.conclusao_livre,
@@ -241,7 +241,10 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
             <Dado rotulo="Local">{os.local_tipo === 'patio' ? (os.patios as { nome: string } | null)?.nome : os.endereco}</Dado>
             <Dado rotulo="Cidade">{os.cidade}{os.uf ? ` / ${os.uf}` : ''}</Dado>
             <Dado rotulo="Origem">{os.origem_historico ? `Histórico importado da planilha · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : os.lote_id ? `Importação em lote · ${dataHora((os.lotes_importacao as { criado_em: string } | null)?.criado_em)}` : 'Abertura individual'}</Dado>
-            {modo === 'loja' && <Dado rotulo="Vistoriador">{(os.vistoriadores as { nome: string } | null)?.nome}</Dado>}
+            {modo === 'loja' && <Dado rotulo="Vistoriador">
+              {(os.vistoriadores as { nome: string } | null)?.nome ?? <span className="text-text-secondary">Sem vistoriador</span>}
+              {os.status !== 'cancelado' && <span className="block"><EditarVistoriador osId={os.id} numero={os.numero} atual={os.vistoriador_id} vistoriadores={vistoriadores ?? []} /></span>}
+            </Dado>}
           </dl>
         </section>
 

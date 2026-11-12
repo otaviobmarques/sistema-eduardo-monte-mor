@@ -2,6 +2,7 @@ import 'server-only';
 import type { createClient } from '@/lib/supabase/server';
 import { todasAsLinhas } from '@/lib/supabase/paginar';
 import { limitesDoMes, mesReferencia } from '@/lib/regras/financeiro';
+import { contarProducao, inicioBuscaProducao } from '@/lib/regras/producao';
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
 const soma = (l: { valor: number | string | null }[]) => l.reduce((s, x) => s + Math.round(Number(x.valor ?? 0) * 100), 0) / 100;
@@ -57,4 +58,12 @@ export async function vistoriadoresHoje(sb: Sb) {
     g.qtd++; por.set(nome, g);
   }
   return [...por.values()].sort((a, b) => b.qtd - a.qtd);
+}
+
+/** Vistorias feitas por vistoriador (OS vistoriadas pela data da conclusão): hoje, semana, quinzena e mês. */
+export async function producaoVistoriadores(sb: Sb) {
+  const agora = new Date();
+  const os = await todasAsLinhas<{ vistoriador: string | null; concluida_em: string | null }>((a, b) =>
+    sb.from('vw_os_sla').select('vistoriador, concluida_em').eq('status', 'vistoriado').gte('concluida_em', inicioBuscaProducao(agora).toISOString()).order('numero').range(a, b));
+  return contarProducao(os, agora);
 }

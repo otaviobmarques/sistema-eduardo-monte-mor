@@ -8,7 +8,8 @@ import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia
 import { FiltroLocal } from '@/components/os/filtro-local';
 import { AgendarLote } from '@/components/os/agendar-lote';
 import { hora, moeda } from '@/lib/formato';
-import { numerosDoMes, vistoriadoresHoje } from '@/lib/paineis';
+import { numerosDoMes, producaoVistoriadores, vistoriadoresHoje } from '@/lib/paineis';
+import { PERIODOS_PRODUCAO, type PeriodoProducao } from '@/lib/regras/producao';
 import { nomeDoMes } from '@/lib/regras/financeiro';
 import { formatarPct } from '@/lib/regras/relatorios';
 import { createClient } from '@/lib/supabase/server';
@@ -34,11 +35,12 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
-  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }] = await Promise.all([
+  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }, producao] = await Promise.all([
     numerosDoMes(supabase), vistoriadoresHoje(supabase),
     encerradas ? buscarOs(supabase, { status: ['a_vistoriar', 'frustrado'], limite: 1000 }) : Promise.resolve({ linhas: todas }),
     supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('motivos').select('id, descricao').eq('tipo', 'reagendamento').eq('ativo', true).order('ordem'),
+    producaoVistoriadores(supabase),
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
   // Pausadas (a partir da pausa) saem de “A vistoriar” e ganham o próprio card
@@ -69,6 +71,39 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
           <Kpi rotulo={`A receber em ${mesNome}`} valor={moeda(n.aReceberMes)} detalhe={`${n.qtdAReceberMes} placa${n.qtdAReceberMes === 1 ? '' : 's'} do mês · exceto canceladas`} />
         </div>
       </div>
+      <section className="card p-5" aria-labelledby="card-producao">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="card-producao" className="h3">Vistorias feitas por vistoriador</h2>
+          <Link href="/loja/relatorios/agenda" className="btn btn-texto btn-sm">Relatório da agenda</Link>
+        </div>
+        {producao.linhas.length === 0 ? <p className="text-sm text-text-secondary">Nenhuma vistoria concluída neste mês.</p> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-divider text-left text-xs uppercase tracking-wide text-text-secondary">
+                  <th scope="col" className="py-2 pr-3 font-semibold">Vistoriador</th>
+                  {(Object.keys(PERIODOS_PRODUCAO) as PeriodoProducao[]).map((k) => (
+                    <th key={k} scope="col" className="px-2 py-2 text-right font-semibold">{PERIODOS_PRODUCAO[k]}<span className="block text-[11px] font-normal normal-case tracking-normal">{producao.periodos.rotulos[k]}</span></th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...producao.linhas, producao.total].map((l) => (
+                  <tr key={l.vistoriador} className={`border-b border-divider last:border-0 ${l.vistoriador === 'Total' ? 'font-semibold' : ''}`}>
+                    <th scope="row" className={`py-2 pr-3 text-left ${l.vistoriador === 'Sem vistoriador' ? 'font-normal text-text-secondary' : 'font-semibold'}`}>{l.vistoriador}</th>
+                    {(Object.keys(PERIODOS_PRODUCAO) as PeriodoProducao[]).map((k) => (
+                      <td key={k} className="px-2 py-2 text-right font-display text-base font-black tabular-nums">{l[k]}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {producao.linhas.some((l) => l.vistoriador === 'Sem vistoriador') && (
+          <p className="mt-3 text-xs text-text-secondary">“Sem vistoriador”: OS concluídas sem vistoriador definido. Informe na conclusão ou na ficha da OS (Vistoriador › Alterar).</p>
+        )}
+      </section>
       <section className="card p-5" aria-labelledby="card-patios">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 id="card-patios" className="h3">Vistorias por pátio em {mesNome}</h2>

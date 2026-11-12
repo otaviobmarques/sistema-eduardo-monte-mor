@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { abrirPendencia, agendar, alterarAbertura, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
+import { abrirPendencia, agendar, alterarAbertura, definirVistoriador, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Icone } from '@/components/icone';
 import { Aviso, Modal } from '@/components/ui';
@@ -22,6 +22,16 @@ function CampoConclusao({ erro, abertaEm }: { erro?: string; abertaEm?: string }
     <Campo id="conclusao-quando" rotulo="Data e hora da conclusão" erro={erro}
       ajuda="Pode ser uma data anterior a hoje. O prazo (no prazo ou atrasada) é calculado por esta data.">
       <input id="conclusao-quando" name="concluida_em" type="datetime-local" className="campo" defaultValue={agoraLocal()} min={min} max={agoraLocal(5)} {...inv(erro)} />
+    </Campo>
+  );
+}
+/** “Vistoriador que fez” nas janelas de conclusão: conta no card de vistorias feitas por vistoriador. */
+function CampoVistoriador({ vistoriadores, atual }: { vistoriadores: { id: string; nome: string }[]; atual?: string | null }) {
+  return (
+    <Campo id="conc-vist" rotulo="Vistoriador que fez" opcional ajuda="Conta no painel “Vistorias feitas por vistoriador”.">
+      <select id="conc-vist" name="vistoriador_id" className="campo" defaultValue={atual ?? ''}>
+        <option value="">Sem vistoriador</option>{vistoriadores.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+      </select>
     </Campo>
   );
 }
@@ -92,7 +102,7 @@ function Responsavel({ erro, padrao = 'cliente' }: { erro?: string; padrao?: str
 }
 
 export interface DadosAcoes {
-  os: { id: string; numero: number; status: string; etapa: string | null; local: string; aberta_em?: string };
+  os: { id: string; numero: number; status: string; etapa: string | null; local: string; aberta_em?: string; vistoriador_id?: string | null };
   vistoriadores: { id: string; nome: string }[];
   motivos: { frustracao: Opcao[]; cancelamento: Opcao[]; reagendamento: Opcao[] };
   agendamento: { data_hora: string; vistoriador_id: string | null; local_texto: string | null } | null;
@@ -281,6 +291,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
                 </div>
               </div>
               {d.conclusaoLivre && <CampoConclusao erro={e.concluida_em} abertaEm={os.aberta_em} />}
+              <CampoVistoriador vistoriadores={d.vistoriadores} atual={os.vistoriador_id} />
               <Campo id="sl-motivo" rotulo="Por que concluir sem laudo?" opcional={d.conclusaoLivre} erro={e.motivo} ajuda="Fica na linha do tempo e na auditoria.">
                 <textarea id="sl-motivo" name="motivo" className="campo" rows={3} placeholder="Ex.: laudo entregue em papel ao cliente; vistoria feita por outro sistema" {...inv(e.motivo)} />
               </Campo>
@@ -306,6 +317,7 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
             enviar={(fd) => { fd.set('os_id', os.id); fd.set('numero', String(os.numero)); return enviarLaudo(fd); }}>
             {(e) => (<>
               {d.conclusaoLivre && os.status !== 'vistoriado' && <CampoConclusao erro={e.concluida_em} abertaEm={os.aberta_em} />}
+              {os.status !== 'vistoriado' && <CampoVistoriador vistoriadores={d.vistoriadores} atual={os.vistoriador_id} />}
               <div><p className="rotulo">Laudo em PDF</p><ArquivoInput name="arquivo" accept=".pdf,application/pdf" obrigatorio rotuloBotao="Escolher PDF" /></div>
               <p className="ajuda">Até 20 MB.</p>
             </>)}
@@ -423,3 +435,21 @@ export function RetomarPrazo({ osId, numero }: { osId: string; numero: number })
     </div>
   );
 }
+
+/** Ficha: define/corrige o vistoriador da OS (também já concluída). */
+export function EditarVistoriador({ osId, numero, atual, vistoriadores }: { osId: string; numero: number; atual: string | null; vistoriadores: Opcao2[] }) {
+  return (
+    <ModalForm titulo="Vistoriador da OS" rotulo="Salvar vistoriador" descricao="Quem fez (ou vai fazer) a vistoria. Conta no painel “Vistorias feitas por vistoriador” pela data da conclusão."
+      abrir={(f) => <button type="button" className="btn btn-texto btn-sm -ml-3" onClick={f}>{atual ? 'Alterar' : 'Definir vistoriador'}</button>}
+      enviar={(fd) => definirVistoriador(osId, numero, String(fd.get('vistoriador_id') ?? ''))}>
+      {() => (
+        <Campo id="ev-vist" rotulo="Vistoriador">
+          <select id="ev-vist" name="vistoriador_id" className="campo" defaultValue={atual ?? ''}>
+            <option value="">Sem vistoriador</option>{vistoriadores.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+          </select>
+        </Campo>
+      )}
+    </ModalForm>
+  );
+}
+type Opcao2 = { id: string; nome: string };

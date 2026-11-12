@@ -178,6 +178,7 @@ export async function enviarLaudo(form: FormData): Promise<Resultado<{ versao: n
     await supabase.storage.from('laudos').remove([caminho]);
     return { ok: false, erro: mensagemOperacao(error) };
   }
+  await vistoriadorDaConclusao(form, osId);
   atualizar(numero);
   return { ok: true, dados: { versao } };
 }
@@ -198,7 +199,9 @@ export async function concluirSemLaudo(form: FormData): Promise<Resultado> {
   const supabase = await createClient();
   const { error } = await supabase.rpc('concluir_sem_laudo', { p_os: osId, p_motivo: motivo, p_concluida_em: quando.iso });
   if (error) return { ok: false, erro: mensagemOperacao(error) };
+  const eV = await vistoriadorDaConclusao(form, osId);
   atualizar(numero);
+  if (eV) return { ok: true, erro: `OS concluída, mas o vistoriador não foi salvo: ${eV}` } as Resultado;
   return { ok: true };
 }
 
@@ -280,4 +283,25 @@ export async function agendarLote(ids: string[], d: { data: string; hora: string
   }));
   revalidatePath('/loja'); revalidatePath('/loja/agenda'); revalidatePath('/loja/pendencias');
   return { ok: true, dados: { agendadas: linhas.filter((l) => l.ok).length, falhas } };
+}
+
+/** Define/corrige o vistoriador que fez (ou vai fazer) a vistoria. Vazio = sem vistoriador. */
+export async function definirVistoriador(osId: string, numero: number, vistoriadorId: string): Promise<Resultado> {
+  await sessao('loja');
+  if (!uuid.safeParse(osId).success) return { ok: false, erro: 'OS não encontrada.' };
+  const vist = vistoriadorId && uuid.safeParse(vistoriadorId).success ? vistoriadorId : null;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('definir_vistoriador', { p_os: osId, p_vistoriador: vist });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  atualizar(numero);
+  return { ok: true };
+}
+
+/** Na conclusão: grava o vistoriador escolhido (se o campo veio no formulário). */
+async function vistoriadorDaConclusao(form: FormData, osId: string): Promise<string | null> {
+  if (!form.has('vistoriador_id')) return null;
+  const v = String(form.get('vistoriador_id') ?? '');
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('definir_vistoriador', { p_os: osId, p_vistoriador: v && uuid.safeParse(v).success ? v : null });
+  return error ? mensagemOperacao(error) : null;
 }
