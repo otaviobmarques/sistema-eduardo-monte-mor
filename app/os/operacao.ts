@@ -25,6 +25,8 @@ function dataConclusao(form: FormData, livre: boolean): { iso: string | null; er
   const iso = deBrasilia(bruto);
   if (!iso) return { iso: null, erro: 'Informe data e hora válidas.' };
   if (new Date(iso) > new Date(Date.now() + 5 * 60_000)) return { iso: null, erro: 'A conclusão não pode estar no futuro.' };
+  // O campo vem preenchido com a hora atual (sem segundos): sem mudança real, vale “agora”
+  if (Math.abs(Date.now() - new Date(iso).getTime()) < 2 * 60_000) return { iso: null };
   return { iso };
 }
 

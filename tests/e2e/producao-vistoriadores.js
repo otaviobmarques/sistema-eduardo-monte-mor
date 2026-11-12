@@ -51,7 +51,7 @@ function periodos(agora = Date.now()) {
       await p.click('button:has-text("Concluir sem laudo")');
       await p.selectOption('#conc-vist', carlos.id);
       await p.click('dialog[open] button:has-text("Concluir sem laudo")');
-      await p.waitForSelector('dialog[open]', { state: 'detached', timeout: 30000 }).catch(async () => { await p.screenshot({ path: process.env.S + '/prod-erro.png' }); throw new Error('janela: ' + (await p.locator('dialog[open]').innerText()).slice(0, 400)); });
+      await p.waitForSelector('dialog[open]', { state: 'detached', timeout: 30000 }).catch(async () => { await p.screenshot({ path: process.env.S + '/prod-erro.png' }); throw new Error('janela: ' + (await p.locator('dialog[open]').innerText()).slice(-500)); });
       if ((await adm.from('ordens_servico').select('vistoriador_id').eq('id', os1.id).single()).data.vistoriador_id !== carlos.id) falha('vistoriador na conclusão');
       log('na janela de conclusão: “Vistoriador que fez” = Carlos');
 
