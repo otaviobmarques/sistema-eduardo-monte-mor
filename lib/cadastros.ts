@@ -16,7 +16,11 @@ export const SCHEMAS = {
     padrao: booleano, ativo: booleano,
   }),
   taxas_deslocamento: z.object({ cidade: texto(2, 'Cidade'), uf, valor: moeda }),
-  vistoriadores: z.object({ nome: texto(2, 'Nome'), ativo: booleano }),
+  vistoriadores: z.object({
+    nome: texto(2, 'Nome'), ativo: booleano,
+    telefone: z.string().optional().transform((v) => (v ? v.replace(/\D/g, '') || null : null))
+      .refine((v) => !v || v.length === 10 || v.length === 11, 'Informe o celular com DDD (ex.: 19 99999-9999).'),
+  }),
   motivos: z.object({
     tipo: z.enum(['frustracao', 'cancelamento', 'atraso', 'pendencia', 'reagendamento'], { errorMap: () => ({ message: 'Selecione o tipo.' }) }),
     descricao: texto(2, 'Descrição'), ordem: z.coerce.number().int().min(0).default(0), ativo: booleano,

@@ -55,7 +55,7 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
     if (banido) {
       const { data: pb } = await admin.from('perfis_usuario').select('perfil, lojas(nome, telefone)').eq('login', login).maybeSingle();
       const lb = pb?.lojas as unknown as { nome: string; telefone: string | null } | null;
-      const quem = pb?.perfil === 'cliente' && lb ? `Fale com a ${lb.nome}${lb.telefone ? `: ${telefone(lb.telefone)}` : ''}.` : pb?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
+      const quem = (pb?.perfil === 'cliente' || pb?.perfil === 'vistoriador') && lb ? `Fale com a ${lb.nome}${lb.telefone ? `: ${telefone(lb.telefone)}` : ''}.` : pb?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
       return { erro: `Acesso bloqueado. ${quem}`, login: digitado };
     }
     return { erro: 'Usuário ou senha incorretos.', login: digitado };
@@ -63,7 +63,7 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
 
   const { data: perfil } = await admin.from('perfis_usuario').select('perfil, bloqueado, deve_trocar_senha, senha_expira_em, loja_id, lojas(nome, ativo, bloqueada, telefone)').eq('user_id', data.user.id).maybeSingle();
   const lojaP = perfil?.lojas as unknown as { nome: string; telefone: string | null } | null;
-  const contato = perfil?.perfil === 'cliente' && lojaP ? `Fale com a ${lojaP.nome}${lojaP.telefone ? `: ${telefone(lojaP.telefone)}` : ''}.` : perfil?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
+  const contato = (perfil?.perfil === 'cliente' || perfil?.perfil === 'vistoriador') && lojaP ? `Fale com a ${lojaP.nome}${lojaP.telefone ? `: ${telefone(lojaP.telefone)}` : ''}.` : perfil?.perfil === 'loja' ? 'Fale com o administrador do sistema.' : FALE;
   if (!perfil || perfil.bloqueado) {
     await supabase.auth.signOut({ scope: 'local' });
     await registrar(false, perfil ? 'acesso bloqueado' : 'sem perfil', data.user.id);
@@ -83,6 +83,8 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
     return { erro: perfil.perfil === 'loja' ? 'O acesso da sua Loja está suspenso. Regularize a assinatura com o administrador do sistema.' : `O sistema está temporariamente indisponível. Fale com a ${loja?.nome || 'sua unidade Auto Visão'}${loja?.telefone ? `: ${telefone(loja.telefone)}` : ''}.`, login: digitado };
   }
   await registrar(true, soPagamento ? 'loja bloqueada: só pagamento' : null, data.user.id);
+  // Vistoriador entra com a senha que o Gestor definiu (sem troca obrigatória): marca o 1º acesso aqui
+  if (perfil.perfil === 'vistoriador' && !perfil.deve_trocar_senha) await admin.from('perfis_usuario').update({ primeiro_acesso_em: new Date().toISOString() }).eq('user_id', data.user.id).is('primeiro_acesso_em', null);
   redirect(perfil.deve_trocar_senha ? '/trocar-senha' : soPagamento ? '/loja/assinatura' : ROTA_INICIAL[perfil.perfil as TipoPerfil]);
 }
 

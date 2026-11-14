@@ -101,6 +101,13 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    e **Confirmar leitura** (`confirmar_leitura()`: grava `notificacoes.leitura_confirmada_em/por`, marca vista e registra
    “Leitura confirmada” na linha do tempo da OS). O som repete a cada 20 s até confirmar. “Lembrar depois” minimiza num
    aviso fixo; volta ao recarregar ou quando chega outra. Quem abriu a própria OS não é chamado (`notificacoes.criada_por`).
+25. **Acesso do vistoriador (14/11/2026)** — substitui “vistoriadores não têm login”: 4º perfil `vistoriador`
+   (`perfis_usuario.vistoriador_id`, `deve_trocar_senha = false`). Em Cadastros › Vistoriadores (seção “Acesso dos
+   vistoriadores”, `components/cadastros/acesso-vistoriadores.tsx`) o Gestor cria usuário **e a senha que escolher**, altera
+   a senha, bloqueia e **envia o link** (mensagem com link/usuário/senha; WhatsApp `wa.me` no celular cadastrado em
+   `vistoriadores.telefone`, ou copiar). A senha só aparece logo após criar/alterar. O vistoriador entra em `/vistoriador`
+   (“Minhas vistorias”, agrupadas por dia, com mapa) e lê só por `minhas_vistorias()` (OS com `vistoriador_id` dele ou
+   agendamento atual dele; em andamento + concluídas há 7 dias). Nenhuma policy de tabela o alcança.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

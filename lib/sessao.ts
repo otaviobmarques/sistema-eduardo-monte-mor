@@ -4,13 +4,15 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
-export type TipoPerfil = 'admin' | 'loja' | 'cliente';
+export type TipoPerfil = 'admin' | 'loja' | 'cliente' | 'vistoriador';
 
 export interface Perfil {
   user_id: string;
   perfil: TipoPerfil;
   loja_id: string | null;
   empresa_cliente_id: string | null;
+  /** Perfil vistoriador: o cadastro de vistoriador ligado a este login. */
+  vistoriador_id?: string | null;
   login: string;
   nome_exibicao: string;
   deve_trocar_senha: boolean;
@@ -27,7 +29,7 @@ export interface Sessao {
   empresa: { id: string; razao_social: string; nome_fantasia: string | null } | null;
 }
 
-export const ROTA_INICIAL: Record<TipoPerfil, string> = { admin: '/admin', loja: '/loja', cliente: '/app' };
+export const ROTA_INICIAL: Record<TipoPerfil, string> = { admin: '/admin', loja: '/loja', cliente: '/app', vistoriador: '/vistoriador' };
 
 export const getSessao = cache(async (): Promise<Sessao | null> => {
   const supabase = await createClient();
