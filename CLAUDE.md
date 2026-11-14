@@ -117,6 +117,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    (`components/os/chegadas-hoje.tsx`, `chegadasDeHoje()` em `lib/paineis.ts`): conta OS criadas hoje (Brasília, por
    `created_at`; importação de histórico da Loja fica de fora), com hora da última, lotes, contagem por cliente, as 6 mais
    recentes (link para a ficha) e “Ver as de hoje” → `/loja/pendencias?dia=<hoje>`. Atualiza ao vivo pelo Realtime da página.
+   Com OS novas a barra é **roxa** (#6D28D9, texto branco, igual no modo noturno); sem nada, card neutro.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
