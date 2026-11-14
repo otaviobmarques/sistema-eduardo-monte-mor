@@ -48,12 +48,17 @@ const falha = (m) => { throw new Error(m); };
       await p.screenshot({ path: S + '/fila-pausadas.png', fullPage: true });
 
       await p.goto(`${B}/loja`);
-      const kpi = await p.locator('div:has(> p:has-text("A receber em"))').first().innerText();
+      const kpi = await p.locator('div:has(> p:text-is("Valor a receber"))').first().innerText();
       if (!kpi.includes('1.000,00') || !kpi.includes('4 placas')) falha('A receber: ' + kpi);
       const kv = async (r) => (await p.locator(`[aria-label="Indicadores"] div:has(> p:text-is("${r}"))`).first().innerText()).replace(/\s+/g, ' ');
       const [kA, kP] = [await kv('A vistoriar'), await kv('Pausadas')];
       if (!/A vistoriar 0 /i.test(kA) || !/Pausadas 2 /i.test(kP) || !kP.includes('1 pausa manual') || !kP.includes('1 com pendência')) falha(`cards: ${kA} | ${kP}`);
-      log(`card “Pausadas” = 2 (1 pausa manual, 1 com pendência) e elas saem de “A vistoriar” (= 0); frustrada continua à parte`);
+      const kF = await kv('Frustradas');
+      if (!/Frustradas 3 /i.test(kF) || !kF.includes('1 frustrada + 2 pausadas')) falha('card Frustradas: ' + kF);
+      const rotulos = await p.$$eval('[aria-label="Indicadores"] p:first-child', (ps) => ps.map((x) => x.textContent.trim()));
+      const esperado = ['A vistoriar', 'Pausadas', 'Frustradas', 'Vencendo', 'Vencidas', 'Vistorias em', 'Canceladas', 'Valor a receber'];
+      if (rotulos.length !== 8 || esperado.some((r, i) => !rotulos[i].startsWith(r))) falha('ordem dos cards: ' + rotulos);
+      log(`cards na ordem: ${rotulos.join(' · ')}; Pausadas = 2 e saem de “A vistoriar” (= 0); Frustradas = 1 frustrada + 2 pausadas = 3`);
       // Pendências também traz as OS pausadas à mão
       await p.goto(`${B}/loja/pendencias`);
       const linhaP = (await p.locator('table tbody tr:has-text("PNL1A11")').innerText()).replace(/\s+/g, ' ');
@@ -75,7 +80,7 @@ const falha = (m) => { throw new Error(m); };
       await p.click('a[aria-label^="Pausadas"]'); await p.waitForURL(/sla=pausadas/);
       log('clicar no card “Pausadas” abre a fila filtrada');
       await p.goto(`${B}/loja`);
-      log('“A receber” do mês soma as 4 placas não canceladas (pausada, com pendência, frustrada e vistoriada): R$ 1.000,00; a cancelada (R$ 1.000) fica de fora');
+      log('“Valor a receber” do mês soma as 4 placas não canceladas (pausada, com pendência, frustrada e vistoriada): R$ 1.000,00; a cancelada (R$ 1.000) fica de fora');
 
       const itens = await p.$$eval('section[aria-labelledby="card-patios"] li', (ls) => ls.map((l) => l.innerText.replace(/\s+/g, ' ')));
       if (itens.length !== 2 || !itens[0].includes(P1.nome) || !itens[0].includes('3 OS') || !itens[1].includes(P2.nome) || !itens[1].includes('1 OS') || !itens[1].includes('1 vistoriada')) falha('ranking: ' + JSON.stringify(itens));

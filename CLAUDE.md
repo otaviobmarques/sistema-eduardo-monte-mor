@@ -94,6 +94,8 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
      placa Mercosul sempre branca.
    - **Lote na Fila**: além de Agendar, **Justificar atraso** (`justificar_lote()`) e **Pausar prazo** (`pausar_lote()`,
      só Gestor com `conclusao_livre`) nas OS selecionadas (ex.: filtrar pelo pátio → selecionar todas).
+23. **Cards do painel (14/11/2026)**: A vistoriar · Pausadas · **Frustradas (frustradas em andamento + pausadas)** · Vencendo ·
+   Vencidas · Vistorias em <mês> · Canceladas (no mês) · Valor a receber. Filtro da Fila só por **Pátio**.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
