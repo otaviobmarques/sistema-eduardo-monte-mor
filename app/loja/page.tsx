@@ -63,9 +63,10 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
       </Hero>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Indicadores">
         <Kpi rotulo="A vistoriar" valor={aVistoriar.length} detalhe="em andamento, sem as pausadas e frustradas" tom="escuro" />
-        <Link href="?sla=pausadas" className="block rounded-card transition-colors duration-[120ms] [&>div:hover]:border-impact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact" aria-label={`Pausadas: ${pausadas.length}. Ver na fila`}>
-          <Kpi rotulo="Pausadas" valor={pausadas.length}
-            detalhe={pausadas.length ? [qtdManual && `${qtdManual} pausa${qtdManual === 1 ? '' : 's'} manual${qtdManual === 1 ? '' : 'is'}`, qtdPendencia && `${qtdPendencia} com pendência`].filter(Boolean).join(' · ') || 'prazo parado' : 'nenhuma pausada'} />
+        <Link href="?sla=pausadas" className="block rounded-card transition-colors duration-[120ms] [&>div:hover]:border-impact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact" aria-label={`Pausadas (com as frustradas): ${pausadas.length + frustradas}. Ver na fila`}>
+          {/* Pausadas: as pausadas + as frustradas (pedido de 14/11/2026) */}
+          <Kpi rotulo="Pausadas" valor={pausadas.length + frustradas}
+            detalhe={pausadas.length + frustradas ? [qtdManual && `${qtdManual} pausa${qtdManual === 1 ? '' : 's'} manual${qtdManual === 1 ? '' : 'is'}`, qtdPendencia && `${qtdPendencia} com pendência`, frustradas && `${frustradas} frustrada${frustradas === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'prazo parado' : 'nenhuma pausada'} />
         </Link>
         {/* Frustradas: as frustradas em andamento + as pausadas (pedido de 14/11/2026) */}
         <Kpi rotulo="Frustradas" valor={frustradas + pausadas.length} detalhe={`${frustradas} frustrada${frustradas === 1 ? '' : 's'} + ${pausadas.length} pausada${pausadas.length === 1 ? '' : 's'}`} tom={frustradas + pausadas.length ? 'alerta' : undefined} />

@@ -39,7 +39,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    descrição da pendência/frustração). KPI **“A receber em <mês>”** soma todas as placas abertas no mês com pagamento
    pendente, em qualquer status menos cancelado (`numerosDoMes().aReceberMes`). Card **“Vistorias por pátio”**: ranking das
    OS abertas no mês (sem canceladas) por pátio, com quantas já vistoriadas.
-   Card **“Pausadas”** (clicável → `?sla=pausadas`): OS “A vistoriar” com o prazo pausado (pausa manual ou pendência);
+   Card **“Pausadas”** (clicável → `?sla=pausadas`): OS “A vistoriar” com o prazo pausado (pausa manual ou pendência) **+ as frustradas** (14/11);
    a partir da pausa elas **saem do card “A vistoriar”** e voltam a contar ao retomar. Frustradas seguem à parte.
 14. **Sessão no iPhone/iPad (10/11/2026)**: o acesso_log mostrou o Gestor deslogando no iOS logo após o servidor renovar
    o acesso (Safari congela a aba e a renovação fica para o servidor). Agora, quando o servidor não reconhece a sessão mas o
