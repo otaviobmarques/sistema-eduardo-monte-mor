@@ -67,3 +67,24 @@ export async function producaoVistoriadores(sb: Sb) {
     sb.from('vw_os_sla').select('vistoriador, concluida_em').eq('status', 'vistoriado').gte('concluida_em', inicioBuscaProducao(agora).toISOString()).order('numero').range(a, b));
   return contarProducao(os, agora);
 }
+
+/** OS que chegaram hoje (Brasília), pela criação no sistema. Importação de histórico feita pela Loja não conta. */
+export async function chegadasDeHoje(sb: Sb) {
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  type Linha = { id: string; numero: number; placa: string; marca_modelo: string | null; created_at: string; lote_id: string | null; lotes_importacao: { modo: string } | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
+  const linhas = (await todasAsLinhas<Record<string, unknown>>((a, b) =>
+    sb.from('ordens_servico').select('id, numero, placa, marca_modelo, created_at, lote_id, lotes_importacao(modo), empresas_clientes(nome_fantasia, razao_social)')
+      .gte('created_at', `${hoje}T00:00:00-03:00`).order('created_at', { ascending: false }).range(a, b))) as unknown as Linha[];
+  const novas = linhas.filter((o) => o.lotes_importacao?.modo !== 'historico');
+  const porCliente = new Map<string, number>();
+  for (const o of novas) {
+    const c = o.empresas_clientes?.nome_fantasia || o.empresas_clientes?.razao_social || 'Sem cliente';
+    porCliente.set(c, (porCliente.get(c) ?? 0) + 1);
+  }
+  return {
+    hoje, total: novas.length, ultima: novas[0]?.created_at ?? null,
+    lotes: new Set(novas.filter((o) => o.lote_id).map((o) => o.lote_id)).size,
+    porCliente: [...porCliente].sort((a, b) => b[1] - a[1]),
+    recentes: novas.slice(0, 6).map((o) => ({ numero: o.numero, placa: o.placa, modelo: o.marca_modelo, em: o.created_at })),
+  };
+}

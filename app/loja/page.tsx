@@ -8,7 +8,8 @@ import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia
 import { FiltroLocal } from '@/components/os/filtro-local';
 import { AgendarLote } from '@/components/os/agendar-lote';
 import { hora, moeda } from '@/lib/formato';
-import { numerosDoMes, producaoVistoriadores, vistoriadoresHoje } from '@/lib/paineis';
+import { chegadasDeHoje, numerosDoMes, producaoVistoriadores, vistoriadoresHoje } from '@/lib/paineis';
+import { ChegadasHoje } from '@/components/os/chegadas-hoje';
 import { PERIODOS_PRODUCAO, type PeriodoProducao } from '@/lib/regras/producao';
 import { nomeDoMes } from '@/lib/regras/financeiro';
 import { formatarPct } from '@/lib/regras/relatorios';
@@ -36,7 +37,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
-  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }, producao, { data: motivosAtraso }, sessao] = await Promise.all([
+  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }, producao, { data: motivosAtraso }, sessao, chegadas] = await Promise.all([
     numerosDoMes(supabase), vistoriadoresHoje(supabase),
     encerradas ? buscarOs(supabase, { status: ['a_vistoriar', 'frustrado'], limite: 1000 }) : Promise.resolve({ linhas: todas }),
     supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome'),
@@ -44,6 +45,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
     producaoVistoriadores(supabase),
     supabase.from('motivos').select('id, descricao').eq('tipo', 'atraso').eq('ativo', true).order('ordem'),
     getSessao(),
+    chegadasDeHoje(supabase),
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
   // Pausadas (a partir da pausa) saem de “A vistoriar” e ganham o próprio card
@@ -61,6 +63,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <Link href="/loja/os/nova" className="btn btn-claro">Abrir OS para cliente</Link>
         <Link href="/loja/importar" className="btn btn-contorno-claro">Importar lote</Link>
       </Hero>
+      <ChegadasHoje c={chegadas} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Indicadores">
         <Kpi rotulo="A vistoriar" valor={aVistoriar.length} detalhe="em andamento, sem as pausadas e frustradas" tom="escuro" />
         <Link href="?sla=pausadas" className="block rounded-card transition-colors duration-[120ms] [&>div:hover]:border-impact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact" aria-label={`Pausadas (com as frustradas): ${pausadas.length + frustradas}. Ver na fila`}>
