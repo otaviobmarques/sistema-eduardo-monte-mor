@@ -28,7 +28,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    volta para A vistoriar · Aberta; o tempo encerrada não conta) e **pausa/retoma** o prazo à mão (`pausar_os()` /
    `retomar_os()`, pausa `origem = 'manual'`). **Cores dos status** em Configurações (`configuracoes.cores_status`:
    amarelo, roxo, vermelho, verde ou azul, `lib/cores-status.ts`), aplicadas por variáveis CSS (`components/cores-status.tsx`)
-   para a Loja e os clientes dela. **Filtro “Unidade / Pátio”** com várias escolhas (parâmetro `local=p:<pátio>`/`u:<unidade>`,
+   para a Loja e os clientes dela. **Filtro “Pátio”** com várias escolhas (só pátios desde 14/11; parâmetro `local=p:<pátio>`,
    `lib/fila.ts`) na fila da Loja, na exportação e no painel do cliente. **Sessão**: “Sair” encerra só o aparelho
    (`signOut({ scope: 'local' })`), o middleware não desloga por falha passageira e `ManterSessao` renova o acesso.
 12. **Data da conclusão (09/11/2026)**: o Gestor com `conclusao_livre` escolhe data/hora da conclusão (pode ser anterior a

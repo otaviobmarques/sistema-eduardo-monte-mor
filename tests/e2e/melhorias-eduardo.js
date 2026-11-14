@@ -93,9 +93,9 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
       log('Configurações › Cores dos status: “A vistoriar” em Roxo aparece na fila');
 
       // 4. Filtro por várias unidades/pátios
-      await p.click('button:has-text("Unidade / Pátio")');
+      await p.click('button:has-text("Pátio:")');
       await p.click(`#filtro-local label:has-text("${pats[1].nome}")`);
-      await p.click('#filtro-local label:has-text("Dukar Vila Guilherme")');
+      await p.click(`#filtro-local label:has-text("${pats[2].nome}")`);
       await p.click('#filtro-local button:has-text("Mostrar 2 locais")');
       await p.waitForURL(/local=/);
       await p.waitForSelector('text=MLH1A33');
@@ -103,7 +103,8 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
       if (placas.length !== 2 || !placas.some((t) => t.includes('MLH1A22')) || placas.some((t) => t.includes('MLH1A11'))) falha('filtro: ' + placas.length);
       const href = await p.getAttribute('a:has-text("Exportar Excel")', 'href');
       if ((href.match(/local=/g) || []).length !== 2) falha('exportar sem filtro: ' + href);
-      log(`filtro “Unidade / Pátio” com 2 escolhas (pátio ${pats[1].nome} + unidade Dukar Vila Guilherme): 2 OS; exportar leva o filtro`);
+      log(`filtro “Pátio” com 2 escolhas (${pats[1].nome} + ${pats[2].nome}): 2 OS; exportar leva o filtro`);
+      if (await p.locator('button:has-text("Pátio:")').count() !== 1 || (await p.locator('text=Unidades').count())) falha('filtro ainda mostra unidades');
       await p.screenshot({ path: S + '/filtro-local.png', fullPage: true });
 
       // Cliente vê a mesma cor e tem o filtro
@@ -111,7 +112,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
       await entrar(c, B, 'cliente-melhorias', 'cliente-senha-123', '/app');
       for (let i = 0; i < 2; i++) await c.click('button:has-text("Agora não")', { timeout: 2500 }).catch(() => {});
       const corC = await c.$eval('td span[style*="--st-a_vistoriar"]', (el) => getComputedStyle(el).color);
-      if (corC !== 'rgb(91, 45, 168)' || !(await c.locator('button:has-text("Unidade / Pátio")').count())) falha('cliente: ' + corC);
+      if (corC !== 'rgb(91, 45, 168)' || !(await c.locator('button:has-text("Pátio:")').count())) falha('cliente: ' + corC);
       log('cliente vê a mesma cor escolhida pela Loja e também tem o filtro por unidade/pátio');
 
       // 5. Sair num aparelho não derruba a sessão no outro

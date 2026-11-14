@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export interface OpcaoLocal { valor: string; rotulo: string; tipo: 'patio' | 'unidade'; qtd: number }
 
-/** Filtro por várias Unidades/Pátios ao mesmo tempo (parâmetro `local` repetido na URL). */
+/** Filtro por vários pátios ao mesmo tempo (parâmetro `local` repetido na URL). */
 export function FiltroLocal({ opcoes, selecionados, extra = {} }: { opcoes: OpcaoLocal[]; selecionados: string[]; extra?: Record<string, string | undefined> }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -39,22 +39,22 @@ export function FiltroLocal({ opcoes, selecionados, extra = {} }: { opcoes: Opca
       </fieldset>
     );
   };
-  const resumo = selecionados.length === 0 ? 'Todas as unidades e pátios' : selecionados.length === 1 ? selecionados[0].slice(2) : `${selecionados.length} unidades/pátios`;
+  const resumo = selecionados.length === 0 ? 'Todos' : selecionados.length === 1 ? selecionados[0].slice(2) : `${selecionados.length} pátios`;
 
   return (
     <div className="relative">
       <button type="button" className={`btn btn-sm ${selecionados.length ? 'btn-primario' : 'btn-secundario'}`} aria-expanded={aberto} aria-controls="filtro-local"
         onClick={() => { setMarcados(selecionados); setAberto((a) => !a); }}>
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
-        <span className="max-w-[16rem] truncate">Unidade / Pátio: {resumo}</span>
+        <span className="max-w-[16rem] truncate">Pátio: {resumo}</span>
       </button>
       {aberto && (
-        <div id="filtro-local" role="dialog" aria-label="Filtrar por unidade ou pátio"
+        <div id="filtro-local" role="dialog" aria-label="Filtrar por pátio"
           className="absolute left-0 z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-card border border-divider bg-white p-3 shadow-xl">
-          <label htmlFor="filtro-local-busca" className="sr-only">Procurar unidade ou pátio</label>
-          <input id="filtro-local-busca" className="campo" placeholder="Procurar unidade ou pátio" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <label htmlFor="filtro-local-busca" className="sr-only">Procurar pátio</label>
+          <input id="filtro-local-busca" className="campo" placeholder="Procurar pátio" value={busca} onChange={(e) => setBusca(e.target.value)} />
           <div className="mt-1 max-h-72 overflow-y-auto">
-            {todas.length === 0 ? <p className="p-3 text-sm text-text-secondary">Nenhuma unidade ou pátio nas OS listadas.</p> : (<>{grupo('unidade', 'Unidades')}{grupo('patio', 'Pátios')}</>)}
+            {todas.length === 0 ? <p className="p-3 text-sm text-text-secondary">Nenhum pátio nas OS listadas.</p> : grupo('patio', 'Pátios')}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-divider pt-3">
             <div className="flex gap-2">

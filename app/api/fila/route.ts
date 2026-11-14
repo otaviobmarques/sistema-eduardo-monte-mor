@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const todas = filtrarPorLocal(semLocal, locais);
   const chip = CHIP[(sp.get('sla') ?? '') as keyof typeof CHIP];
   const linhas = ordenarPorUrgencia(chip ? todas.filter((o) => o.sla.cor === chip) : todas);
-  const filtros = [`${linhas.length} OS em andamento`, sp.get('q') ? `Busca: ${sp.get('q')}` : null, chip ? `Prazo: ${SLA[chip]}` : null, locais.length ? `Unidade/Pátio: ${locais.map((l) => l.slice(2)).join(', ')}` : null].filter(Boolean) as string[];
+  const filtros = [`${linhas.length} OS em andamento`, sp.get('q') ? `Busca: ${sp.get('q')}` : null, chip ? `Prazo: ${SLA[chip]}` : null, locais.length ? `Pátio: ${locais.map((l) => l.slice(2)).join(', ')}` : null].filter(Boolean) as string[];
   const dados = linhas.map((o) => ({
     o, etapa: o.status === 'a_vistoriar' && o.etapa ? ETAPA_LABEL[o.etapa as keyof typeof ETAPA_LABEL] : '',
     prazo: o.sla.prazo ? dataHora(o.sla.prazo) : 'Pausado', sla: `${SLA[o.sla.cor]} · ${o.sla.texto}${o.motivoPausa ? ` · ${o.motivoPausa}` : ''}`,

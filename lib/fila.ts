@@ -78,21 +78,20 @@ export function ordenarPorUrgencia(l: LinhaOs[]) {
   return [...l].sort((a, b) => pesoUrgencia(a.sla) - pesoUrgencia(b.sla));
 }
 
-/** Filtro por vários locais: valores `p:<pátio>` e `u:<unidade>` (da URL, parâmetro `local`). Vazio = todos. */
+/** Filtro por vários pátios: valores `p:<pátio>` (da URL, parâmetro `local`). Vazio = todos. */
 export function lerLocais(v: string | string[] | undefined) {
-  return (Array.isArray(v) ? v : v ? [v] : []).filter((x) => /^[pu]:./.test(x)).slice(0, 200);
+  return (Array.isArray(v) ? v : v ? [v] : []).filter((x) => /^p:./.test(x)).slice(0, 200);
 }
 export function filtrarPorLocal(l: LinhaOs[], locais: string[]) {
   if (!locais.length) return l;
   const sel = new Set(locais);
-  return l.filter((o) => (o.patio && sel.has(`p:${o.patio}`)) || (o.unidade && sel.has(`u:${o.unidade}`)));
+  return l.filter((o) => o.patio && sel.has(`p:${o.patio}`));
 }
-/** Opções do filtro (pátios e unidades presentes nas OS), com quantidade. */
+/** Opções do filtro (pátios presentes nas OS), com quantidade. */
 export function opcoesDeLocal(l: LinhaOs[]) {
   const conta = new Map<string, number>();
   for (const o of l) {
     if (o.patio) conta.set(`p:${o.patio}`, (conta.get(`p:${o.patio}`) ?? 0) + 1);
-    if (o.unidade) conta.set(`u:${o.unidade}`, (conta.get(`u:${o.unidade}`) ?? 0) + 1);
   }
   const lista = [...conta].map(([valor, qtd]) => ({ valor, rotulo: valor.slice(2), tipo: valor[0] === 'p' ? 'patio' as const : 'unidade' as const, qtd }));
   return lista.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.rotulo.localeCompare(b.rotulo, 'pt-BR'));
