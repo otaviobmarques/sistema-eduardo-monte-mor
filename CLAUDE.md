@@ -96,6 +96,11 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
      só Gestor com `conclusao_livre`) nas OS selecionadas (ex.: filtrar pelo pátio → selecionar todas).
 23. **Cards do painel (14/11/2026)**: A vistoriar · Pausadas · **Frustradas (frustradas em andamento + pausadas)** · Vencendo ·
    Vencidas · Vistorias em <mês> · Canceladas (no mês) · Valor a receber. Filtro da Fila só por **Pátio**.
+24. **Pop-up com confirmação de leitura (14/11/2026)**: na Loja, cada OS (`nova_os`) e lote (`novo_lote`) que chega no dia
+   abre um pop-up (`PopupLeitura` em `components/notificacoes.tsx`) com caixa “Li e estou ciente” por item, “Marcar todas”
+   e **Confirmar leitura** (`confirmar_leitura()`: grava `notificacoes.leitura_confirmada_em/por`, marca vista e registra
+   “Leitura confirmada” na linha do tempo da OS). O som repete a cada 20 s até confirmar. “Lembrar depois” minimiza num
+   aviso fixo; volta ao recarregar ou quando chega outra. Quem abriu a própria OS não é chamado (`notificacoes.criada_por`).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

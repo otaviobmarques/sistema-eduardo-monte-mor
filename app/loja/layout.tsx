@@ -42,15 +42,19 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
   const bloqueada = lojaSoPagamento(s);
   if (bloqueada && !((await headers()).get('x-caminho') ?? '').startsWith('/loja/assinatura')) redirect('/loja/assinatura');
   const supabase = await createClient();
-  const [{ data: loja }, { data: abertas }, { data: naoLidas }] = await Promise.all([
+  // Pop-up de confirmação de leitura: OS/lotes que chegaram hoje (fuso de São Paulo) e ninguém confirmou
+  const hojeSp = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  const [{ data: loja }, { data: abertas }, { data: naoLidas }, { data: paraConfirmar }] = await Promise.all([
     supabase.from('lojas').select('nome, dias_tolerancia, motivo_bloqueio').eq('id', s.perfil.loja_id!).single(),
     supabase.from('faturas').select('id, descricao, valor, vencimento, status, link_pagamento').eq('status', 'vencido').order('vencimento').limit(20),
     supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'loja').is('vista_em', null).order('criada_em', { ascending: false }).limit(50),
+    supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id, criada_por').eq('destino', 'loja').in('tipo', ['nova_os', 'novo_lote'])
+      .is('leitura_confirmada_em', null).gte('criada_em', `${hojeSp}T00:00:00-03:00`).order('criada_em', { ascending: false }).limit(300),
   ]);
   const vencida = abertas?.[0];
   const suspensao = vencida && loja ? new Date(Date.parse(`${vencida.vencimento}T12:00:00-03:00`) + (loja.dias_tolerancia + 1) * 86400_000) : null;
   return (
-    <NotificacoesProvider modo="loja" iniciais={(naoLidas ?? []) as Notificacao[]}>
+    <NotificacoesProvider modo="loja" iniciais={(naoLidas ?? []) as Notificacao[]} paraConfirmar={(paraConfirmar ?? []) as Notificacao[]} eu={s.userId}>
       <CoresStatus supabase={supabase} />
     <Shell grupos={GRUPOS} raiz="/loja" usuario={s.perfil.nome_exibicao} subtitulo={loja?.nome ?? 'Loja'} sairAction={sair} topo={<Sino />}
       barraInferior={bloqueada ? [...BARRA, { href: '/loja/assinatura', label: 'Assinatura', icone: 'financeiro' }] : BARRA}

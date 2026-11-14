@@ -43,3 +43,15 @@ export async function removerInscricaoPush(endpoint: string) {
   await supabase.from('push_inscricoes').delete().eq('endpoint', endpoint);
   return { ok: true };
 }
+
+/** Confirmação de leitura (pop-up das novas vistorias do dia): grava quem/quando e entra na linha do tempo da OS. */
+export async function confirmarLeitura(ids: string[]) {
+  const s = await sessao();
+  if (s.perfil.perfil !== 'loja') return { ok: false, erro: 'Só a Loja confirma a leitura.' };
+  const validos = ids.filter((i) => z.string().uuid().safeParse(i).success).slice(0, 500);
+  if (!validos.length) return { ok: false, erro: 'Marque ao menos uma vistoria.' };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('confirmar_leitura', { p_ids: validos });
+  if (error) return { ok: false, erro: 'Não foi possível confirmar agora. Tente de novo.' };
+  return { ok: true, confirmadas: (data as number) ?? 0 };
+}

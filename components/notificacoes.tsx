@@ -1,12 +1,12 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { marcarVistas, removerInscricaoPush, salvarInscricaoPush } from '@/app/notificacoes/actions';
+import { confirmarLeitura, marcarVistas, removerInscricaoPush, salvarInscricaoPush } from '@/app/notificacoes/actions';
 import { createClient } from '@/lib/supabase/client';
-import { dataHora } from '@/lib/formato';
+import { dataHora, hora } from '@/lib/formato';
 import { Icone } from './icone';
 
-export interface Notificacao { id: string; tipo: string; titulo: string; corpo: string | null; link: string | null; criada_em: string; os_id: string | null; lote_id: string | null; vista_em?: string | null }
+export interface Notificacao { id: string; tipo: string; titulo: string; corpo: string | null; link: string | null; criada_em: string; os_id: string | null; lote_id: string | null; vista_em?: string | null; leitura_confirmada_em?: string | null; criada_por?: string | null }
 
 /** Tipos que chamam a Loja com som até alguém abrir (seção 6). */
 const ALERTA_LOJA = new Set(['nova_os', 'novo_lote']);
@@ -39,10 +39,13 @@ function base64ParaUint8(b64: string) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export function NotificacoesProvider({ modo, iniciais, children }: { modo: 'loja' | 'cliente'; iniciais: Notificacao[]; children: React.ReactNode }) {
+export function NotificacoesProvider({ modo, iniciais, paraConfirmar = [], eu, children }: { modo: 'loja' | 'cliente'; iniciais: Notificacao[]; paraConfirmar?: Notificacao[]; eu?: string; children: React.ReactNode }) {
   const router = useRouter();
   const [lista, setLista] = useState<Notificacao[]>(iniciais);
   const [toasts, setToasts] = useState<Notificacao[]>([]);
+  // Pop-up das novas vistorias do dia: fica até alguém marcar “Li e estou ciente” (confirmação de leitura)
+  const [leitura, setLeitura] = useState<Notificacao[]>(modo === 'loja' ? paraConfirmar.filter((n) => !eu || n.criada_por !== eu) : []);
+  const [popupAberto, setPopupAberto] = useState(true);
   const [somAtivo, setSomAtivo] = useState(false);
   const [pedirSom, setPedirSom] = useState(false);
   const [push, setPush] = useState<EstadoPush>('carregando');
@@ -70,12 +73,19 @@ export function NotificacoesProvider({ modo, iniciais, children }: { modo: 'loja
         const n = p.new as unknown as Notificacao;
         setLista((l) => (l.some((x) => x.id === n.id) ? l : [n, ...l]));
         setToasts((t) => [n, ...t].slice(0, 4));
-        if (modo === 'loja' && ALERTA_LOJA.has(n.tipo)) tocarSeAtivo();
+        if (modo === 'loja' && ALERTA_LOJA.has(n.tipo)) {
+          tocarSeAtivo();
+          if (!eu || n.criada_por !== eu) { // quem abriu a própria OS não precisa confirmar
+            setLeitura((l) => (l.some((x) => x.id === n.id) ? l : [n, ...l]));
+            setPopupAberto(true);
+          }
+        }
         atualizarTela();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notificacoes', filter: `destino=eq.${destino}` }, (p: { new: Record<string, unknown> }) => {
         const n = p.new as unknown as Notificacao;
         if (n.vista_em) { setLista((l) => l.filter((x) => x.id !== n.id)); setToasts((t) => t.filter((x) => x.id !== n.id)); }
+        if (n.leitura_confirmada_em) setLeitura((l) => l.filter((x) => x.id !== n.id)); // confirmada em outro aparelho
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ordens_servico' }, () => atualizarTela())
       .subscribe();
@@ -97,11 +107,12 @@ export function NotificacoesProvider({ modo, iniciais, children }: { modo: 'loja
     } else if (pref !== '0') setPedirSom(true);
   }, [modo]);
   const alertas = useMemo(() => lista.filter((n) => modo === 'loja' && ALERTA_LOJA.has(n.tipo)).length, [lista, modo]);
+  const semConfirmar = leitura.length;
   useEffect(() => {
-    if (!somAtivo || alertas === 0) return;
-    const t = setInterval(tocar, 20_000); // repete até alguém abrir
+    if (!somAtivo || (alertas === 0 && semConfirmar === 0)) return;
+    const t = setInterval(tocar, 20_000); // repete até alguém abrir/confirmar a leitura
     return () => clearInterval(t);
-  }, [somAtivo, alertas]);
+  }, [somAtivo, alertas, semConfirmar]);
 
   // Título da aba: “(2) Nova OS” piscando enquanto houver alerta
   useEffect(() => {
@@ -158,8 +169,18 @@ export function NotificacoesProvider({ modo, iniciais, children }: { modo: 'loja
   return (
     <NotifCtx.Provider value={ctx}>
       {children}
+      {modo === 'loja' && leitura.length > 0 && (popupAberto
+        ? <PopupLeitura itens={leitura} onMinimizar={() => setPopupAberto(false)}
+            onConfirmadas={(ids) => { setLeitura((l) => l.filter((x) => !ids.includes(x.id))); setLista((l) => l.filter((x) => !ids.includes(x.id))); setToasts((t) => t.filter((x) => !ids.includes(x.id))); atualizarTela(); }} />
+        : (
+          <button type="button" onClick={() => setPopupAberto(true)} data-teste="leitura-pendente"
+            className="fixed bottom-20 left-4 z-50 flex min-h-[44px] items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-white shadow-2xl hover:bg-action-hover min-[900px]:bottom-6 min-[900px]:left-[calc(16rem+16px)]">
+            <Icone nome="sino" className="h-4 w-4" />
+            {leitura.length === 1 ? '1 vistoria sem confirmação de leitura' : `${leitura.length} vistorias sem confirmação de leitura`}
+          </button>
+        ))}
       {/* Avisos no canto */}
-      <div className="pointer-events-none fixed bottom-20 right-4 z-50 flex w-[min(380px,calc(100vw-32px))] flex-col gap-2 min-[900px]:bottom-6" aria-live="polite" aria-label="Avisos">
+      <div className="pointer-events-none fixed bottom-20 right-4 z-[80] flex w-[min(380px,calc(100vw-32px))] flex-col gap-2 min-[900px]:bottom-6" aria-live="polite" aria-label="Avisos">
         {pedirSom && (
           <div className="pointer-events-auto rounded-card bg-impact p-4 text-white shadow-2xl">
             <p className="font-display text-base font-extrabold">Ativar alertas sonoros?</p>
@@ -267,3 +288,75 @@ export function ContadorMenu({ tipo }: { tipo: 'alertas' | 'todas' }) {
   return n ? <span className="rounded-full bg-brand-red px-2 py-0.5 text-xs font-bold text-white" aria-label={`${n} nova${n === 1 ? '' : 's'}`}>{n}</span> : null;
 }
 
+
+/* ───────── Pop-up: novas vistorias do dia com confirmação de leitura ───────── */
+function PopupLeitura({ itens, onMinimizar, onConfirmadas }: { itens: Notificacao[]; onMinimizar: () => void; onConfirmadas: (ids: string[]) => void }) {
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const primeiro = useRef<HTMLInputElement>(null);
+  useEffect(() => { primeiro.current?.focus(); }, []);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onMinimizar(); };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [onMinimizar]);
+  // Mantém só as marcações de itens que ainda estão na lista
+  const sel = itens.filter((n) => marcadas.has(n.id)).map((n) => n.id);
+  const todas = sel.length === itens.length;
+  const alternar = (id: string) => setMarcadas((m) => { const x = new Set(m); if (x.has(id)) x.delete(id); else x.add(id); return x; });
+  const confirmar = async () => {
+    if (!sel.length) return;
+    setEnviando(true); setErro(null);
+    const r = await confirmarLeitura(sel);
+    setEnviando(false);
+    if (!r.ok) { setErro(r.erro ?? 'Não foi possível confirmar agora. Tente de novo.'); return; }
+    setMarcadas(new Set());
+    onConfirmadas(sel);
+  };
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" data-teste="popup-leitura">
+      <div role="dialog" aria-modal="true" aria-labelledby="popup-leitura-titulo"
+        className="flex max-h-[90vh] w-full max-w-[560px] flex-col rounded-t-painel bg-white shadow-2xl sm:rounded-painel">
+        <div className="border-b border-divider p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-action">Novas vistorias de hoje</p>
+          <h2 id="popup-leitura-titulo" className="mt-1 font-display text-2xl font-extrabold text-text">
+            {itens.length === 1 ? '1 vistoria aguardando confirmação' : `${itens.length} vistorias aguardando confirmação`}
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">Marque cada uma em “Li e estou ciente” e clique em Confirmar leitura. O alerta sonoro repete até a confirmação.</p>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-b border-divider px-5 py-2">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm font-semibold text-text">
+            <input type="checkbox" className="h-5 w-5 accent-[#C9232C]" checked={todas && itens.length > 0}
+              onChange={() => setMarcadas(todas ? new Set() : new Set(itens.map((n) => n.id)))} />
+            Marcar todas
+          </label>
+          <span className="text-sm text-text-secondary">{sel.length} de {itens.length} marcadas</span>
+        </div>
+        <ul className="flex-1 divide-y divide-divider overflow-y-auto">
+          {itens.map((n, i) => (
+            <li key={n.id} className="flex items-start gap-3 px-5 py-3" data-teste="item-leitura">
+              <input ref={i === 0 ? primeiro : undefined} id={`leitura-${n.id}`} type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-[#C9232C]"
+                checked={marcadas.has(n.id)} onChange={() => alternar(n.id)} aria-describedby={`leitura-d-${n.id}`} />
+              <div className="min-w-0 flex-1">
+                <label htmlFor={`leitura-${n.id}`} className="block cursor-pointer font-semibold text-text">{n.titulo}</label>
+                <p id={`leitura-d-${n.id}`} className="text-sm text-text-secondary">
+                  {n.corpo ? `${n.corpo} · ` : ''}chegou às {hora(n.criada_em)}
+                </p>
+                <label htmlFor={`leitura-${n.id}`} className="mt-1 inline-block cursor-pointer text-xs font-semibold text-text-secondary">Li e estou ciente</label>
+              </div>
+              {n.link && <a href={n.link} className="shrink-0 text-sm font-semibold text-action underline-offset-2 hover:underline">{n.tipo === 'novo_lote' ? 'Ver lote' : 'Ver OS'}</a>}
+            </li>
+          ))}
+        </ul>
+        {erro && <p role="alert" className="mx-5 mt-3 rounded-campo border-l-4 border-error bg-error-bg px-3 py-2 text-sm text-error">{erro}</p>}
+        <div className="flex flex-col-reverse gap-2 p-5 sm:flex-row sm:justify-end">
+          <button type="button" className="btn btn-secundario" onClick={onMinimizar}>Lembrar depois</button>
+          <button type="button" className="btn btn-primario" disabled={!sel.length || enviando} onClick={confirmar}>
+            {enviando ? 'Confirmando…' : sel.length > 1 ? `Confirmar leitura (${sel.length})` : 'Confirmar leitura'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
