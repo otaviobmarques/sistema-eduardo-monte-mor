@@ -17,10 +17,12 @@ function ativo(path: string, href: string, raiz: string) {
 }
 
 export function Shell({
-  grupos, raiz, usuario, subtitulo, barraInferior, sairAction, children, topo, liberados,
+  grupos, raiz, usuario, subtitulo, barraInferior, sairAction, children, topo, liberados, marcaCliente,
 }: {
   grupos: GrupoMenu[]; raiz: string; usuario: string; subtitulo: string; barraInferior: ItemMenu[];
   sairAction: () => Promise<void>; children: React.ReactNode; topo?: React.ReactNode;
+  /** Portal do cliente: logotipo da empresa (sobre fundo branco, em qualquer tema). */
+  marcaCliente?: { src: string; nome: string } | null;
   /** Modo restrito (ex.: Loja bloqueada): só estes endereços ficam clicáveis; os demais itens aparecem inativos. */
   liberados?: string[];
 }) {
@@ -31,6 +33,12 @@ export function Shell({
   const menu = (
     <nav className="flex h-full flex-col" style={{ background: 'radial-gradient(120% 90% at 20% 0%, #2C2A2B, #151415)' }}>
       <div className="px-5 pb-4 pt-6"><Logo variante="branco" altura={40} /></div>
+      {marcaCliente && (
+        <div className="mx-4 mb-2 flex h-16 items-center justify-center rounded-card bg-[#fff] px-3 py-2" data-teste="logo-cliente-menu">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={marcaCliente.src} alt={`Logotipo de ${marcaCliente.nome}`} className="max-h-12 max-w-full object-contain" />
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         {grupos.map((g) => (
           <div key={g.titulo} className="mt-4">

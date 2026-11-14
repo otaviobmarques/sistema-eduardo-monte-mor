@@ -26,7 +26,7 @@ export interface Sessao {
   userId: string;
   perfil: Perfil;
   loja: { id: string; nome: string; telefone: string | null; bloqueada: boolean; ativo: boolean } | null;
-  empresa: { id: string; razao_social: string; nome_fantasia: string | null } | null;
+  empresa: { id: string; razao_social: string; nome_fantasia: string | null; logo_path?: string | null; logo_atualizado_em?: string | null } | null;
 }
 
 export const ROTA_INICIAL: Record<TipoPerfil, string> = { admin: '/admin', loja: '/loja', cliente: '/app', vistoriador: '/vistoriador' };
@@ -45,7 +45,7 @@ export const getSessao = cache(async (): Promise<Sessao | null> => {
     loja = data ?? { id: perfil.loja_id, nome: '', telefone: null, bloqueada: true, ativo: false };
   }
   if (perfil.empresa_cliente_id) {
-    const { data } = await supabase.from('empresas_clientes').select('id, razao_social, nome_fantasia').eq('id', perfil.empresa_cliente_id).maybeSingle();
+    const { data } = await supabase.from('empresas_clientes').select('id, razao_social, nome_fantasia, logo_path, logo_atualizado_em').eq('id', perfil.empresa_cliente_id).maybeSingle();
     empresa = data;
   }
   return { userId: user.id, perfil, loja, empresa };

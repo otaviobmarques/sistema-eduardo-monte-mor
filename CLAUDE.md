@@ -108,6 +108,11 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    `vistoriadores.telefone`, ou copiar). A senha só aparece logo após criar/alterar. O vistoriador entra em `/vistoriador`
    (“Minhas vistorias”, agrupadas por dia, com mapa) e lê só por `minhas_vistorias()` (OS com `vistoriador_id` dele ou
    agendamento atual dele; em andamento + concluídas há 7 dias). Nenhuma policy de tabela o alcança.
+26. **Logotipo do cliente (14/11/2026)**: no cadastro do cliente (`/loja/clientes/[id]`, card “Logotipo do cliente”,
+   `app/loja/clientes/logo.tsx`) a Loja envia/troca/remove PNG, JPG ou WEBP até 2 MB (tipo conferido pelos bytes).
+   Bucket privado `logos` (`{empresa}/logo-{ts}.{ext}`), colunas `empresas_clientes.logo_path/logo_atualizado_em`.
+   O navegador lê por `/api/logo/{empresa}?v=…` (RLS de `empresas_clientes` decide: Loja dele, o próprio cliente, admin).
+   Aparece no portal do cliente no menu lateral (`Shell marcaCliente`) e no hero do painel (`Hero marca`), sempre em fundo branco.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

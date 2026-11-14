@@ -38,6 +38,7 @@ async function criarUsuario({ login, senha, perfil, lojaId, empresaId = null, no
 
 async function limparLoja(lojaId) {
   const { data: emps } = await adm.from('empresas_clientes').select('id').eq('loja_id', lojaId);
+  for (const e of emps ?? []) { const { data: l } = await adm.storage.from('logos').list(e.id); if (l?.length) await adm.storage.from('logos').remove(l.map((x) => `${e.id}/${x.name}`)); }
   const { data: oss } = await adm.from('ordens_servico').select('id').eq('loja_id', lojaId);
   const ids = (oss ?? []).map((o) => o.id);
   if (ids.length) {

@@ -8,6 +8,8 @@ import { formatarCnpj } from '@/lib/regras/cnpj';
 import { createClient } from '@/lib/supabase/server';
 import { AcessoCliente } from '../acesso';
 import { ClienteForm } from '../cliente-form';
+import { LogoCliente } from '../logo';
+import { urlLogo } from '@/lib/logo';
 
 export const metadata: Metadata = { title: 'Cliente' };
 
@@ -47,6 +49,7 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
       <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-start">
         <div className="space-y-6">
           <ClienteForm id={id} inicial={e} />
+          <LogoCliente empresaId={id} nome={nome} src={urlLogo(id, e.logo_path, e.logo_atualizado_em)} />
           {precos}
         </div>
         <div className="xl:sticky xl:top-6">

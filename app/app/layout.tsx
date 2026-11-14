@@ -4,6 +4,7 @@ import { sair } from '../login/actions';
 import { NotificacoesProvider, Sino, type Notificacao } from '@/components/notificacoes';
 import { createClient } from '@/lib/supabase/server';
 import { CoresStatus } from '@/components/cores-status';
+import { urlLogo } from '@/lib/logo';
 
 const GRUPOS: GrupoMenu[] = [
   { titulo: 'Vistorias', itens: [
@@ -29,11 +30,12 @@ export default async function ClienteLayout({ children }: { children: React.Reac
   const s = await exigirPerfil('cliente');
   const empresa = s.empresa?.nome_fantasia || s.empresa?.razao_social || '';
   const supabase = await createClient();
+  const logo = s.empresa ? urlLogo(s.empresa.id, s.empresa.logo_path, s.empresa.logo_atualizado_em) : null;
   const { data: naoLidas } = await supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'cliente').is('vista_em', null).order('criada_em', { ascending: false }).limit(50);
   return (
     <NotificacoesProvider modo="cliente" iniciais={(naoLidas ?? []) as Notificacao[]}>
       <CoresStatus supabase={supabase} />
-    <Shell grupos={GRUPOS} raiz="/app" usuario={empresa} subtitulo={`Usuário: ${s.perfil.login}`} barraInferior={BARRA} sairAction={sair} topo={<Sino />}>
+    <Shell grupos={GRUPOS} raiz="/app" usuario={empresa} subtitulo={`Usuário: ${s.perfil.login}`} barraInferior={BARRA} sairAction={sair} topo={<Sino />} marcaCliente={logo ? { src: logo, nome: empresa } : null}>
       {children}
     </Shell>
     </NotificacoesProvider>

@@ -179,3 +179,52 @@ export async function alterarBloqueio(empresaId: string, bloquear: boolean): Pro
   revalidatePath('/loja/clientes');
   return { ok: true };
 }
+
+/* ───────── Logotipo do cliente ───────── */
+
+const TIPOS_LOGO: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+function tipoPelaAssinatura(b: Uint8Array): string | null {
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+  return null;
+}
+
+export async function enviarLogoCliente(empresaId: string, form: FormData): Promise<Resultado> {
+  const s = await exigirPerfil('loja');
+  const arq = form.get('logo');
+  if (!(arq instanceof File) || arq.size === 0) return { ok: false, erro: 'Escolha a imagem do logotipo.' };
+  if (arq.size > 2 * 1024 * 1024) return { ok: false, erro: 'A imagem passa de 2 MB. Reduza o tamanho e envie de novo.' };
+  const bytes = new Uint8Array(await arq.arrayBuffer());
+  const tipo = tipoPelaAssinatura(bytes);
+  if (!tipo) return { ok: false, erro: 'Use uma imagem PNG, JPG ou WEBP.' };
+  const admin = createAdminClient();
+  const { data: e } = await admin.from('empresas_clientes').select('id, logo_path').eq('id', empresaId).eq('loja_id', s.perfil.loja_id!).maybeSingle();
+  if (!e) return { ok: false, erro: 'Cliente não encontrado.' };
+  const caminho = `${empresaId}/logo-${Date.now()}.${TIPOS_LOGO[tipo]}`;
+  const { error } = await admin.storage.from('logos').upload(caminho, bytes, { contentType: tipo, upsert: false });
+  if (error) return { ok: false, erro: 'Não foi possível enviar a imagem. Tente de novo.' };
+  // Grava pelo cliente do usuário para a auditoria registrar quem trocou
+  const supabase = await createClient();
+  const { error: e2 } = await supabase.from('empresas_clientes').update({ logo_path: caminho, logo_atualizado_em: new Date().toISOString() }).eq('id', empresaId);
+  if (e2) { await admin.storage.from('logos').remove([caminho]); return { ok: false, erro: 'Não foi possível salvar o logotipo. Tente de novo.' }; }
+  if (e.logo_path) await admin.storage.from('logos').remove([e.logo_path]);
+  revalidatePath(`/loja/clientes/${empresaId}`);
+  revalidatePath('/app', 'layout');
+  return { ok: true };
+}
+
+export async function removerLogoCliente(empresaId: string): Promise<Resultado> {
+  const s = await exigirPerfil('loja');
+  const admin = createAdminClient();
+  const { data: e } = await admin.from('empresas_clientes').select('id, logo_path').eq('id', empresaId).eq('loja_id', s.perfil.loja_id!).maybeSingle();
+  if (!e) return { ok: false, erro: 'Cliente não encontrado.' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('empresas_clientes').update({ logo_path: null, logo_atualizado_em: new Date().toISOString() }).eq('id', empresaId);
+  if (error) return { ok: false, erro: 'Não foi possível remover. Tente de novo.' };
+  if (e.logo_path) await admin.storage.from('logos').remove([e.logo_path]);
+  revalidatePath(`/loja/clientes/${empresaId}`);
+  revalidatePath('/app', 'layout');
+  return { ok: true };
+}

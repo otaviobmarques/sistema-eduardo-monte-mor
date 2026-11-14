@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Hero } from '@/components/hero';
+import { urlLogo } from '@/lib/logo';
 import { Busca, Chips, TabelaOs } from '@/components/os/tabela-os';
 import { Kpi } from '@/components/kpi';
 import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia } from '@/lib/fila';
@@ -38,7 +39,7 @@ export default async function PainelCliente({ searchParams }: { searchParams: Pr
   const qtd = (st: string) => todas.filter((o) => o.status === st).length;
   return (
     <div className="space-y-6">
-      <Hero kicker="Painel" titulo={`Olá, ${nome}`} descricao="Acompanhe prazo, status e laudo de cada placa.">
+      <Hero kicker="Painel" titulo={`Olá, ${nome}`} marca={s.empresa ? (() => { const src = urlLogo(s.empresa.id, s.empresa.logo_path, s.empresa.logo_atualizado_em); return src ? { src, nome: nome ?? '' } : null; })() : null} descricao="Acompanhe prazo, status e laudo de cada placa.">
         <Link href="/app/nova-os" className="btn btn-claro">Nova OS</Link>
         <Link href="/app/importar" className="btn btn-contorno-claro">Importar planilha</Link>
       </Hero>
