@@ -64,10 +64,17 @@ const CONTA_SOM = `(() => { window.__bipes = 0; const O = window.AudioContext;
     const { data: n } = await adm.from('notificacoes').select('vista_em, vista_por, criada_em').eq('os_id', os[0].id).eq('tipo', 'nova_os').single();
     if (!n.vista_em || !n.vista_por) falha('vista_em/vista_por não gravados');
     log(`notificação marcada como vista (tempo até o atendimento: ${((new Date(n.vista_em) - new Date(n.criada_em)) / 1000).toFixed(0)} s)`);
+    // Abrir não basta: o som segue até alguém confirmar a leitura no pop-up (14/11/2026)
     const bipes3 = await loja.evaluate(() => window.__bipes);
     await espera(21000);
-    if ((await loja.evaluate(() => window.__bipes)) !== bipes3) falha('som continuou após abrir');
-    log('som parou e o título voltou ao normal:', await loja.evaluate(() => document.title.slice(0, 40)));
+    if ((await loja.evaluate(() => window.__bipes)) <= bipes3) falha('som parou sem confirmar a leitura');
+    await loja.check('[data-teste=popup-leitura] [data-teste=item-leitura]:has-text("NTF1A11") input[type=checkbox]');
+    await loja.click('[data-teste=popup-leitura] button:has-text("Confirmar leitura")');
+    await loja.waitForSelector('[data-teste=popup-leitura]', { state: 'detached', timeout: 15000 });
+    const bipes4 = await loja.evaluate(() => window.__bipes);
+    await espera(21000);
+    if ((await loja.evaluate(() => window.__bipes)) !== bipes4) falha('som continuou após confirmar a leitura');
+    log('som seguiu até a confirmação de leitura no pop-up; depois parou e o título voltou ao normal:', await loja.evaluate(() => document.title.slice(0, 40)));
 
     // Loja frustra → cliente recebe em tempo real
     const apiLoja = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

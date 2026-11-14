@@ -8,7 +8,7 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const adm = createClient(URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const CNPJ = '11222333000181', LOGIN = 'e2e-op', SENHA = 'e2e-senha-123', VIST = 'Vistoriador E2E';
 const log = (...a) => console.log('✔', ...a);
-const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+const { lojaComGestor, limparLoja, proximoNumero, semPopupLeitura } = require('./apoio');
 let AMB;
 const falha = (m) => { throw new Error(m); };
 const pdf = (t) => Buffer.from(`%PDF-1.4\n1 0 obj<<>>endobj\n% ${t}\n%%EOF`);
@@ -59,6 +59,7 @@ async function limpar() {
   const b = await chromium.launch();
   try {
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+    await semPopupLeitura(loja);
     await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     const cli = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();

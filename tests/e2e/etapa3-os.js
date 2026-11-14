@@ -7,7 +7,7 @@ const S = process.env.S ?? '/tmp', B = process.env.BASE_URL ?? 'http://localhost
 const adm = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const CNPJ = '11222333000181', LOGIN = 'e2e-os', SENHA = 'e2e-senha-123', PLACA = 'EUI6776';
 const log = (...a) => console.log('✔', ...a);
-const { lojaComGestor, limparLoja, proximoNumero } = require('./apoio');
+const { lojaComGestor, limparLoja, proximoNumero, semPopupLeitura } = require('./apoio');
 let AMB;
 
 async function limpar() {
@@ -73,6 +73,7 @@ async function limpar() {
     await cli.goto(B + '/app/os/999999999'); log('OS inexistente/alheia:', await cli.textContent('h1, h2'));
 
     const loja = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+    await semPopupLeitura(loja);
     await loja.goto(B + '/login'); await loja.fill('#login', AMB.gestor.login); await loja.fill('#senha', AMB.gestor.senha); await loja.click('button:has-text("Entrar")');
     await loja.waitForURL('**/loja');
     await loja.waitForSelector(`text=OS ${numero}`); log('OS na fila da Loja');

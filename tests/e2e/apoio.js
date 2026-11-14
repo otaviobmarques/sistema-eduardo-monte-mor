@@ -95,3 +95,12 @@ async function adminTemporario() {
   } };
 }
 module.exports.adminTemporario = adminTemporario;
+
+/** Esconde o pop-up de confirmação de leitura (testes que não tratam dele; o próprio fluxo é coberto em popup-leitura.js). */
+async function semPopupLeitura(page) {
+  await page.addInitScript(() => {
+    const css = '[data-teste="popup-leitura"],[data-teste="leitura-pendente"]{display:none!important}';
+    document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); });
+  });
+}
+module.exports.semPopupLeitura = semPopupLeitura;
