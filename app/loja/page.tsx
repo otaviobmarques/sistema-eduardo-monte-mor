@@ -69,10 +69,10 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         </Link>
         {/* Frustradas: as frustradas em andamento + as pausadas (pedido de 14/11/2026) */}
         <Kpi rotulo="Frustradas" valor={frustradas + pausadas.length} detalhe={`${frustradas} frustrada${frustradas === 1 ? '' : 's'} + ${pausadas.length} pausada${pausadas.length === 1 ? '' : 's'}`} tom={frustradas + pausadas.length ? 'alerta' : undefined} />
-        <Kpi rotulo="Vencendo" valor={cor('amarelo')} detalhe="passaram de 24h" />
-        <Kpi rotulo="Vencidas" valor={cor('vermelho')} detalhe={cor('vermelho') ? 'precisam de justificativa' : 'nenhuma atrasada'} tom={cor('vermelho') ? 'alerta' : undefined} />
-        <Kpi rotulo={`Vistorias em ${mesNome}`} valor={n.vistoriadas} detalhe={`vistoriadas · ${formatarPct(n.pctNoPrazo)} no prazo`} />
         <Kpi rotulo="Canceladas" valor={n.canceladasNoMes} detalhe={`em ${mesNome}`} />
+        <Kpi rotulo="Vencidas" valor={cor('vermelho')} detalhe={cor('vermelho') ? 'precisam de justificativa' : 'nenhuma atrasada'} tom={cor('vermelho') ? 'alerta' : undefined} />
+        <Kpi rotulo="Vencendo" valor={cor('amarelo')} detalhe="passaram de 24h" />
+        <Kpi rotulo={`Vistorias em ${mesNome}`} valor={n.vistoriadas} detalhe={`vistoriadas · ${formatarPct(n.pctNoPrazo)} no prazo`} />
         <Kpi rotulo="Valor a receber" valor={moeda(n.aReceberMes)} detalhe={`${n.qtdAReceberMes} placa${n.qtdAReceberMes === 1 ? '' : 's'} de ${mesNome} · exceto canceladas`} />
       </div>
       <section className="card p-5" aria-labelledby="card-producao">

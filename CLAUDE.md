@@ -94,8 +94,8 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
      placa Mercosul sempre branca.
    - **Lote na Fila**: além de Agendar, **Justificar atraso** (`justificar_lote()`) e **Pausar prazo** (`pausar_lote()`,
      só Gestor com `conclusao_livre`) nas OS selecionadas (ex.: filtrar pelo pátio → selecionar todas).
-23. **Cards do painel (14/11/2026)**: A vistoriar · Pausadas · **Frustradas (frustradas em andamento + pausadas)** · Vencendo ·
-   Vencidas · Vistorias em <mês> · Canceladas (no mês) · Valor a receber. Filtro da Fila só por **Pátio**.
+23. **Cards do painel (14/11/2026)**: A vistoriar · Pausadas · **Frustradas (frustradas em andamento + pausadas)** · Canceladas (no mês) ·
+   Vencidas · Vencendo · Vistorias em <mês> · Valor a receber. Filtro da Fila só por **Pátio**.
 24. **Pop-up com confirmação de leitura (14/11/2026)**: na Loja, cada OS (`nova_os`) e lote (`novo_lote`) que chega no dia
    abre um pop-up (`PopupLeitura` em `components/notificacoes.tsx`) com caixa “Li e estou ciente” por item, “Marcar todas”
    e **Confirmar leitura** (`confirmar_leitura()`: grava `notificacoes.leitura_confirmada_em/por`, marca vista e registra
