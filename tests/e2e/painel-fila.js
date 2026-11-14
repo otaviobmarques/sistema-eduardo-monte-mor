@@ -54,11 +54,11 @@ const falha = (m) => { throw new Error(m); };
       const [kA, kP] = [await kv('A vistoriar'), await kv('Pausadas')];
       if (!/A vistoriar 0 /i.test(kA) || !/Pausadas 3 /i.test(kP) || !kP.includes('1 pausa manual') || !kP.includes('1 com pendência') || !kP.includes('1 frustrada')) falha(`cards: ${kA} | ${kP}`);
       const kF = await kv('Frustradas');
-      if (!/Frustradas 3 /i.test(kF) || !kF.includes('1 frustrada + 2 pausadas')) falha('card Frustradas: ' + kF);
+      if (!/Frustradas 3\s*$/i.test(kF.trim()) || /pausada/i.test(kF)) falha('card Frustradas: ' + kF);
       const rotulos = await p.$$eval('[aria-label="Indicadores"] p:first-child', (ps) => ps.map((x) => x.textContent.trim()));
       const esperado = ['A vistoriar', 'Pausadas', 'Frustradas', 'Canceladas', 'Vencidas', 'Vencendo', 'Vistorias em', 'Valor a receber'];
       if (rotulos.length !== 8 || esperado.some((r, i) => !rotulos[i].startsWith(r))) falha('ordem dos cards: ' + rotulos);
-      log(`cards na ordem: ${rotulos.join(' · ')}; Pausadas = 2 pausadas + 1 frustrada = 3; as pausadas saem de “A vistoriar” (= 0); Frustradas = 1 frustrada + 2 pausadas = 3`);
+      log(`cards na ordem: ${rotulos.join(' · ')}; Pausadas = 2 pausadas + 1 frustrada = 3; as pausadas saem de “A vistoriar” (= 0); Frustradas = 3 (1 frustrada + 2 pausadas), sem texto embaixo`);
       // Pendências também traz as OS pausadas à mão
       await p.goto(`${B}/loja/pendencias`);
       const linhaP = (await p.locator('table tbody tr:has-text("PNL1A11")').innerText()).replace(/\s+/g, ' ');
