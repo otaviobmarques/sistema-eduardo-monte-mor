@@ -23,7 +23,11 @@ export const viewport: Viewport = { themeColor: '#ED3237', width: 'device-width'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`}>
+    <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Aplica o modo noturno antes de desenhar a página (sem piscar claro) */}
+        <script dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('av-tema')==='escuro')document.documentElement.classList.add('dark')}catch(e){}" }} />
+      </head>
       <body className="min-h-screen font-body antialiased">{children}</body>
     </html>
   );

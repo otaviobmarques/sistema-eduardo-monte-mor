@@ -79,6 +79,21 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    `producaoVistoriadores()` em `lib/paineis.ts`). O vistoriador vem de `ordens_servico.vistoriador_id`: definido no
    agendamento, no campo “Vistoriador que fez” das janelas de conclusão ou na ficha (Vistoriador › Alterar/Definir,
    também em OS concluída) via `definir_vistoriador()`. Sem vistoriador → linha “Sem vistoriador”.
+22. **Melhorias de 14/11/2026**:
+   - **Pendências**: padrão “Mais novas primeiro” (pela abertura da OS; `?ordem=urgencia` volta ao modo urgência),
+     filtro **Dia da abertura da OS** (`?dia=aaaa-mm-dd`) e marca/modelo embaixo da placa.
+   - **SLA em dias úteis**: Configurações › Contagem do prazo › **Dias úteis** = `contagem 'uteis'` com horário
+     00:00–24:00 de segunda a sexta (sem sábado, domingo e feriados). No banco, `somar_tempo_util()` + gatilho
+     `a_prazo_util` (antes de `exigir_justificativa`) recalculam `prazo_em` quando abertura/SLA/pausas/status mudam;
+     `recalcular_prazos()` ao salvar a configuração; gatilho em `feriados` recalcula as OS em andamento. Feriados
+     nacionais 2026–2027 cadastrados nas Lojas (e em Loja nova, gatilho `loja_feriados`); municipais: a Loja inclui.
+     Auto Visão Monte Mor ligada em Dias úteis (prazos de todas as OS recalculados).
+   - **Modo noturno**: botão sol/lua no topo (`components/botao-tema.tsx`, `localStorage av-tema`, classe `dark` no
+     `<html>` aplicada antes de desenhar). Cores neutras/feedback viram variáveis CSS (`--c-*` em globals.css,
+     `rgb(var(--c-x) / <alpha-value>)` no Tailwind); `bg-white` vira painel escuro; logo colorido → branco no escuro;
+     placa Mercosul sempre branca.
+   - **Lote na Fila**: além de Agendar, **Justificar atraso** (`justificar_lote()`) e **Pausar prazo** (`pausar_lote()`,
+     só Gestor com `conclusao_livre`) nas OS selecionadas (ex.: filtrar pelo pátio → selecionar todas).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

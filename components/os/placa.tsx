@@ -8,9 +8,9 @@ export function Placa({ placa, tamanho = 'md' }: { placa: string; tamanho?: 'sm'
     lg: { w: 'w-[240px]', faixa: 'h-[20px] text-[12px]', txt: 'text-[40px] py-1.5', borda: 'border-[3px] rounded-[10px]' },
   }[tamanho];
   return (
-    <span className={`inline-flex ${t.w} shrink-0 flex-col overflow-hidden border-impact bg-white ${t.borda}`} role="img" aria-label={`Placa ${formatarPlaca(placa)}`}>
+    <span className={`inline-flex ${t.w} shrink-0 flex-col overflow-hidden border-[#151415] bg-[#fff] ${t.borda}`} role="img" aria-label={`Placa ${formatarPlaca(placa)}`}>
       <span className={`flex items-center justify-center bg-[#1B3F8B] font-body font-bold tracking-[0.3em] text-white ${t.faixa}`} aria-hidden>BRASIL</span>
-      <span className={`text-center font-display font-black leading-none tracking-[0.08em] text-impact ${t.txt}`} aria-hidden>{formatarPlaca(placa)}</span>
+      <span className={`text-center font-display font-black leading-none tracking-[0.08em] text-[#151415] ${t.txt}`} aria-hidden>{formatarPlaca(placa)}</span>
     </span>
   );
 }

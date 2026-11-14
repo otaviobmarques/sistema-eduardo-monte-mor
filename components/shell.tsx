@@ -7,6 +7,7 @@ import { Icone, type IconeNome } from './icone';
 import { ContadorMenu } from './notificacoes';
 import { Creditos } from './creditos';
 import { ManterSessao } from './manter-sessao';
+import { BotaoTema } from './botao-tema';
 
 export interface ItemMenu { href: string; label: string; icone: IconeNome; badge?: number; contador?: 'alertas' | 'todas' }
 export interface GrupoMenu { titulo: string; itens: ItemMenu[] }
@@ -81,9 +82,9 @@ export function Shell({
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-divider bg-white/95 px-4 backdrop-blur min-[900px]:hidden">
         <button className="btn btn-fantasma btn-sm -ml-2 px-2" onClick={() => setAberto(true)} aria-label="Abrir menu"><Icone nome="menu" className="h-6 w-6" /></button>
         <Logo altura={28} />
-        <div className="ml-auto">{topo}</div>
+        <div className="ml-auto flex items-center gap-1"><BotaoTema />{topo}</div>
       </header>
-      <div className="hidden justify-end px-8 pt-4 min-[900px]:flex">{topo}</div>
+      <div className="hidden items-center justify-end gap-2 px-8 pt-4 min-[900px]:flex"><BotaoTema />{topo}</div>
       <main className="mx-auto max-w-[1200px] min-[1200px]:px-8 px-4 pb-24 pt-4 min-[900px]:px-8 min-[900px]:pb-10"><ManterSessao />{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-divider bg-white min-[900px]:hidden" aria-label="Atalhos">
         {barraInferior.map((i) => {

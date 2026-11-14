@@ -12,7 +12,7 @@ import { formatarDuracao } from '@/lib/regras/sla';
 import type { createClient } from '@/lib/supabase/server';
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
-type OsResumo = { numero: number; placa: string; aberta_em: string; cliente?: string | null };
+type OsResumo = { numero: number; placa: string; aberta_em: string; cliente?: string | null; modelo?: string | null };
 
 /** Uma linha da tabela: pendência, pausa manual ou OS a vistoriar (no prazo ou fora dele). */
 interface Linha {
@@ -34,7 +34,13 @@ interface Linha {
 const FILTROS_OS = { atrasada: 'Fora do prazo', a_vistoriar: 'A vistoriar', pausa: 'Pausa manual' } as const;
 const duasLinhas = (d: string) => <>{dataHora(d).slice(0, 10)}<span className="block text-xs text-text-secondary">{dataHora(d).slice(11)}</span></>;
 
-export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase: Sb; modo: 'loja' | 'cliente'; tipo: string; ver: string }) {
+/** Dia (aaaa-mm-dd) em Brasília. */
+const diaBR = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+
+export async function ListaPendencias({ supabase, modo, tipo, ver, ordem = '', dia = '' }: { supabase: Sb; modo: 'loja' | 'cliente'; tipo: string; ver: string; ordem?: string; dia?: string }) {
+  // Padrão: mais novas primeiro (pela abertura da OS); “urgencia” = fora do prazo no topo
+  const porUrgencia = ordem === 'urgencia';
+  const diaFiltro = /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : '';
   const resolvidas = ver === 'resolvidas';
   // Na Loja (abertas) a lista traz tudo o que falta resolver: OS fora do prazo, a vistoriar, pausas manuais e pendências
   const completa = modo === 'loja' && !resolvidas;
@@ -58,7 +64,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
   const base = modo === 'loja' ? '/loja' : '/app';
   const agora = Date.now();
   const nomeCliente = (e: { nome_fantasia: string | null; razao_social: string } | null) => e?.nome_fantasia || e?.razao_social;
-  type OsBanco = { id: string; aberta_em: string; numero: number; placa: string; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
+  type OsBanco = { id: string; aberta_em: string; numero: number; placa: string; marca_modelo: string | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null };
 
   const linhas: Linha[] = [];
   for (const p of pendencias) {
@@ -66,7 +72,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
     const v = vencida(p);
     linhas.push({
       chave: p.id, grupo: 'pendencia', tipo: p.tipo, ordem: v ? 1 : 2,
-      os: { numero: os.numero, placa: os.placa, aberta_em: os.aberta_em, cliente: nomeCliente(os.empresas_clientes) },
+      os: { numero: os.numero, placa: os.placa, aberta_em: os.aberta_em, cliente: nomeCliente(os.empresas_clientes), modelo: os.marca_modelo },
       titulo: TIPO_PENDENCIA_LABEL[p.tipo as keyof typeof TIPO_PENDENCIA_LABEL],
       detalhe: <>
         <span className="block text-sm">{p.descricao}</span>
@@ -87,7 +93,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
     const os = pz.ordens_servico as unknown as OsBanco;
     linhas.push({
       chave: `pausa-${pz.id}`, grupo: 'pausa', tipo: 'pausa', ordem: 3,
-      os: { numero: os.numero, placa: os.placa, aberta_em: os.aberta_em, cliente: nomeCliente(os.empresas_clientes) },
+      os: { numero: os.numero, placa: os.placa, aberta_em: os.aberta_em, cliente: nomeCliente(os.empresas_clientes), modelo: os.marca_modelo },
       titulo: 'Pausa manual',
       detalhe: <>
         <span className="block text-sm">{pz.motivo || 'Sem motivo informado'}</span>
@@ -104,7 +110,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
       chave: `os-${o.id}`, grupo: atrasada ? 'atrasada' : 'a_vistoriar', tipo: atrasada ? 'atrasada' : 'a_vistoriar',
       // Fora do prazo no topo (a mais atrasada primeiro); as do prazo por último, a mais perto de vencer primeiro
       ordem: (atrasada ? 0 : 4) + Math.max(-0.999, Math.min(0.999, o.sla.restanteMs / 1e12)),
-      os: { numero: o.numero, placa: o.placa, aberta_em: o.aberta_em, cliente: o.cliente },
+      os: { numero: o.numero, placa: o.placa, aberta_em: o.aberta_em, cliente: o.cliente, modelo: o.marca_modelo },
       titulo: atrasada ? 'Fora do prazo' : 'A vistoriar',
       detalhe: <>
         <span className="mt-1 block"><SlaPilula sla={o.sla} compacta /></span>
@@ -116,7 +122,11 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
       acao: <Link href={`${base}/os/${o.numero}`} className="btn btn-texto btn-sm">Abrir OS</Link>,
     });
   }
-  linhas.sort((a, b) => a.ordem - b.ordem);
+  // Mais novas primeiro (abertura da OS mais recente no topo) ou por urgência
+  if (porUrgencia) linhas.sort((a, b) => a.ordem - b.ordem);
+  else linhas.sort((a, b) => new Date(b.os.aberta_em).getTime() - new Date(a.os.aberta_em).getTime() || a.ordem - b.ordem);
+  // Filtro por dia (abertura da OS)
+  if (diaFiltro) linhas.splice(0, linhas.length, ...linhas.filter((l) => diaBR(l.os.aberta_em) === diaFiltro));
 
   const qtd = (t: string) => linhas.filter((l) => l.tipo === t).length;
   const qtdPendencias = linhas.filter((l) => l.grupo === 'pendencia').length;
@@ -154,13 +164,35 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
         </GradeKpi>
       ))}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Chips param="tipo" atual={atual} extra={{ ver: ver || undefined }}
+        <Chips param="tipo" atual={atual} extra={{ ver: ver || undefined, ordem: ordem || undefined, dia: diaFiltro || undefined }}
           opcoes={opcoes.filter((o) => o.valor === '' || o.qtd > 0 || o.valor === atual || (completa && (o.valor in FILTROS_OS || o.valor === 'pendencias')))} />
         <nav className="abas" aria-label="Situação">
-          <Link className="aba" href="?" aria-current={!resolvidas ? 'page' : undefined}>Abertas</Link>
+          <Link className="aba" href={`?${new URLSearchParams(Object.entries({ ordem, dia: diaFiltro }).filter(([, v]) => v) as [string, string][])}`} aria-current={!resolvidas ? 'page' : undefined}>Abertas</Link>
           <Link className="aba" href="?ver=resolvidas" aria-current={resolvidas ? 'page' : undefined}>Resolvidas</Link>
         </nav>
       </div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <form method="get" className="flex flex-wrap items-end gap-2" aria-label="Filtrar por dia">
+          {tipo && <input type="hidden" name="tipo" value={tipo} />}
+          {ver && <input type="hidden" name="ver" value={ver} />}
+          {ordem && <input type="hidden" name="ordem" value={ordem} />}
+          <div>
+            <label htmlFor="pend-dia" className="rotulo">Dia da abertura da OS</label>
+            <input id="pend-dia" name="dia" type="date" className="campo h-btn-sm" defaultValue={diaFiltro} />
+          </div>
+          <button className="btn btn-secundario btn-sm">Filtrar dia</button>
+          {diaFiltro && <Link href={`?${new URLSearchParams(Object.entries({ tipo, ver, ordem }).filter(([, v]) => v) as [string, string][])}`} className="btn btn-texto btn-sm">Todos os dias</Link>}
+        </form>
+        <nav className="flex flex-wrap items-center gap-2" aria-label="Ordem">
+          <span className="text-sm font-semibold text-text-secondary">Ordem</span>
+          {([['', 'Mais novas primeiro'], ['urgencia', 'Mais urgentes primeiro']] as const).map(([v, t]) => (
+            <Link key={v} href={`?${new URLSearchParams(Object.entries({ tipo, ver, dia: diaFiltro, ordem: v }).filter(([, x]) => x) as [string, string][])}`}
+              aria-current={(v === 'urgencia') === porUrgencia ? 'true' : undefined}
+              className={`inline-flex min-h-toque items-center rounded-full border-[1.5px] px-4 text-sm font-semibold ${(v === 'urgencia') === porUrgencia ? 'border-impact bg-impact text-white' : 'border-border bg-white hover:bg-surface'}`}>{t}</Link>
+          ))}
+        </nav>
+      </div>
+      {diaFiltro && <p className="text-sm text-text-secondary" aria-live="polite">OS abertas em {diaFiltro.split('-').reverse().join('/')}: {lista.length}</p>}
       {lista.length === 0 ? (
         <div className="card p-10 text-center text-text-secondary">{resolvidas ? 'Nenhuma pendência resolvida.' : completa ? 'Nada pendente neste filtro.' : 'Nenhuma pendência aberta. 🎉'}</div>
       ) : (
@@ -173,7 +205,7 @@ export async function ListaPendencias({ supabase, modo, tipo, ver }: { supabase:
             <tbody>
               {lista.map((l) => (
                 <tr key={l.chave} className={l.alerta ? 'shadow-[inset_4px_0_0_#B42318]' : ''} data-tipo={l.tipo}>
-                  <td data-rotulo="Placa"><Link href={`${base}/os/${l.os.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={l.os.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {l.os.numero}</span></Link></td>
+                  <td data-rotulo="Placa"><Link href={`${base}/os/${l.os.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={l.os.placa} tamanho="sm" /><span className="text-xs font-semibold text-text">{l.os.modelo ?? ''}</span><span className="text-xs text-text-secondary">OS {l.os.numero}</span></Link></td>
                   {modo === 'loja' && <td data-rotulo="Cliente">{l.os.cliente}</td>}
                   <td data-rotulo="Abertura da OS" className="whitespace-nowrap text-sm">{duasLinhas(l.os.aberta_em)}</td>
                   <td data-rotulo="Pendência" className="max-w-md"><span className={`font-semibold ${l.grupo === 'atrasada' ? 'text-error' : ''}`}>{l.titulo}</span>{l.detalhe}</td>

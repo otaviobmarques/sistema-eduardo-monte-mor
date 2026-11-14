@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { agendarLote, type ResultadoLote } from '@/app/os/operacao';
+import { agendarLote, justificarLote, pausarLote, type ResultadoLote } from '@/app/os/operacao';
 import { Aviso, Modal } from '@/components/ui';
 import { Icone } from '@/components/icone';
 import { FORM_LOTE } from '@/lib/lote';
@@ -15,7 +15,7 @@ const caixas = () => [...document.querySelectorAll<HTMLInputElement>(`input[form
  * Seleção na Fila de OS: marque uma ou várias OS (ou todas da lista filtrada) e aloque um vistoriador num dia.
  * As caixas ficam nas linhas da tabela (atributo form) e este componente controla a barra e a janela.
  */
-export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]; motivos: Opcao[] }) {
+export function AgendarLote({ vistoriadores, motivos, motivosAtraso = [], podePausar }: { vistoriadores: Opcao[]; motivos: Opcao[]; motivosAtraso?: Opcao[]; podePausar?: boolean }) {
   const router = useRouter();
   const [ids, setIds] = useState<string[]>([]);
   const [jaAgendadas, setJaAgendadas] = useState(0);
@@ -23,6 +23,9 @@ export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<ResultadoLote | null>(null);
+  const [verbo, setVerbo] = useState<'agendada' | 'pausada' | 'justificada'>('agendada');
+  // Pausar o prazo / justificar atraso das selecionadas (ex.: todas de um pátio)
+  const [outra, setOutra] = useState<null | 'pausar' | 'justificar'>(null);
   const [pendente, iniciar] = useTransition();
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]
         vistoriador_id: String(fd.get('vistoriador_id') ?? ''), local: String(fd.get('local') ?? ''), motivo_id: String(fd.get('motivo_id') ?? ''),
       });
       if (!r.ok) { setErros(r.campos ?? {}); setErro(r.erro); return; }
+      setVerbo('agendada');
       setResultado(r.dados!);
       setAberto(false);
       limpar();
@@ -71,10 +75,10 @@ export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]
     <>
       <form id={FORM_LOTE} onSubmit={(e) => e.preventDefault()} hidden />
       {resultado && (
-        <Aviso tipo={resultado.falhas.length ? 'atencao' : 'ok'} titulo={`${resultado.agendadas} OS agendada${resultado.agendadas === 1 ? '' : 's'}`}>
+        <Aviso tipo={resultado.falhas.length ? 'atencao' : 'ok'} titulo={`${resultado.agendadas} OS ${verbo}${resultado.agendadas === 1 ? '' : 's'}`}>
           {resultado.falhas.length > 0
-            ? <>Não agendadas: {resultado.falhas.map((f) => `OS ${f.numero ?? '?'} (${f.erro})`).join('; ')}.</>
-            : 'Já aparecem na Agenda do vistoriador.'}
+            ? <>Não {verbo}s: {resultado.falhas.map((f) => `OS ${f.numero ?? '?'} (${f.erro})`).join('; ')}.</>
+            : verbo === 'agendada' ? 'Já aparecem na Agenda do vistoriador.' : verbo === 'pausada' ? 'O prazo delas está parado até “Retomar prazo”.' : 'O motivo já aparece nos relatórios.'}
           <button type="button" className="ml-2 underline" onClick={() => setResultado(null)}>Fechar</button>
         </Aviso>
       )}
@@ -83,6 +87,14 @@ export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]
           <p className="px-2 font-semibold">{ids.length} OS selecionada{ids.length === 1 ? '' : 's'}{jaAgendadas ? ` · ${jaAgendadas} já agendada${jaAgendadas === 1 ? '' : 's'}` : ''}</p>
           <div className="flex gap-2">
             <button type="button" className="btn btn-sm border-white/40 bg-transparent text-white hover:bg-white/10" onClick={limpar}>Limpar seleção</button>
+            {podePausar && (
+              <button type="button" className="btn btn-sm border-white/40 bg-transparent text-white hover:bg-white/10" onClick={() => { setErros({}); setErro(null); setOutra('pausar'); }}>
+                <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><rect x="6" y="4" width="4" height="16" fill="currentColor" /><rect x="14" y="4" width="4" height="16" fill="currentColor" /></svg>Pausar prazo
+              </button>
+            )}
+            <button type="button" className="btn btn-sm border-white/40 bg-transparent text-white hover:bg-white/10" onClick={() => { setErros({}); setErro(null); setOutra('justificar'); }}>
+              Justificar atraso
+            </button>
             <button type="button" className="btn btn-primario btn-sm" onClick={() => { setErros({}); setErro(null); setAberto(true); }}>
               <Icone nome="agenda" className="h-4 w-4" />Agendar vistoria
             </button>
@@ -136,6 +148,46 @@ export function AgendarLote({ vistoriadores, motivos }: { vistoriadores: Opcao[]
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button type="button" className="btn btn-secundario" onClick={() => setAberto(false)}>Voltar</button>
             <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Agendando…' : `Agendar ${ids.length} OS`}</button>
+          </div>
+        </form>
+      </Modal>
+      <Modal aberto={outra !== null} onFechar={() => setOutra(null)} titulo={outra === 'pausar' ? `Pausar o prazo de ${ids.length} OS` : `Justificar o atraso de ${ids.length} OS`}
+        descricao={outra === 'pausar' ? 'O prazo das selecionadas para de contar até você clicar em “Retomar prazo” (na ficha ou em Pendências).' : 'Registra o mesmo motivo de atraso nas selecionadas que estão fora do prazo. As que estão no prazo são ignoradas.'}>
+        <form className="space-y-4" noValidate onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          iniciar(async () => {
+            const r = outra === 'pausar'
+              ? await pausarLote(ids, String(fd.get('motivo') ?? ''))
+              : await justificarLote(ids, String(fd.get('motivo_id') ?? ''), String(fd.get('texto') ?? ''));
+            if (!r.ok) { setErros(r.campos ?? {}); setErro(r.erro); return; }
+            setVerbo(outra === 'pausar' ? 'pausada' : 'justificada');
+            setResultado(r.dados!); setOutra(null); limpar(); router.refresh();
+          });
+        }}>
+          {outra === 'pausar' ? (
+            <div>
+              <label htmlFor="lote-pausa" className="rotulo">Motivo <span className="font-normal text-text-secondary">(opcional)</span></label>
+              <input id="lote-pausa" name="motivo" className="campo" placeholder="Ex.: pátio fechado para vistorias" />
+              <p className="ajuda">Aparece na Fila e em Pendências ao lado de “Pausado”.</p>
+            </div>
+          ) : (<>
+            <div>
+              <label htmlFor="lote-motivo-atraso" className="rotulo">Motivo do atraso</label>
+              <select id="lote-motivo-atraso" name="motivo_id" className="campo" defaultValue="" aria-invalid={erros.motivo_id ? true : undefined}>
+                <option value="">Selecione</option>{motivosAtraso.map((m) => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+              </select>
+              {erros.motivo_id && <p className="erro-campo">{erros.motivo_id}</p>}
+            </div>
+            <div>
+              <label htmlFor="lote-texto" className="rotulo">Explicação <span className="font-normal text-text-secondary">(opcional)</span></label>
+              <textarea id="lote-texto" name="texto" className="campo" rows={3} placeholder="Ex.: pátio sem acesso de segunda a quarta." />
+            </div>
+          </>)}
+          {erro && <Aviso tipo="erro" titulo="Não foi possível concluir">{erro}</Aviso>}
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+            <button type="button" className="btn btn-secundario" onClick={() => setOutra(null)}>Voltar</button>
+            <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Salvando…' : outra === 'pausar' ? `Pausar ${ids.length} OS` : `Justificar ${ids.length} OS`}</button>
           </div>
         </form>
       </Modal>

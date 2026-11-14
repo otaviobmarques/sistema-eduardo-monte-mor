@@ -13,6 +13,7 @@ import { PERIODOS_PRODUCAO, type PeriodoProducao } from '@/lib/regras/producao';
 import { nomeDoMes } from '@/lib/regras/financeiro';
 import { formatarPct } from '@/lib/regras/relatorios';
 import { createClient } from '@/lib/supabase/server';
+import { getSessao } from '@/lib/sessao';
 
 export const metadata: Metadata = { title: 'Fila de OS' };
 
@@ -35,12 +36,14 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const filtro = FILTROS[(sla in FILTROS ? sla : '') as keyof typeof FILTROS];
   const linhas = encerradas ? todas : ordenarPorUrgencia(todas.filter((o) => filtro.f(o.sla.cor)));
   const conta = (k: keyof typeof FILTROS) => todas.filter((o) => FILTROS[k].f(o.sla.cor)).length;
-  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }, producao] = await Promise.all([
+  const [n, agenda, { linhas: abertas }, { data: vistoriadores }, { data: motivosReag }, producao, { data: motivosAtraso }, sessao] = await Promise.all([
     numerosDoMes(supabase), vistoriadoresHoje(supabase),
     encerradas ? buscarOs(supabase, { status: ['a_vistoriar', 'frustrado'], limite: 1000 }) : Promise.resolve({ linhas: todas }),
     supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('motivos').select('id, descricao').eq('tipo', 'reagendamento').eq('ativo', true).order('ordem'),
     producaoVistoriadores(supabase),
+    supabase.from('motivos').select('id, descricao').eq('tipo', 'atraso').eq('ativo', true).order('ordem'),
+    getSessao(),
   ]);
   const cor = (c: string) => abertas.filter((o) => o.sla.cor === c).length;
   // Pausadas (a partir da pausa) saem de “A vistoriar” e ganham o próprio card
@@ -161,7 +164,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <a href={exportar('xlsx')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar Excel</a>
         <a href={exportar('pdf')} className="btn btn-secundario btn-sm" download><Icone nome="download" className="h-4 w-4" />Exportar PDF</a>
       </div>
-      {!encerradas && <AgendarLote vistoriadores={vistoriadores ?? []} motivos={motivosReag ?? []} />}
+      {!encerradas && <AgendarLote vistoriadores={vistoriadores ?? []} motivos={motivosReag ?? []} motivosAtraso={motivosAtraso ?? []} podePausar={!!sessao?.perfil.conclusao_livre} />}
       <TabelaOs cfg={cfg} linhas={linhas} modo="loja" selecionavel={!encerradas} vazio={q || locais.length ? 'Nenhuma OS encontrada com essa busca.' : 'Nenhuma OS nesta situação.'} />
     </div>
   );

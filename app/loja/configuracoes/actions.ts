@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { mensagemErroBanco, type Resultado } from '@/lib/cadastros';
 import { CORES, STATUS_COM_COR, type CorStatus, type StatusComCor } from '@/lib/cores-status';
 
-const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use o formato 08:00.');
+const hora = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'Use o formato 08:00.');
 const schema = z.object({
   alerta1_horas: z.coerce.number().int().min(1, 'Mínimo de 1 hora.').max(47, 'Precisa ser menor que o SLA.'),
   alerta2_horas_antes: z.coerce.number().int().min(1, 'Mínimo de 1 hora.').max(47, 'Precisa ser menor que o SLA.'),
@@ -30,6 +30,8 @@ export async function salvarConfiguracoes(dados: ConfigDados): Promise<Resultado
   const supabase = await createClient();
   const { error } = await supabase.from('configuracoes').update(p.data).eq('loja_id', s.perfil.loja_id!);
   if (error) return { ok: false, erro: mensagemErroBanco(error) };
+  // Contagem/horário podem ter mudado: recalcula o prazo das OS em andamento
+  await supabase.rpc('recalcular_prazos');
   revalidatePath('/', 'layout');
   return { ok: true };
 }

@@ -10,6 +10,29 @@
   --error: #B42318; --error-bg: #FFF0ED; --info: #165EA8; --info-bg: #EFF6FF;
 }
 
+/* Canais RGB usados pelo Tailwind (tailwind.config.ts). Claro = Design System 1.1 */
+:root {
+  --c-impact: 21 20 21; --c-text: 55 52 53; --c-text-secondary: 105 98 103; --c-border: 140 130 136; --c-divider: 222 216 220;
+  --c-surface: 246 244 245; --c-painel: 255 255 255;
+  --c-ok: 24 116 59; --c-ok-bg: 237 248 240; --c-warn: 128 85 0; --c-warn-bg: 255 246 222;
+  --c-error: 180 35 24; --c-error-bg: 255 240 237; --c-info: 22 94 168; --c-info-bg: 239 246 255;
+}
+/* Modo noturno: fundos grafite, texto claro, feedback com contraste AA sobre fundo escuro */
+html.dark {
+  color-scheme: dark;
+  --c-impact: 241 237 239; --c-text: 236 232 234; --c-text-secondary: 184 176 181; --c-border: 122 114 119; --c-divider: 60 55 58;
+  --c-surface: 24 22 23; --c-painel: 36 33 35;
+  --c-ok: 111 211 154; --c-ok-bg: 18 48 31; --c-warn: 242 195 91; --c-warn-bg: 51 39 11;
+  --c-error: 255 138 122; --c-error-bg: 58 23 20; --c-info: 125 183 242; --c-info-bg: 15 39 64;
+  --surface: rgb(24 22 23); --text: rgb(236 232 234);
+}
+/* “bg-white” dos cartões, campos e barras vira o painel escuro; texto branco (botões, menu) continua branco */
+html.dark .bg-white { background-color: rgb(var(--c-painel)); }
+html.dark .bg-white\/95 { background-color: rgb(var(--c-painel) / 0.95); }
+/* Fundo escuro de destaque (chips ativos, KPI escuro) segue escuro com texto branco */
+html.dark .bg-impact { background-color: rgb(58 54 56); }
+html.dark select.campo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ECE8EA' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+
 html, body { background: var(--surface); color: var(--text); }
 body { font-family: var(--font-inter), Inter, sans-serif; }
 

@@ -6,6 +6,8 @@ import { CORES, STATUS_COM_COR, type CorStatus, type StatusComCor } from '@/lib/
 import { STATUS_LABEL } from '@/lib/formato';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+/** “Dias úteis”: segunda a sexta, o dia inteiro (sem sábado, domingo e feriados). */
+const DIAS_UTEIS = { dias: [1, 2, 3, 4, 5], inicio: '00:00', fim: '24:00' };
 
 interface Config {
   alerta1_horas: number; alerta2_horas_antes: number; contagem: 'corridas' | 'uteis';
@@ -19,13 +21,14 @@ export function ConfigForm({ inicial }: { inicial: Config }) {
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [pendente, iniciar] = useTransition();
   const set = <K extends keyof Config>(k: K, v: Config[K]) => { setC((s) => ({ ...s, [k]: v })); setMsg(null); };
+  const modo = c.contagem === 'corridas' ? 'corridas' : c.horario_util.inicio === '00:00' && c.horario_util.fim === '24:00' && c.horario_util.dias.join() === '1,2,3,4,5' ? 'dias_uteis' : 'uteis';
 
   function salvar(e: React.FormEvent) {
     e.preventDefault();
     iniciar(async () => {
       const r = await salvarConfiguracoes(c);
       setErros(r.ok ? {} : r.campos ?? {});
-      setMsg(r.ok ? { ok: true, texto: 'Configurações salvas. Valem para os próximos cálculos de SLA e alertas.' } : { ok: false, texto: r.erro });
+      setMsg(r.ok ? { ok: true, texto: 'Configurações salvas. O prazo das OS em andamento foi recalculado.' } : { ok: false, texto: r.erro });
     });
   }
 
@@ -56,14 +59,15 @@ export function ConfigForm({ inicial }: { inicial: Config }) {
         <h2 className="h3">Contagem do prazo</h2>
         <fieldset className="flex flex-wrap gap-3">
           <legend className="sr-only">Contagem</legend>
-          {([['corridas', 'Horas corridas', '24 horas por dia, todos os dias.'], ['uteis', 'Horas úteis', 'Só nos dias e horários abaixo, sem feriados.']] as const).map(([v, t, d]) => (
-            <label key={v} className={`flex min-h-toque flex-1 cursor-pointer gap-3 rounded-card border-[1.5px] p-4 ${c.contagem === v ? 'border-impact bg-surface' : 'border-border'}`}>
-              <input type="radio" name="contagem" className="mt-1 accent-action" checked={c.contagem === v} onChange={() => set('contagem', v)} />
+          {([['corridas', 'Horas corridas', '24 horas por dia, todos os dias.'], ['dias_uteis', 'Dias úteis', 'Segunda a sexta, 24h por dia, sem sábado, domingo e feriados.'], ['uteis', 'Horas úteis', 'Só nos dias e horários abaixo, sem feriados.']] as const).map(([v, t, d]) => (
+            <label key={v} className={`flex min-h-toque flex-1 cursor-pointer gap-3 rounded-card border-[1.5px] p-4 ${modo === v ? 'border-impact bg-surface' : 'border-border'}`}>
+              <input type="radio" name="contagem" className="mt-1 accent-action" checked={modo === v}
+                onChange={() => v === 'dias_uteis' ? (set('contagem', 'uteis'), set('horario_util', DIAS_UTEIS)) : v === 'uteis' && modo === 'dias_uteis' ? (set('contagem', 'uteis'), set('horario_util', { dias: [1, 2, 3, 4, 5], inicio: '08:00', fim: '18:00' })) : set('contagem', v)} />
               <span><span className="block font-semibold">{t}</span><span className="text-sm text-text-secondary">{d}</span></span>
             </label>
           ))}
         </fieldset>
-        <fieldset disabled={c.contagem !== 'uteis'} className="space-y-4 disabled:opacity-60">
+        <fieldset disabled={modo !== 'uteis'} hidden={modo === 'dias_uteis'} className="space-y-4 disabled:opacity-60">
           <legend className="rotulo">Horário útil</legend>
           <div className="flex flex-wrap gap-2">
             {DIAS.map((d, i) => {

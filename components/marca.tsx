@@ -10,9 +10,21 @@ const PROPORCAO = 2048 / 474;
 export function Logo({
   variante = 'colorido', altura = 36, className = '', prioridade = false,
 }: { variante?: 'colorido' | 'branco'; altura?: number; className?: string; prioridade?: boolean }) {
+  // Modo noturno: fundo escuro → logo integralmente branco (DS 1.1)
+  if (variante === 'colorido') {
+    return (
+      <>
+        <Logo variante="branco" altura={altura} prioridade={prioridade} className={`hidden dark:block ${className}`} />
+        <Image
+          src="/brand/logo-colorido.png" alt="Auto Visão Vistorias Automotivas" width={Math.round(altura * PROPORCAO)} height={altura} priority={prioridade}
+          className={`h-auto select-none dark:hidden ${className}`} style={{ width: Math.round(altura * PROPORCAO), height: altura }}
+        />
+      </>
+    );
+  }
   return (
     <Image
-      src={variante === 'branco' ? '/brand/logo-branco.png' : '/brand/logo-colorido.png'}
+      src="/brand/logo-branco.png"
       alt="Auto Visão Vistorias Automotivas"
       width={Math.round(altura * PROPORCAO)}
       height={altura}

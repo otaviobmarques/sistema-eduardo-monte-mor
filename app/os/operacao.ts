@@ -307,3 +307,36 @@ async function vistoriadorDaConclusao(form: FormData, osId: string): Promise<str
   const { error } = await supabase.rpc('definir_vistoriador', { p_os: osId, p_vistoriador: v && uuid.safeParse(v).success ? v : null });
   return error ? mensagemOperacao(error) : null;
 }
+
+type LinhaLote = { os_id: string; numero: number | null; ok: boolean; erro: string | null };
+function resumoLote(data: unknown, traduzir: (e: string) => string): ResultadoLote {
+  const linhas = (data ?? []) as LinhaLote[];
+  return { agendadas: linhas.filter((l) => l.ok).length, falhas: linhas.filter((l) => !l.ok).map((l) => ({ numero: l.numero, erro: traduzir(l.erro ?? '') })) };
+}
+const idsLote = (ids: string[]) => [...new Set(ids)].filter((id) => uuid.safeParse(id).success).slice(0, 500);
+
+/** Pausa o prazo de várias OS (só Gestor com conclusão livre). */
+export async function pausarLote(ids: string[], motivo: string): Promise<Resultado<ResultadoLote>> {
+  const s = await sessao('loja');
+  if (!s.perfil.conclusao_livre) return { ok: false, erro: 'Você não tem permissão para pausar OS.' };
+  const lista = idsLote(ids);
+  if (!lista.length) return { ok: false, erro: 'Selecione pelo menos uma OS.' };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('pausar_lote', { p_os: lista, p_motivo: motivo.trim().slice(0, 500) || null });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  revalidatePath('/loja'); revalidatePath('/loja/pendencias');
+  return { ok: true, dados: resumoLote(data, (e) => e.includes('JA_PAUSADA') ? 'o prazo já estava pausado' : mensagemOperacao({ message: e })) };
+}
+
+/** Justifica o atraso de várias OS de uma vez (motivo padronizado + explicação opcional). */
+export async function justificarLote(ids: string[], motivoId: string, texto: string): Promise<Resultado<ResultadoLote>> {
+  await sessao('loja');
+  const lista = idsLote(ids);
+  if (!lista.length) return { ok: false, erro: 'Selecione pelo menos uma OS.' };
+  if (!uuid.safeParse(motivoId).success) return { ok: false, erro: 'Confira os campos.', campos: { motivo_id: 'Escolha o motivo do atraso.' } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('justificar_lote', { p_os: lista, p_motivo: motivoId, p_texto: texto.trim().slice(0, 1000) });
+  if (error) return { ok: false, erro: mensagemOperacao(error) };
+  revalidatePath('/loja'); revalidatePath('/loja/pendencias'); revalidatePath('/loja/relatorios');
+  return { ok: true, dados: resumoLote(data, (e) => e.includes('OS_ENCERRADA') ? 'não está fora do prazo' : mensagemOperacao({ message: e })) };
+}
