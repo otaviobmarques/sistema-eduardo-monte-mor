@@ -64,7 +64,7 @@ export async function PainelCliente({ supabase, empresa, params, previa = false 
         <Kpi rotulo="A vistoriar" valor={qtd('a_vistoriar')} detalhe="em andamento" />
         <Kpi rotulo="Frustradas" valor={qtd('frustrado')} detalhe="aguardando resolução" tom={qtd('frustrado') ? 'alerta' : undefined} />
         <Kpi rotulo={`Canceladas em ${mesNome}`} valor={n.canceladasNoMes} />
-        <Kpi rotulo="Não pagas" valor={n.qtdAReceber} detalhe={moeda(n.aReceber)} />
+        <Kpi rotulo="Total a pagar" valor={moeda(n.aReceber)} detalhe={`${n.qtdAReceber} placa${n.qtdAReceber === 1 ? '' : 's'} em aberto`} />
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
         <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined, local: locais }} />

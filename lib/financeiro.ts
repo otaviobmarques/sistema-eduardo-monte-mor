@@ -42,7 +42,7 @@ export async function buscarPagamentos(sb: Sb, f: { cliente?: string; situacao?:
   return { todas, linhas: situacao ? todas.filter((l) => l.pagamento_status === situacao) : todas };
 }
 
-/** KPIs do painel financeiro: pendente (concluídas), recebido e faturado no mês corrente. */
+/** KPIs do painel financeiro: total em aberto (todas as placas não canceladas com pagamento pendente, em qualquer status — 16/11/2026), recebido e faturado no mês corrente. */
 export async function kpisFinanceiros(sb: Sb, mes: string, cliente?: string) {
   const { inicio, fim } = limitesDoMes(mes);
   const diaIni = `${mes}-01`, diaFim = `${mesSeguinte(mes)}-01`;
@@ -54,7 +54,7 @@ export async function kpisFinanceiros(sb: Sb, mes: string, cliente?: string) {
   };
   type R = PromiseLike<{ data: Lv[] | null; error: { message: string } | null }>;
   const [pend, pagos, conc] = await Promise.all([
-    todasAsLinhas<Lv>((a, b) => base().eq('status', 'vistoriado').eq('pagamento_status', 'pendente').range(a, b) as unknown as R),
+    todasAsLinhas<Lv>((a, b) => base().eq('pagamento_status', 'pendente').range(a, b) as unknown as R),
     todasAsLinhas<Lv>((a, b) => base().in('pagamento_status', ['pago', 'faturado']).gte('pagamento_data', diaIni).lt('pagamento_data', diaFim).range(a, b) as unknown as R),
     todasAsLinhas<Lv>((a, b) => base().eq('status', 'vistoriado').gte('concluida_em', inicio).lt('concluida_em', fim).range(a, b) as unknown as R),
   ]);

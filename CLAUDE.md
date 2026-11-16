@@ -122,6 +122,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    o mesmo painel do `/app` (`components/painel-cliente.tsx`, usado pelas duas rotas) limitado à empresa (`buscarOs({ empresaId })`,
    `numerosDoMes(sb, empresaId)`), somente leitura (sem Nova OS/Importar/Responder) e com as placas abrindo a ficha da Loja
    (`TabelaOs baseLinks`). Cards Pausadas e Frustradas da Fila sem texto de detalhe (16/11).
+29. **Total em aberto (16/11/2026)**: o cliente paga tudo o que está em aberto, então Financeiro (Loja e cliente) e painel do
+   cliente contam **todas as placas não canceladas com pagamento pendente, em qualquer status** (vistoriadas, a vistoriar,
+   frustradas), como o card “Valor a receber” da Fila. Rótulos: Loja “Total a receber”, cliente “Total a pagar”
+   (`kpisFinanceiros()`, aba Pagamentos › Pendentes lista todas; `numerosDoMes().aReceber`).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

@@ -54,7 +54,7 @@ async function sessao(login, senha) {
   await gestor.rpc('cancelar_os', { p_os: canc.id, p_nome: 'Ana', p_motivo: (await adm.from('motivos').select('id').eq('loja_id', L.id).eq('tipo', 'cancelamento').limit(1).single()).data.id, p_descricao: 'duplicada' });
   const osF = [];
   for (const p of ['FIN1F01', 'FIN1F02']) { const o = await abrir(F.id, p); await concluir(o, F.id); osF.push(o); }
-  const andamento = await abrir(A.id, 'FIN1A05'); // em andamento: não entra em "pendentes"
+  const andamento = await abrir(A.id, 'FIN1A05'); // em andamento: também entra no total em aberto (16/11/2026)
 
   const { data: alertas } = await adm.from('notificacoes').select('os_id, titulo, corpo').eq('loja_id', L.id).eq('tipo', 'pagamento_pendente');
   if (alertas.length !== 3 || alertas.some((n) => !osA.find((o) => o.id === n.os_id))) falha(`alertas de pagamento: ${alertas.length}`);
@@ -66,10 +66,11 @@ async function sessao(login, senha) {
     await entrar(page, B, 'gestor-etapa8', 'gestor-senha-123', '/loja');
     await page.goto(B + '/loja/financeiro'); await page.waitForURL('**/loja/financeiro/pagamentos');
     for (let i = 0; i < 2; i++) await page.click('button:has-text("Agora não")', { timeout: 3000 }).catch(() => {});
-    await temTexto(page, 'main', 'R$ 750,00').catch(() => falha('KPI a receber deveria ser R$ 750,00'));
+    await temTexto(page, 'main', 'R$ 900,00').catch(() => falha('KPI total a receber deveria ser R$ 900,00'));
+    await temTexto(page, 'main', 'Total a receber');
     const linhas = await page.locator('tbody tr').count();
-    if (linhas !== 5) falha(`pendentes: esperava 5 linhas, veio ${linhas}`);
-    log('Financeiro: “A receber R$ 750,00” e 5 placas pendentes (sem a cancelada e sem a em andamento)');
+    if (linhas !== 6) falha(`pendentes: esperava 6 linhas, veio ${linhas}`);
+    log('Financeiro: “Total a receber R$ 900,00” e 6 placas em aberto (com a em andamento, sem a cancelada)');
     await page.screenshot({ path: S + '/fin-pagamentos.png', fullPage: true });
 
     // Validação: pago sem forma
@@ -97,8 +98,8 @@ async function sessao(login, senha) {
     const { data: vistas } = await adm.from('notificacoes').select('vista_em').eq('tipo', 'pagamento_pendente').in('os_id', [osA[0].id, osA[1].id]);
     if (vistas.some((n) => !n.vista_em)) falha('alerta não foi baixado');
     log('baixa em lote: 2 placas pagas via Pix com data de hoje, um comprovante anexado nas duas e os alertas saíram da lista');
-    await temTexto(page, 'main', 'R$ 450,00');
-    log('KPI “A receber” caiu para R$ 450,00 sem recarregar a página');
+    await temTexto(page, 'main', 'R$ 600,00');
+    log('KPI “Total a receber” caiu para R$ 600,00 sem recarregar a página');
 
     // Fechamento mensal: faturar as pendentes do cliente faturado
     await page.click('a:has-text("Fechamento mensal")'); await page.waitForURL('**/loja/financeiro/fechamento');
@@ -147,6 +148,16 @@ async function sessao(login, senha) {
     const txt = await cli.textContent('main');
     if (txt.includes('FIN1F01') || !txt.includes('FIN1A02')) falha('cliente vê placas de outra empresa');
     if (await cli.locator('button:has-text("Dar baixa")').count()) falha('cliente com botão de baixa');
+    // Mesmo número dos dois lados: “Total a pagar” do cliente = “Total a receber” da Loja filtrada no cliente = painel do cliente
+    const valorKpi = async (pg, rot) => ((await pg.locator(`div:has(> p:text-is("${rot}"))`).first().innerText()).match(/R\$\s?[\d.,]+/) || [''])[0].replace(/\s/g, ' ');
+    const vCli = await valorKpi(cli, 'Total a pagar');
+    await page.goto(B + `/loja/financeiro/pagamentos?cliente=${A.id}`);
+    const vLoja = await valorKpi(page, 'Total a receber');
+    await cli.goto(B + '/app');
+    const vPainel = await valorKpi(cli, 'Total a pagar');
+    if (!vCli || vCli !== vLoja || vCli !== vPainel) falha(`totais diferentes: cliente ${vCli} · loja ${vLoja} · painel ${vPainel}`);
+    log(`“Total a pagar” do cliente (${vCli}) = “Total a receber” da Loja para ele = card do painel do cliente`);
+    await cli.goto(B + '/app/financeiro/pagamentos?situacao=todas');
     const resp = await cli.request.get(B + `/api/financeiro/fechamento?mes=${mes}&cliente=${F.id}`);
     const wb2 = new ExcelJS.Workbook(); await wb2.xlsx.load(await resp.body());
     const placasCli = wb2.getWorksheet('Placas').getColumn(2).values.slice(2);

@@ -49,15 +49,15 @@ export async function PagamentosTela({ sb, modo, f }: { sb: Sb; modo: 'loja' | '
     kpisFinanceiros(sb, mesAtual, cliente),
     modo === 'loja' ? listaClientes(sb) : Promise.resolve([]),
   ]);
-  // Pendentes: só as já concluídas (as em andamento ainda vão ter o valor congelado no laudo)
-  const lista = situacao === 'pendente' ? linhas.filter((l) => l.status === 'vistoriado') : linhas;
-  const conta = (s: string) => todas.filter((l) => l.pagamento_status === s && (s !== 'pendente' || l.status === 'vistoriado')).length;
+  // Pendentes: todas as placas em aberto (não canceladas), em qualquer status — o cliente paga tudo o que está em aberto
+  const lista = linhas;
+  const conta = (s: string) => todas.filter((l) => l.pagamento_status === s).length;
   const extra = { q: f.q || undefined, cliente: cliente || undefined };
 
   return (
     <div className="space-y-6">
       <GradeKpi>
-        <Kpi rotulo={modo === 'loja' ? 'A receber' : 'A pagar'} valor={moeda(k.pendente.total)} detalhe={`${k.pendente.qtd} placa${k.pendente.qtd === 1 ? '' : 's'} vistoriada${k.pendente.qtd === 1 ? '' : 's'}`} tom={k.pendente.total > 0 ? 'alerta' : undefined} />
+        <Kpi rotulo={modo === 'loja' ? 'Total a receber' : 'Total a pagar'} valor={moeda(k.pendente.total)} detalhe={`${k.pendente.qtd} placa${k.pendente.qtd === 1 ? '' : 's'} em aberto · exceto canceladas`} tom={k.pendente.total > 0 ? 'alerta' : undefined} />
         <Kpi rotulo={`Pago em ${nomeDoMes(mesAtual).split(' ')[0]}`} valor={moeda(k.baixados.pago)} detalhe={`${k.baixados.qtdPago} placa${k.baixados.qtdPago === 1 ? '' : 's'}`} tom="escuro" />
         <Kpi rotulo={`Faturado em ${nomeDoMes(mesAtual).split(' ')[0]}`} valor={moeda(k.baixados.faturado)} detalhe={`${k.baixados.qtdFaturado} placa${k.baixados.qtdFaturado === 1 ? '' : 's'}`} />
         <Kpi rotulo="Vistoriadas no mês" valor={k.concluidas.qtd} detalhe={moeda(k.concluidas.total)} />
@@ -75,7 +75,7 @@ export async function PagamentosTela({ sb, modo, f }: { sb: Sb; modo: 'loja' | '
           { valor: '', rotulo: 'Pendentes', qtd: conta('pendente') }, { valor: 'pago', rotulo: 'Pagas', qtd: conta('pago') },
           { valor: 'faturado', rotulo: 'Faturadas', qtd: conta('faturado') }, { valor: 'todas', rotulo: 'Todas', qtd: todas.length },
         ]} />
-      {situacao === 'pendente' && modo === 'loja' && <p className="text-sm text-text-secondary">Placas já vistoriadas que ainda não foram pagas nem faturadas. Selecione várias para dar baixa de uma vez.</p>}
+      {situacao === 'pendente' && modo === 'loja' && <p className="text-sm text-text-secondary">Todas as placas em aberto (vistoriadas, a vistoriar e frustradas), menos as canceladas. Selecione várias para dar baixa de uma vez.</p>}
       <TabelaPagamentos modo={modo} linhas={lista} />
     </div>
   );

@@ -18,7 +18,7 @@ export async function numerosDoMes(sb: Sb, empresaId?: string) {
     todasAsLinhas<{ no_prazo: boolean | null; motivo_atraso: string | null }>((a, b) => emp(sb.from('vw_os_sla').select('no_prazo, motivo_atraso')).eq('status', 'vistoriado').gte('concluida_em', inicio).lt('concluida_em', fim).order('numero').range(a, b)),
     todasAsLinhas<{ foi_frustrada: boolean | null }>((a, b) => emp(sb.from('vw_os_sla').select('foi_frustrada')).gte('aberta_em', inicio).lt('aberta_em', fim).order('numero').range(a, b)),
     emp(sb.from('ordens_servico').select('id', { count: 'exact', head: true })).eq('status', 'cancelado').gte('cancelada_em', inicio).lt('cancelada_em', fim),
-    todasAsLinhas<{ valor: number | string | null }>((a, b) => emp(sb.from('vw_os_sla').select('valor')).eq('status', 'vistoriado').eq('pagamento_status', 'pendente').order('numero').range(a, b)),
+    todasAsLinhas<{ valor: number | string | null }>((a, b) => emp(sb.from('vw_os_sla').select('valor')).neq('status', 'cancelado').eq('pagamento_status', 'pendente').order('numero').range(a, b)),
   ]);
   // Placas do mês (abertas no mês), em qualquer status menos cancelado: valor a receber e ranking por pátio
   const doMes = await todasAsLinhas<{ valor: number | string | null; pagamento_status: string; status: string; patio: string | null; local_tipo: string }>((a, b) =>
