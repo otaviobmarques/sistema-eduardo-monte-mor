@@ -52,8 +52,6 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
   const pausadas = abertas.filter((o) => o.status === 'a_vistoriar' && o.sla.pausada);
   const aVistoriar = abertas.filter((o) => o.status === 'a_vistoriar' && !o.sla.pausada);
   const frustradas = abertas.filter((o) => o.status === 'frustrado').length;
-  const qtdManual = pausadas.filter((o) => o.motivoPausa?.includes('Pausa manual')).length;
-  const qtdPendencia = pausadas.filter((o) => o.motivoPausa?.includes('Pendência')).length;
   const mesNome = nomeDoMes(n.mes).split(' ')[0];
   const exportar = (formato: string) => `/api/fila?${qsDe({ formato, q: q || undefined, sla: sla || undefined, local: locais })}`;
 
@@ -68,8 +66,7 @@ export default async function FilaPage({ searchParams }: { searchParams: Promise
         <Kpi rotulo="A vistoriar" valor={aVistoriar.length} detalhe="em andamento, sem as pausadas e frustradas" tom="escuro" />
         <Link href="?sla=pausadas" className="block rounded-card transition-colors duration-[120ms] [&>div:hover]:border-impact focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-impact" aria-label={`Pausadas (com as frustradas): ${pausadas.length + frustradas}. Ver na fila`}>
           {/* Pausadas: as pausadas + as frustradas (pedido de 14/11/2026) */}
-          <Kpi rotulo="Pausadas" valor={pausadas.length + frustradas}
-            detalhe={pausadas.length + frustradas ? [qtdManual && `${qtdManual} pausa${qtdManual === 1 ? '' : 's'} manual${qtdManual === 1 ? '' : 'is'}`, qtdPendencia && `${qtdPendencia} com pendência`, frustradas && `${frustradas} frustrada${frustradas === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'prazo parado' : 'nenhuma pausada'} />
+          <Kpi rotulo="Pausadas" valor={pausadas.length + frustradas} />
         </Link>
         {/* Frustradas: as frustradas em andamento + as pausadas (pedido de 14/11/2026) */}
         <Kpi rotulo="Frustradas" valor={frustradas + pausadas.length} tom={frustradas + pausadas.length ? 'alerta' : undefined} />
