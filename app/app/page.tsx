@@ -1,73 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Hero } from '@/components/hero';
-import { urlLogo } from '@/lib/logo';
-import { Busca, Chips, TabelaOs } from '@/components/os/tabela-os';
-import { Kpi } from '@/components/kpi';
-import { buscarOs, filtrarPorLocal, lerLocais, opcoesDeLocal, ordenarPorUrgencia } from '@/lib/fila';
-import { FiltroLocal } from '@/components/os/filtro-local';
-import { moeda } from '@/lib/formato';
-import { numerosDoMes } from '@/lib/paineis';
-import { nomeDoMes } from '@/lib/regras/financeiro';
-import { formatarPct } from '@/lib/regras/relatorios';
+import { PainelCliente } from '@/components/painel-cliente';
 import { exigirPerfil } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Painel' };
 
-const STATUS = { '': 'Todas', a_vistoriar: 'A vistoriar', frustrado: 'Frustradas', vistoriado: 'Vistoriadas', cancelado: 'Canceladas' } as const;
-
-export default async function PainelCliente({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; local?: string | string[] }> }) {
+export default async function PainelClientePage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; local?: string | string[] }> }) {
   const s = await exigirPerfil('cliente');
-  const { q = '', status = '', local } = await searchParams;
-  const locais = lerLocais(local);
   const supabase = await createClient();
-  const { linhas: semLocal, cfg } = await buscarOs(supabase, { q, comLaudo: true });
-  const opcoesLocal = opcoesDeLocal(semLocal);
-  const todas = filtrarPorLocal(semLocal, locais);
-  const st = status in STATUS ? status : '';
-  const filtradas = st ? todas.filter((o) => o.status === st) : todas;
-  const linhas = st === '' || st === 'a_vistoriar' || st === 'frustrado'
-    ? [...ordenarPorUrgencia(filtradas.filter((o) => o.status === 'a_vistoriar' || o.status === 'frustrado')), ...filtradas.filter((o) => o.status === 'vistoriado' || o.status === 'cancelado')]
-    : filtradas;
-  const nome = s.empresa?.nome_fantasia || s.empresa?.razao_social;
-  const [{ count: aguardando }, n] = await Promise.all([
-    supabase.from('pendencias').select('id', { count: 'exact', head: true }).is('resolvida_em', null).eq('responsavel', 'cliente'),
-    numerosDoMes(supabase),
-  ]);
-  const mesNome = nomeDoMes(n.mes).split(' ')[0];
-  const qtd = (st: string) => todas.filter((o) => o.status === st).length;
-  return (
-    <div className="space-y-6">
-      <Hero kicker="Painel" titulo={`Olá, ${nome}`} marca={s.empresa ? (() => { const src = urlLogo(s.empresa.id, s.empresa.logo_path, s.empresa.logo_atualizado_em); return src ? { src, nome: nome ?? '' } : null; })() : null} descricao="Acompanhe prazo, status e laudo de cada placa.">
-        <Link href="/app/nova-os" className="btn btn-claro">Nova OS</Link>
-        <Link href="/app/importar" className="btn btn-contorno-claro">Importar planilha</Link>
-      </Hero>
-      {!!aguardando && (
-        <div className="aviso aviso-atencao flex-col sm:flex-row sm:items-center sm:justify-between" role="status">
-          <div>
-            <p className="font-display text-base font-extrabold">{aguardando === 1 ? '1 pendência aguarda você' : `${aguardando} pendências aguardam você`}</p>
-            <p>O prazo dessas OS está pausado até a resposta.</p>
-          </div>
-          <Link href="/app/pendencias" className="btn btn-primario">Responder pendências</Link>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3" aria-label="Indicadores">
-        <Kpi rotulo={`Recebidas em ${mesNome}`} valor={n.recebidas} tom="escuro" />
-        <Kpi rotulo={`Vistoriadas em ${mesNome}`} valor={n.vistoriadas} detalhe={`${formatarPct(n.pctNoPrazo)} no prazo`} />
-        <Kpi rotulo="A vistoriar" valor={qtd('a_vistoriar')} detalhe="em andamento" />
-        <Kpi rotulo="Frustradas" valor={qtd('frustrado')} detalhe="aguardando resolução" tom={qtd('frustrado') ? 'alerta' : undefined} />
-        <Kpi rotulo={`Canceladas em ${mesNome}`} valor={n.canceladasNoMes} />
-        <Kpi rotulo="Não pagas" valor={n.qtdAReceber} detalhe={moeda(n.aReceber)} />
-      </div>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <Busca valor={q} placeholder="Buscar por placa" extra={{ status: st || undefined, local: locais }} />
-        {opcoesLocal.length > 0 || locais.length ? <FiltroLocal opcoes={opcoesLocal} selecionados={locais} extra={{ q: q || undefined, status: st || undefined }} /> : null}
-      </div>
-      <Chips param="status" atual={st} extra={{ q: q || undefined, local: locais }}
-        opcoes={(Object.keys(STATUS) as (keyof typeof STATUS)[]).map((k) => ({ valor: k, rotulo: STATUS[k], qtd: k ? todas.filter((o) => o.status === k).length : todas.length }))} />
-      <TabelaOs cfg={cfg} linhas={linhas} modo="cliente"
-        vazio={q || st || locais.length ? 'Nenhuma OS encontrada.' : <>Nenhuma OS ainda. <Link className="font-semibold text-action underline" href="/app/nova-os">Abra a primeira</Link>.</>} />
-    </div>
-  );
+  return <PainelCliente supabase={supabase} empresa={s.empresa} params={await searchParams} />;
 }

@@ -9,9 +9,10 @@ type Sb = Awaited<ReturnType<typeof createClient>>;
 
 const SELECT = 'id, numero, placa, renavam, marca_modelo, status, etapa, aberta_em, sla_horas, pausado_desde, total_pausado, concluida_em, cancelada_em, nome_solicitante, cidade, endereco, local_tipo, pagamento_status, unidade, patios(nome), empresas_clientes(razao_social, nome_fantasia)';
 
-export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: string; limite?: number; comLaudo?: boolean; comAgenda?: boolean }) {
+export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: string; limite?: number; comLaudo?: boolean; comAgenda?: boolean; empresaId?: string }) {
   let q = supabase.from('ordens_servico').select(SELECT).order('aberta_em', { ascending: false }).limit(opts.limite ?? 500);
   if (opts.status?.length) q = q.in('status', opts.status);
+  if (opts.empresaId) q = q.eq('empresa_cliente_id', opts.empresaId);
   const termo = (opts.q ?? '').trim();
   if (termo) {
     const placa = normalizarPlaca(termo);

@@ -8,18 +8,21 @@ type Sb = Awaited<ReturnType<typeof createClient>>;
 const soma = (l: { valor: number | string | null }[]) => l.reduce((s, x) => s + Math.round(Number(x.valor ?? 0) * 100), 0) / 100;
 
 /** Números do mês corrente (Brasília) a partir de vw_os_sla. A RLS limita à Loja ou à empresa do usuário. */
-export async function numerosDoMes(sb: Sb) {
+export async function numerosDoMes(sb: Sb, empresaId?: string) {
+  // Visão do cliente aberta pela Loja: limita à empresa (o próprio cliente já é limitado pela RLS)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const emp = (q: any) => (empresaId ? q.eq('empresa_cliente_id', empresaId) : q);
   const mes = mesReferencia(null);
   const { inicio, fim } = limitesDoMes(mes);
   const [concl, abertas, { count: canc }, pend] = await Promise.all([
-    todasAsLinhas<{ no_prazo: boolean | null; motivo_atraso: string | null }>((a, b) => sb.from('vw_os_sla').select('no_prazo, motivo_atraso').eq('status', 'vistoriado').gte('concluida_em', inicio).lt('concluida_em', fim).order('numero').range(a, b)),
-    todasAsLinhas<{ foi_frustrada: boolean | null }>((a, b) => sb.from('vw_os_sla').select('foi_frustrada').gte('aberta_em', inicio).lt('aberta_em', fim).order('numero').range(a, b)),
-    sb.from('ordens_servico').select('id', { count: 'exact', head: true }).eq('status', 'cancelado').gte('cancelada_em', inicio).lt('cancelada_em', fim),
-    todasAsLinhas<{ valor: number | string | null }>((a, b) => sb.from('vw_os_sla').select('valor').eq('status', 'vistoriado').eq('pagamento_status', 'pendente').order('numero').range(a, b)),
+    todasAsLinhas<{ no_prazo: boolean | null; motivo_atraso: string | null }>((a, b) => emp(sb.from('vw_os_sla').select('no_prazo, motivo_atraso')).eq('status', 'vistoriado').gte('concluida_em', inicio).lt('concluida_em', fim).order('numero').range(a, b)),
+    todasAsLinhas<{ foi_frustrada: boolean | null }>((a, b) => emp(sb.from('vw_os_sla').select('foi_frustrada')).gte('aberta_em', inicio).lt('aberta_em', fim).order('numero').range(a, b)),
+    emp(sb.from('ordens_servico').select('id', { count: 'exact', head: true })).eq('status', 'cancelado').gte('cancelada_em', inicio).lt('cancelada_em', fim),
+    todasAsLinhas<{ valor: number | string | null }>((a, b) => emp(sb.from('vw_os_sla').select('valor')).eq('status', 'vistoriado').eq('pagamento_status', 'pendente').order('numero').range(a, b)),
   ]);
   // Placas do mês (abertas no mês), em qualquer status menos cancelado: valor a receber e ranking por pátio
   const doMes = await todasAsLinhas<{ valor: number | string | null; pagamento_status: string; status: string; patio: string | null; local_tipo: string }>((a, b) =>
-    sb.from('vw_os_sla').select('valor, pagamento_status, status, patio, local_tipo').neq('status', 'cancelado').gte('aberta_em', inicio).lt('aberta_em', fim).order('numero').range(a, b));
+    emp(sb.from('vw_os_sla').select('valor, pagamento_status, status, patio, local_tipo')).neq('status', 'cancelado').gte('aberta_em', inicio).lt('aberta_em', fim).order('numero').range(a, b));
   const pendMes = doMes.filter((o) => o.pagamento_status === 'pendente');
   const porPatio = new Map<string, { patio: string; total: number; vistoriadas: number }>();
   for (const o of doMes) {

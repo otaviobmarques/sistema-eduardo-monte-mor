@@ -21,8 +21,8 @@ export interface LinhaOs {
 }
 
 
-export function TabelaOs({ linhas, modo, vazio, cfg, selecionavel }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig; selecionavel?: boolean }) {
-  const base = modo === 'loja' ? '/loja' : '/app';
+export function TabelaOs({ linhas, modo, vazio, cfg, selecionavel, baseLinks }: { linhas: LinhaOs[]; modo: 'loja' | 'cliente'; vazio: React.ReactNode; cfg: SlaConfig; selecionavel?: boolean; baseLinks?: string }) {
+  const base = baseLinks ?? (modo === 'loja' ? '/loja' : '/app');
   if (!linhas.length) return <div className="card p-10 text-center text-text-secondary">{vazio}</div>;
   return (
     <div className="overflow-x-auto">

@@ -118,6 +118,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    `created_at`; importação de histórico da Loja fica de fora), com hora da última, lotes, contagem por cliente, as 6 mais
    recentes (link para a ficha) e “Ver as de hoje” → `/loja/pendencias?dia=<hoje>`. Atualiza ao vivo pelo Realtime da página.
    Com OS novas a barra é **roxa** (#6D28D9, texto branco, igual no modo noturno); sem nada, card neutro.
+28. **Visão do cliente (16/11/2026)**: botão **“Ver painel do cliente”** no cadastro do cliente → `/loja/clientes/[id]/painel`:
+   o mesmo painel do `/app` (`components/painel-cliente.tsx`, usado pelas duas rotas) limitado à empresa (`buscarOs({ empresaId })`,
+   `numerosDoMes(sb, empresaId)`), somente leitura (sem Nova OS/Importar/Responder) e com as placas abrindo a ficha da Loja
+   (`TabelaOs baseLinks`). Cards Pausadas e Frustradas da Fila sem texto de detalhe (16/11).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
