@@ -38,6 +38,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/api/relatorios': ['./public/brand/logo-colorido.png', './node_modules/pdfkit/js/standard-fonts/**', './node_modules/pdfkit/js/data/**'],
     '/api/fila': ['./public/brand/logo-colorido.png', './node_modules/pdfkit/js/standard-fonts/**', './node_modules/pdfkit/js/data/**'],
+    '/api/financeiro/extrato': ['./public/brand/logo-colorido.png', './node_modules/pdfkit/js/standard-fonts/**', './node_modules/pdfkit/js/data/**'],
+    '/api/relatorios/agenda': ['./public/brand/logo-colorido.png', './node_modules/pdfkit/js/standard-fonts/**', './node_modules/pdfkit/js/data/**'],
   },
 };
 

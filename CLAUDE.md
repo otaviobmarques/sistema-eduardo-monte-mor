@@ -126,6 +126,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    cliente contam **todas as placas não canceladas com pagamento pendente, em qualquer status** (vistoriadas, a vistoriar,
    frustradas), como o card “Valor a receber” da Fila. Rótulos: Loja “Total a receber”, cliente “Total a pagar”
    (`kpisFinanceiros()`, aba Pagamentos › Pendentes lista todas; `numerosDoMes().aReceber`).
+30. **Extrato de placas a pagar em PDF (16/11/2026)**: botão “Baixar PDF das placas a pagar” no Financeiro › Pagamentos
+   (cliente: sempre; Loja: com um cliente escolhido) → `/api/financeiro/extrato` (`lib/pdf/extrato.tsx`, A4 retrato no
+   layout Auto Visão: logo, faixa vermelha, cliente com CNPJ e logotipo PNG/JPG, card “Total a pagar”, tabela grafite com
+   zebra, total e paginação). Mesmas placas e total do KPI (não canceladas, pagamento pendente). Cliente só baixa o próprio.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),
