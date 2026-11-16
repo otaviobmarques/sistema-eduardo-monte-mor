@@ -41,7 +41,7 @@ export default async function LojaPage({ params, searchParams }: { params: Promi
           <AcessoCliente empresaId={id} perfil={gestor} titulo="Acesso do Gestor" descricao="Um Gestor por Loja: cadastra clientes, opera as OS e gerencia a Loja."
             loginSugerido={sugerirLogin(l.responsavel || l.nome)} responsavel={l.responsavel ?? ''}
             acoes={{ gerar: gerarAcessoGestor.bind(null, id), resetar: resetarSenhaGestor.bind(null, id), bloquear: bloquearGestor.bind(null, id) }} />
-          <SituacaoLoja lojaId={id} bloqueada={l.bloqueada} motivo={l.motivo_bloqueio} automatico={l.bloqueio_automatico} desde={l.bloqueada_em} />
+          <SituacaoLoja lojaId={id} bloqueada={l.bloqueada} motivo={l.motivo_bloqueio} automatico={l.bloqueio_automatico} desde={l.bloqueada_em} promessaAte={l.promessa_ate} />
         </div>
       </div>
     </>

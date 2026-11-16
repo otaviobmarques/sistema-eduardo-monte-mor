@@ -117,11 +117,21 @@ export async function alterarBloqueioLoja(lojaId: string, bloquear: boolean, mot
   if (bloquear && motivo.trim().length < 3) return { ok: false, erro: 'Informe o motivo do bloqueio.', campos: { motivo: 'Informe o motivo.' } };
   const supabase = await createClient();
   const { error } = await supabase.from('lojas').update(bloquear
-    ? { bloqueada: true, bloqueio_automatico: false, bloqueada_em: new Date().toISOString(), motivo_bloqueio: motivo.trim() }
+    ? { bloqueada: true, bloqueio_automatico: false, bloqueada_em: new Date().toISOString(), motivo_bloqueio: motivo.trim(), promessa_ate: null }
     : { bloqueada: false, bloqueio_automatico: false, bloqueada_em: null, motivo_bloqueio: null }).eq('id', lojaId);
   if (error) return { ok: false, erro: mensagemErroBanco(error) };
   revalidatePath(`/admin/lojas/${lojaId}`); revalidatePath('/admin');
   return { ok: true };
+}
+
+/** Libera a Loja bloqueada por promessa de pagamento (3 dias). Ao vencer sem pagamento, volta a bloquear sozinha. */
+export async function liberarPorPromessa(lojaId: string, dias = 3): Promise<Resultado<{ ate: string }>> {
+  await exigirPerfil('admin');
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('liberar_por_promessa', { p_loja: lojaId, p_dias: dias });
+  if (error) return { ok: false, erro: mensagemErroBanco(error) };
+  revalidatePath(`/admin/lojas/${lojaId}`); revalidatePath('/admin');
+  return { ok: true, dados: { ate: data as string } };
 }
 
 /* ───────── Cobrança (Asaas) ───────── */

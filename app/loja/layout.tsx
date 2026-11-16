@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { exigirPerfil, lojaSoPagamento } from '@/lib/sessao';
 import { createClient } from '@/lib/supabase/server';
 import { CoresStatus } from '@/components/cores-status';
-import { data as fmtData, moeda } from '@/lib/formato';
+import { data as fmtData, dataHora, moeda } from '@/lib/formato';
 import Link from 'next/link';
 import { sair } from '../login/actions';
 import { NotificacoesProvider, Sino, type Notificacao } from '@/components/notificacoes';
@@ -45,14 +45,16 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
   // Pop-up de confirmação de leitura: OS/lotes que chegaram hoje (fuso de São Paulo) e ninguém confirmou
   const hojeSp = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   const [{ data: loja }, { data: abertas }, { data: naoLidas }, { data: paraConfirmar }] = await Promise.all([
-    supabase.from('lojas').select('nome, dias_tolerancia, motivo_bloqueio').eq('id', s.perfil.loja_id!).single(),
+    supabase.from('lojas').select('nome, dias_tolerancia, motivo_bloqueio, promessa_ate').eq('id', s.perfil.loja_id!).single(),
     supabase.from('faturas').select('id, descricao, valor, vencimento, status, link_pagamento').eq('status', 'vencido').order('vencimento').limit(20),
     supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id').eq('destino', 'loja').is('vista_em', null).order('criada_em', { ascending: false }).limit(50),
     supabase.from('notificacoes').select('id, tipo, titulo, corpo, link, criada_em, os_id, lote_id, criada_por').eq('destino', 'loja').in('tipo', ['nova_os', 'novo_lote'])
       .is('leitura_confirmada_em', null).gte('criada_em', `${hojeSp}T00:00:00-03:00`).order('criada_em', { ascending: false }).limit(300),
   ]);
   const vencida = abertas?.[0];
-  const suspensao = vencida && loja ? new Date(Date.parse(`${vencida.vencimento}T12:00:00-03:00`) + (loja.dias_tolerancia + 1) * 86400_000) : null;
+  // Liberada por promessa de pagamento: a suspensão passa a ser o fim da promessa
+  const promessa = loja?.promessa_ate && new Date(loja.promessa_ate) > new Date() ? new Date(loja.promessa_ate) : null;
+  const suspensao = promessa ?? (vencida && loja ? new Date(Date.parse(`${vencida.vencimento}T12:00:00-03:00`) + (loja.dias_tolerancia + 1) * 86400_000) : null);
   return (
     <NotificacoesProvider modo="loja" iniciais={(naoLidas ?? []) as Notificacao[]} paraConfirmar={(paraConfirmar ?? []) as Notificacao[]} eu={s.userId}>
       <CoresStatus supabase={supabase} />
@@ -68,7 +70,26 @@ export default async function LojaLayout({ children }: { children: React.ReactNo
           {vencida?.link_pagamento && <a href={vencida.link_pagamento} target="_blank" rel="noreferrer" className="btn btn-primario">Pagar agora</a>}
         </div>
       )}
-      {vencida && !bloqueada && (
+      {promessa && !bloqueada && (
+        <section className="mb-6 rounded-hero border-4 border-[#151415] bg-[#FACC15] p-6 text-[#151415] shadow-[0_10px_30px_rgba(250,204,21,.45)] md:p-8" role="alert" data-teste="aviso-promessa">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#151415] font-display text-3xl font-black text-[#FACC15]" aria-hidden>!</span>
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.12em]">Liberado por promessa de pagamento</p>
+                <p className="mt-1 font-display text-[28px] font-black leading-tight md:text-[36px]">Pague até {dataHora(promessa)}</p>
+                <p className="mt-2 max-w-2xl text-base font-medium">
+                  O acesso da Loja e dos seus clientes foi liberado por 3 dias.{vencida ? ` Fatura em aberto: ${moeda(vencida.valor)} (venceu em ${fmtData(vencida.vencimento)}).` : ''} Se o pagamento não for confirmado até essa data, o sistema será bloqueado de novo automaticamente.
+                </p>
+              </div>
+            </div>
+            {vencida?.link_pagamento
+              ? <a href={vencida.link_pagamento} target="_blank" rel="noreferrer" className="btn h-14 shrink-0 border-0 px-6 text-base bg-[#151415] text-[#fff] hover:bg-[#373435]">Pagar agora</a>
+              : <Link href="/loja/assinatura" className="btn h-14 shrink-0 border-0 px-6 text-base bg-[#151415] text-[#fff] hover:bg-[#373435]">Ver assinatura</Link>}
+          </div>
+        </section>
+      )}
+      {vencida && !bloqueada && !promessa && (
         <div className="aviso aviso-erro mb-6 flex-col sm:flex-row sm:items-center sm:justify-between" role="alert">
           <div>
             <p className="font-display text-base font-extrabold">Fatura de {moeda(vencida.valor)} vencida em {fmtData(vencida.vencimento)}</p>

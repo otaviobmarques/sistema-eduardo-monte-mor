@@ -1,11 +1,12 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { Aviso, Modal, Selo } from '@/components/ui';
-import { data as fmtData, moeda, parseMoeda } from '@/lib/formato';
-import { alterarBloqueioLoja, ativarCobranca, criarFatura, darBaixaFatura } from './actions';
+import { data as fmtData, dataHora as fmtDataHora, moeda, parseMoeda } from '@/lib/formato';
+import { alterarBloqueioLoja, ativarCobranca, criarFatura, darBaixaFatura, liberarPorPromessa } from './actions';
 import { FORMAS_ASAAS, type FormaAsaas } from '@/lib/asaas-formas';
 
-export function SituacaoLoja({ lojaId, bloqueada, motivo, automatico, desde }: { lojaId: string; bloqueada: boolean; motivo: string | null; automatico: boolean; desde: string | null }) {
+export function SituacaoLoja({ lojaId, bloqueada, motivo, automatico, desde, promessaAte }: { lojaId: string; bloqueada: boolean; motivo: string | null; automatico: boolean; desde: string | null; promessaAte?: string | null }) {
+  const promessa = !bloqueada && promessaAte && new Date(promessaAte) > new Date() ? promessaAte : null;
   const [aberto, setAberto] = useState(false);
   const [texto, setTexto] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -14,15 +15,21 @@ export function SituacaoLoja({ lojaId, bloqueada, motivo, automatico, desde }: {
     <section className="card space-y-4 p-6" aria-labelledby="sit-titulo">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="sit-titulo" className="h3">Situação</h2>
-        {bloqueada ? <Selo tom="erro">■ Bloqueada</Selo> : <Selo tom="ok">● Liberada</Selo>}
+        {bloqueada ? <Selo tom="erro">■ Bloqueada</Selo> : promessa ? <Selo tom="atencao">◆ Liberada por promessa</Selo> : <Selo tom="ok">● Liberada</Selo>}
       </div>
       {bloqueada ? (
         <>
           <p className="text-sm">{motivo}{desde ? ` · desde ${fmtData(desde)}` : ''}{automatico ? ' (automático por atraso; libera sozinho quando a fatura for paga)' : ''}</p>
-          <button type="button" className="btn btn-primario" disabled={pendente} onClick={() => iniciar(async () => { const r = await alterarBloqueioLoja(lojaId, false, ''); if (!r.ok) setErro(r.erro); })}>Desbloquear Loja</button>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="btn btn-primario" disabled={pendente} data-teste="promessa"
+              onClick={() => iniciar(async () => { const r = await liberarPorPromessa(lojaId, 3); if (!r.ok) setErro(r.erro); })}>Liberar por promessa de pagamento · 3 dias</button>
+            <button type="button" className="btn btn-secundario" disabled={pendente} onClick={() => iniciar(async () => { const r = await alterarBloqueioLoja(lojaId, false, ''); if (!r.ok) setErro(r.erro); })}>Desbloquear Loja</button>
+          </div>
+          <p className="text-xs text-text-secondary">A promessa libera o Gestor e os clientes por 3 dias, com aviso amarelo no sistema da Loja. Se a fatura não for paga até lá, a Loja é bloqueada de novo automaticamente.</p>
         </>
       ) : (
         <>
+          {promessa && <div className="aviso aviso-atencao" role="status"><div><p className="font-display text-base font-extrabold">Liberada por promessa de pagamento até {fmtDataHora(promessa)}</p><p>Se a fatura não for paga até lá, a Loja volta a ser bloqueada automaticamente.</p></div></div>}
           <p className="text-sm text-text-secondary">Bloquear suspende o acesso do Gestor e de todos os clientes desta Loja. Os dados ficam guardados.</p>
           <button type="button" className="btn btn-texto" onClick={() => setAberto(true)}>Bloquear Loja</button>
         </>

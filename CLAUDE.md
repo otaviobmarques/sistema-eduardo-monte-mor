@@ -152,6 +152,11 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 - Testes E2E usam um administrador temporário (`adminTemporario()`), nunca o login real `admin`.
 - **Inadimplência**: `verificar_inadimplencia()` diária (pg_cron 09:05) marca vencidas e bloqueia quem passar de
   `dias_tolerancia`; `reavaliar_bloqueio()` libera ao pagar (só bloqueios automáticos).
+- **Promessa de pagamento (16/11/2026)**: em Admin › Loja › Situação, “Liberar por promessa de pagamento · 3 dias”
+  (`liberar_por_promessa()`, só admin; `lojas.promessa_ate`). Gestor e clientes voltam a acessar; o Gestor vê no topo um
+  aviso **amarelo grande** (#FACC15, “Pague até dd/mm/aaaa hh:mm”, `data-teste=aviso-promessa`). O bloqueio diário respeita a
+  promessa; `vencer_promessas()` (pg_cron a cada 15 min) bloqueia de novo se a promessa vencer com fatura em atraso;
+  pagar (`reavaliar_bloqueio()`) encerra a promessa. Bloqueio manual zera a promessa.
 - Logins: `admin` = Administrador (Otávio); `eduardo` = Gestor da Loja Auto Visão Monte Mor.
 - Testes E2E criam uma Loja isolada (`tests/e2e/apoio.js`) e apagam tudo no fim.
 
