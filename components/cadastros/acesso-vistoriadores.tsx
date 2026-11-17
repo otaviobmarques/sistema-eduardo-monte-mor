@@ -1,11 +1,12 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { Aviso, BotaoCopiar, Modal, Selo } from '@/components/ui';
-import { alterarSenhaVistoriador, bloquearVistoriador, criarAcessoVistoriador } from '@/app/loja/cadastros/vistoriadores/actions';
+import { alterarSenhaVistoriador, bloquearVistoriador, criarAcessoVistoriador, salvarPermissoesVistoriador } from '@/app/loja/cadastros/vistoriadores/actions';
+import { PERMISSOES_VISTORIADOR, type PermissoesVistoriador } from '@/lib/permissoes-vistoriador';
 import { sugerirLogin, telefone as fmtTelefone } from '@/lib/formato';
 
 export interface VistoriadorAcesso {
-  id: string; nome: string; ativo: boolean; telefone: string | null;
+  id: string; nome: string; ativo: boolean; telefone: string | null; permissoes: PermissoesVistoriador;
   acesso: { login: string; bloqueado: boolean; primeiro_acesso_em: string | null } | null;
 }
 
@@ -38,6 +39,8 @@ export function AcessoVistoriadores({ lista }: { lista: VistoriadorAcesso[] }) {
   const [senha, setSenha] = useState('');
   const [mostrar, setMostrar] = useState(false);
   const [pendente, iniciar] = useTransition();
+  const [perm, setPerm] = useState<{ v: VistoriadorAcesso; p: PermissoesVistoriador } | null>(null);
+  const [salvo, setSalvo] = useState<string | null>(null);
 
   const abrir = (tipo: 'criar' | 'senha', v: VistoriadorAcesso) => { setErro(null); setCampos({}); setSenha(''); setMostrar(false); setJanela({ tipo, v }); };
 
@@ -82,6 +85,7 @@ export function AcessoVistoriadores({ lista }: { lista: VistoriadorAcesso[] }) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn btn-secundario btn-sm" onClick={() => { setErro(null); setSalvo(null); setPerm({ v, p: { ...v.permissoes } }); }}>O que ele vê</button>
               {!v.acesso && <button type="button" className="btn btn-primario btn-sm" disabled={!v.ativo || pendente} onClick={() => abrir('criar', v)}>Criar acesso</button>}
               {v.acesso && <>
                 <button type="button" className="btn btn-secundario btn-sm" onClick={() => setEnvio({ v, login: v.acesso!.login, senha: null })}>Enviar link</button>
@@ -93,6 +97,33 @@ export function AcessoVistoriadores({ lista }: { lista: VistoriadorAcesso[] }) {
         ))}
       </ul>
 
+      {salvo && <div className="mt-3"><Aviso tipo="ok" titulo={salvo} /></div>}
+      <Modal aberto={!!perm} onFechar={() => setPerm(null)} titulo={`O que ${perm?.v.nome.split(' ')[0] ?? ''} vê`}
+        descricao="Placa, modelo, status e horário agendado aparecem sempre. Marque o que mais ele pode ver no sistema.">
+        {perm && (
+          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); iniciar(async () => {
+            const r = await salvarPermissoesVistoriador(perm.v.id, perm.p);
+            if (!r.ok) { setErro(r.erro); return; }
+            setSalvo(`Pronto: o que ${perm.v.nome.split(' ')[0]} vê foi atualizado.`); setPerm(null);
+          }); }}>
+            <fieldset className="divide-y divide-divider rounded-card border border-divider">
+              <legend className="sr-only">Informações liberadas</legend>
+              {PERMISSOES_VISTORIADOR.map((o) => (
+                <label key={o.chave} className="flex cursor-pointer items-start gap-3 px-4 py-3">
+                  <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-[#C9232C]" checked={perm.p[o.chave]} data-permissao={o.chave}
+                    onChange={(e) => setPerm({ ...perm, p: { ...perm.p, [o.chave]: e.target.checked } })} />
+                  <span><span className="block font-semibold text-text">{o.rotulo}</span><span className="block text-sm text-text-secondary">{o.ajuda}</span></span>
+                </label>
+              ))}
+            </fieldset>
+            {erro && <Aviso tipo="erro" titulo="Não foi possível salvar">{erro}</Aviso>}
+            <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+              <button type="button" className="btn btn-secundario" onClick={() => setPerm(null)}>Voltar</button>
+              <button className="btn btn-primario" disabled={pendente}>{pendente ? 'Salvando…' : 'Salvar'}</button>
+            </div>
+          </form>
+        )}
+      </Modal>
       <Modal aberto={!!janela} onFechar={() => setJanela(null)}
         titulo={janela?.tipo === 'criar' ? `Criar acesso · ${janela.v.nome}` : `Alterar senha · ${janela?.v.nome ?? ''}`}
         descricao={janela?.tipo === 'criar' ? 'Escolha o usuário e a senha. Depois você envia o link pelo WhatsApp.' : 'A senha antiga deixa de valer na hora.'}>

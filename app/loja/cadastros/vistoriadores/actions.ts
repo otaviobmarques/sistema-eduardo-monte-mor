@@ -4,6 +4,8 @@ import { exigirPerfil } from '@/lib/sessao';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Resultado } from '@/lib/cadastros';
 import { LOGIN_REGEX, loginParaEmail, normalizarLogin } from '@/lib/login';
+import { lerPermissoes } from '@/lib/permissoes-vistoriador';
+import { createClient } from '@/lib/supabase/server';
 
 const ROTA = '/loja/cadastros/vistoriadores';
 
@@ -79,6 +81,20 @@ export async function bloquearVistoriador(vistoriadorId: string, bloquear: boole
   if (error) return { ok: false, erro: 'Não foi possível alterar o acesso. Tente de novo.' };
   await admin.auth.admin.updateUserById(p.user_id, { ban_duration: bloquear ? '876000h' : 'none' });
   await auditar(s.userId, s.perfil.loja_id, p.user_id, 'bloqueado', String(p.bloqueado), String(bloquear));
+  revalidatePath(ROTA);
+  return { ok: true };
+}
+
+/** Define o que o vistoriador vê no sistema (valem na hora, inclusive para quem já está com o sistema aberto ao recarregar). */
+export async function salvarPermissoesVistoriador(vistoriadorId: string, permissoes: Record<string, unknown>): Promise<Resultado> {
+  const s = await exigirPerfil('loja');
+  const vist = await vistoriadorDaLoja(s.perfil.loja_id!, vistoriadorId);
+  if (!vist) return { ok: false, erro: 'Vistoriador não encontrado.' };
+  const p = lerPermissoes(permissoes);
+  const supabase = await createClient();
+  const { error } = await supabase.from('vistoriadores').update({ permissoes: p }).eq('id', vistoriadorId);
+  if (error) return { ok: false, erro: 'Não foi possível salvar. Tente de novo.' };
+  await auditar(s.userId, s.perfil.loja_id, vistoriadorId, 'o que o vistoriador vê', null, Object.entries(p).filter(([, v]) => v).map(([k]) => k).join(', ') || 'só placa e modelo');
   revalidatePath(ROTA);
   return { ok: true };
 }

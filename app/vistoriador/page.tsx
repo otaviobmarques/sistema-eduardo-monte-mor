@@ -3,7 +3,8 @@ import { Cabecalho } from '@/components/ui';
 import { Placa } from '@/components/os/placa';
 import { StatusSelo } from '@/components/os/status';
 import { Kpi } from '@/components/kpi';
-import { dataHora, hora } from '@/lib/formato';
+import { dataHora, hora, moeda, telefone } from '@/lib/formato';
+import { lerPermissoes } from '@/lib/permissoes-vistoriador';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Minhas vistorias' };
@@ -14,6 +15,7 @@ interface Vistoria {
   status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado'; etapa: 'aberta' | 'agendada' | 'em_execucao' | 'laudo_em_elaboracao' | null;
   agendada_para: string | null; local_agendado: string | null; patio: string | null; endereco: string | null; cidade: string | null; uf: string | null;
   cliente: string | null; unidade: string | null; observacao: string | null; prazo_em: string | null; concluida_em: string | null;
+  renavam: string | null; solicitante: string | null; telefone: string | null; valor: number | null; minha: boolean; vistoriador: string | null;
 }
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -29,8 +31,14 @@ function rotuloDia(d: string, hoje: string) {
 
 export default async function MinhasVistoriasPage() {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('minhas_vistorias');
-  const lista = (data ?? []) as Vistoria[];
+  const [{ data, error }, { data: perm }] = await Promise.all([supabase.rpc('minhas_vistorias'), supabase.rpc('minhas_permissoes')]);
+  const p = lerPermissoes(perm);
+  const todasLista = (data ?? []) as Vistoria[];
+  const lista = todasLista.filter((v) => v.minha);
+  // “Todas as OS em aberto” liberado: as que não são dele, agrupadas por pátio
+  const outras = todasLista.filter((v) => !v.minha);
+  const porPatio = new Map<string, Vistoria[]>();
+  for (const v of outras) { const k = v.patio || v.cidade || 'Sem pátio'; porPatio.set(k, [...(porPatio.get(k) ?? []), v]); }
   const hoje = diaBR(new Date().toISOString());
   const abertas = lista.filter((v) => v.status !== 'vistoriado');
   const feitas = lista.filter((v) => v.status === 'vistoriado');
@@ -49,7 +57,7 @@ export default async function MinhasVistoriasPage() {
       <div className="mb-6 grid grid-cols-3 gap-3">
         <Kpi rotulo="Hoje" valor={deHoje} detalhe="agendadas para hoje" tom="escuro" />
         <Kpi rotulo="A fazer" valor={abertas.length} detalhe="em andamento" />
-        <Kpi rotulo="Feitas" valor={feitas.length} detalhe="nos últimos 7 dias" />
+        {p.concluidas ? <Kpi rotulo="Feitas" valor={feitas.length} detalhe="nos últimos 7 dias" /> : p.todas ? <Kpi rotulo="Outras em aberto" valor={outras.length} detalhe="da Loja" /> : null}
       </div>
       {!abertas.length && <p className="rounded-card border border-divider bg-white p-6 text-text-secondary">Nenhuma vistoria designada para você no momento.</p>}
       {chaves.map((k) => (
@@ -60,6 +68,18 @@ export default async function MinhasVistoriasPage() {
           </ul>
         </section>
       ))}
+      {p.todas && outras.length > 0 && (
+        <section className="mt-8" aria-labelledby="outras" data-teste="outras-os">
+          <h2 id="outras" className="mb-1 font-display text-xl font-extrabold text-text">Outras OS em aberto da Loja <span className="text-base font-semibold text-text-secondary">· {outras.length}</span></h2>
+          <p className="mb-3 text-sm text-text-secondary">Não estão com você. Fale com a Loja antes de vistoriar alguma delas.</p>
+          {[...porPatio].sort((a, b) => b[1].length - a[1].length).map(([pt, vs]) => (
+            <div key={pt} className="mb-4">
+              <h3 className="mb-2 font-semibold text-text">{pt} · {vs.length}</h3>
+              <ul className="grid gap-3 md:grid-cols-2">{vs.map((v) => <Cartao key={v.os_id} v={v} />)}</ul>
+            </div>
+          ))}
+        </section>
+      )}
       {feitas.length > 0 && (
         <section className="mt-8" aria-labelledby="feitas">
           <h2 id="feitas" className="mb-3 font-display text-xl font-extrabold text-text">Feitas nos últimos 7 dias <span className="text-base font-semibold text-text-secondary">· {feitas.length}</span></h2>
@@ -88,6 +108,11 @@ function Cartao({ v }: { v: Vistoria }) {
         {v.cliente && <><dt className="text-text-secondary">Cliente</dt><dd className="text-text">{v.cliente}{v.unidade ? ` · ${v.unidade}` : ''}</dd></>}
         <dt className="text-text-secondary">OS</dt><dd className="text-text">nº {v.numero}</dd>
         {v.concluida_em && <><dt className="text-text-secondary">Concluída</dt><dd className="text-text">{dataHora(v.concluida_em)}</dd></>}
+        {v.prazo_em && v.status !== 'vistoriado' && <><dt className="text-text-secondary">Prazo</dt><dd className="font-semibold text-text">{dataHora(v.prazo_em)}</dd></>}
+        {v.renavam && <><dt className="text-text-secondary">Renavam</dt><dd className="text-text">{v.renavam}</dd></>}
+        {v.solicitante && <><dt className="text-text-secondary">Solicitante</dt><dd className="text-text">{v.solicitante}{v.telefone ? <> · <a className="font-semibold text-action underline" href={`tel:+55${v.telefone}`}>{telefone(v.telefone)}</a></> : null}</dd></>}
+        {v.valor != null && <><dt className="text-text-secondary">Valor</dt><dd className="text-text">{moeda(v.valor)}</dd></>}
+        {!v.minha && v.vistoriador && <><dt className="text-text-secondary">Com</dt><dd className="text-text">{v.vistoriador}</dd></>}
       </dl>
       {v.observacao && <p className="mt-3 rounded-campo border-l-4 border-warn bg-warn-bg px-3 py-2 text-sm text-text"><strong>Observação:</strong> {v.observacao}</p>}
       {busca && v.status !== 'vistoriado' && (

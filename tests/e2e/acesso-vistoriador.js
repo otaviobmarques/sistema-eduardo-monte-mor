@@ -27,7 +27,8 @@ const falha = (m) => { throw new Error(m); };
     const abrir = async (placa, modelo) => (await g.rpc('abrir_os', { p_empresa: emp.id, p_nome_solicitante: 'Ana', p_telefone: null, p_placa: placa, p_renavam: null, p_marca_modelo: modelo, p_ano: null, p_cor: null, p_categoria_id: cat.id, p_servico_id: serv.id, p_local_tipo: 'patio', p_patio_id: pat.id, p_endereco: null, p_cidade: null, p_uf: null, p_observacao: 'Chave na portaria' })).data[0];
     const a = await abrir('VST1A11', 'Fiat Uno'), b = await abrir('VST1A22', 'VW Gol');
     await abrir('VST1A33', 'Ford Ka');
-    const amanha = new Date(Date.now() + 86400e3); amanha.setUTCHours(12, 0, 0, 0);
+    // Amanhã às 09:00 de Brasília (conta pelo dia de Brasília, não pelo UTC)
+    const amanha = new Date(Date.now() - 3 * 3600e3 + 86400e3); amanha.setUTCHours(12, 0, 0, 0);
     for (const [os, v] of [[a, joao], [b, maria]]) {
       const { error } = await g.rpc('agendar_os', { p_os: os.id, p_data_hora: amanha.toISOString(), p_local: null, p_vistoriador: v.id, p_motivo: null, p_motivo_texto: null });
       if (error) falha('agendar: ' + error.message);
@@ -79,6 +80,23 @@ const falha = (m) => { throw new Error(m); };
       log('telas da Loja e do cliente mandam de volta para “Minhas vistorias”; direto no banco ele não lê OS, clientes, notificações nem chama funções da Loja');
       await p.reload();
       await p.waitForSelector('[data-teste="acesso-João Teste"] >> text=Ativo');
+
+      // O que ele vê: Gestor tira Cliente e Observação, libera Valor e Todas as OS em aberto
+      await p.locator('[data-teste="acesso-João Teste"] button:has-text("O que ele vê")').click();
+      for (const k of ['cliente', 'observacao']) await p.uncheck(`dialog[open] input[data-permissao=${k}]`);
+      for (const k of ['valor', 'todas']) await p.check(`dialog[open] input[data-permissao=${k}]`);
+      await p.screenshot({ path: `${S}/vistoriador-permissoes.png` });
+      await p.click('dialog[open] button:has-text("Salvar")');
+      await p.waitForSelector('text=foi atualizado');
+      await v.reload();
+      const meu = (await v.locator('[data-teste=vistoria]:has-text("VST1A11")').first().innerText()).replace(/\s+/g, ' ');
+      if (meu.includes('Cliente') || meu.includes('Chave na portaria') || !meu.includes('Valor')) falha('permissões no cartão: ' + meu);
+      const outras = await v.locator('[data-teste=outras-os]').innerText();
+      if (!outras.includes('VST1A22') || !outras.includes('VST1A33') || !outras.includes('Maria Outra')) falha('outras OS: ' + outras);
+      const { data: rv } = await sv.rpc('minhas_vistorias');
+      if (rv.some((x) => x.cliente || x.observacao) || !rv.every((x) => x.valor !== null)) falha('banco devolveu campo escondido');
+      await v.screenshot({ path: `${S}/vistoriador-permissoes-celular.png`, fullPage: true });
+      log('“O que ele vê”: sem Cliente e Observação, com Valor e “Outras OS em aberto da Loja” (VST1A22 com Maria, VST1A33 sem ninguém); o banco também não devolve o que foi escondido');
 
       // Alterar senha e bloquear
       await p.locator('[data-teste="acesso-João Teste"] button:has-text("Alterar senha")').click();
