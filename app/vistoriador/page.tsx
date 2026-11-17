@@ -3,7 +3,7 @@ import { Cabecalho } from '@/components/ui';
 import { Placa } from '@/components/os/placa';
 import { StatusSelo } from '@/components/os/status';
 import { Kpi } from '@/components/kpi';
-import { dataHora, hora, moeda, telefone } from '@/lib/formato';
+import { dataHora, hora, telefone } from '@/lib/formato';
 import { lerPermissoes } from '@/lib/permissoes-vistoriador';
 import { createClient } from '@/lib/supabase/server';
 
@@ -15,7 +15,7 @@ interface Vistoria {
   status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado'; etapa: 'aberta' | 'agendada' | 'em_execucao' | 'laudo_em_elaboracao' | null;
   agendada_para: string | null; local_agendado: string | null; patio: string | null; endereco: string | null; cidade: string | null; uf: string | null;
   cliente: string | null; unidade: string | null; observacao: string | null; prazo_em: string | null; concluida_em: string | null;
-  renavam: string | null; solicitante: string | null; telefone: string | null; valor: number | null; minha: boolean; vistoriador: string | null;
+  renavam: string | null; solicitante: string | null; telefone: string | null; minha: boolean; vistoriador: string | null;
 }
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -111,7 +111,6 @@ function Cartao({ v }: { v: Vistoria }) {
         {v.prazo_em && v.status !== 'vistoriado' && <><dt className="text-text-secondary">Prazo</dt><dd className="font-semibold text-text">{dataHora(v.prazo_em)}</dd></>}
         {v.renavam && <><dt className="text-text-secondary">Renavam</dt><dd className="text-text">{v.renavam}</dd></>}
         {v.solicitante && <><dt className="text-text-secondary">Solicitante</dt><dd className="text-text">{v.solicitante}{v.telefone ? <> · <a className="font-semibold text-action underline" href={`tel:+55${v.telefone}`}>{telefone(v.telefone)}</a></> : null}</dd></>}
-        {v.valor != null && <><dt className="text-text-secondary">Valor</dt><dd className="text-text">{moeda(v.valor)}</dd></>}
         {!v.minha && v.vistoriador && <><dt className="text-text-secondary">Com</dt><dd className="text-text">{v.vistoriador}</dd></>}
       </dl>
       {v.observacao && <p className="mt-3 rounded-campo border-l-4 border-warn bg-warn-bg px-3 py-2 text-sm text-text"><strong>Observação:</strong> {v.observacao}</p>}

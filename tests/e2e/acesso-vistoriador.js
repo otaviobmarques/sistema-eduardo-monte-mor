@@ -81,22 +81,29 @@ const falha = (m) => { throw new Error(m); };
       await p.reload();
       await p.waitForSelector('[data-teste="acesso-João Teste"] >> text=Ativo');
 
-      // O que ele vê: Gestor tira Cliente e Observação, libera Valor e Todas as OS em aberto
+      // O que ele vê: Gestor tira Cliente e Observação, libera Renavam e Todas as OS em aberto; nada financeiro existe
       await p.locator('[data-teste="acesso-João Teste"] button:has-text("O que ele vê")').click();
       for (const k of ['cliente', 'observacao']) await p.uncheck(`dialog[open] input[data-permissao=${k}]`);
-      for (const k of ['valor', 'todas']) await p.check(`dialog[open] input[data-permissao=${k}]`);
+      if (await p.locator('dialog[open] input[data-permissao=valor]').count() || await p.locator('dialog[open] >> text=Valor').count()) falha('opção de valor na janela');
+      for (const k of ['renavam', 'todas']) await p.check(`dialog[open] input[data-permissao=${k}]`);
       await p.screenshot({ path: `${S}/vistoriador-permissoes.png` });
       await p.click('dialog[open] button:has-text("Salvar")');
       await p.waitForSelector('text=foi atualizado');
       await v.reload();
       const meu = (await v.locator('[data-teste=vistoria]:has-text("VST1A11")').first().innerText()).replace(/\s+/g, ' ');
-      if (meu.includes('Cliente') || meu.includes('Chave na portaria') || !meu.includes('Valor')) falha('permissões no cartão: ' + meu);
+      if (meu.includes('Cliente') || meu.includes('Chave na portaria') || /Valor|R\$/.test(meu)) falha('permissões no cartão: ' + meu);
+      const tela = await v.locator('main').innerText();
+      if (/R\$|Valor|receber|pagar|pagamento/i.test(tela)) falha('financeiro na tela do vistoriador');
       const outras = await v.locator('[data-teste=outras-os]').innerText();
       if (!outras.includes('VST1A22') || !outras.includes('VST1A33') || !outras.includes('Maria Outra')) falha('outras OS: ' + outras);
       const { data: rv } = await sv.rpc('minhas_vistorias');
-      if (rv.some((x) => x.cliente || x.observacao) || !rv.every((x) => x.valor !== null)) falha('banco devolveu campo escondido');
+      if (rv.some((x) => x.cliente || x.observacao) || rv.some((x) => 'valor' in x)) falha('banco devolveu campo escondido ou financeiro');
+      await adm.from('vistoriadores').update({ permissoes: { local: true, cliente: true, valor: true } }).eq('id', joao.id);
+      const { data: rv2 } = await sv.rpc('minhas_vistorias');
+      if (rv2.some((x) => 'valor' in x || 'pagamento_status' in x)) falha('valor liberado à força apareceu');
+      await adm.from('vistoriadores').update({ permissoes: { local: true, cliente: false, observacao: false, renavam: true, todas: true, concluidas: true } }).eq('id', joao.id);
       await v.screenshot({ path: `${S}/vistoriador-permissoes-celular.png`, fullPage: true });
-      log('“O que ele vê”: sem Cliente e Observação, com Valor e “Outras OS em aberto da Loja” (VST1A22 com Maria, VST1A33 sem ninguém); o banco também não devolve o que foi escondido');
+      log('“O que ele vê”: sem opção de valor; sem Cliente e Observação, com Renavam e “Outras OS em aberto da Loja” (VST1A22 com Maria, VST1A33 sem ninguém); o banco não devolve o que foi escondido nem valor, mesmo forçando “valor” nas permissões; nenhum R$ na tela');
 
       // Alterar senha e bloquear
       await p.locator('[data-teste="acesso-João Teste"] button:has-text("Alterar senha")').click();

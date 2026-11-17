@@ -109,9 +109,10 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    (“Minhas vistorias”, agrupadas por dia, com mapa) e lê só por `minhas_vistorias()` (OS com `vistoriador_id` dele ou
    agendamento atual dele; em andamento + concluídas há 7 dias). Nenhuma policy de tabela o alcança.
    **O que ele vê (17/11/2026)**: botão “O que ele vê” por vistoriador (`vistoriadores.permissoes` jsonb,
-   `lib/permissoes-vistoriador.ts`): local, cliente, observação, prazo, solicitante/telefone, Renavam, valor, feitas (7 dias)
+   `lib/permissoes-vistoriador.ts`): local, cliente, observação, prazo, solicitante/telefone, Renavam, feitas (7 dias)
    e “Todas as OS em aberto da Loja” (seção “Outras OS em aberto”, por pátio, com quem está cada uma). Placa, modelo, status
    e horário sempre aparecem. `minhas_vistorias()` devolve nulo no que não foi liberado; `minhas_permissoes()` para a tela.
+   **Nada financeiro para o vistoriador** (17/11): sem opção de valor e sem coluna de valor/pagamento na função.
 26. **Logotipo do cliente (14/11/2026)**: no cadastro do cliente (`/loja/clientes/[id]`, card “Logotipo do cliente”,
    `app/loja/clientes/logo.tsx`) a Loja envia/troca/remove PNG, JPG ou WEBP até 2 MB (tipo conferido pelos bytes).
    Bucket privado `logos` (`{empresa}/logo-{ts}.{ext}`), colunas `empresas_clientes.logo_path/logo_atualizado_em`.
