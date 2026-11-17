@@ -80,7 +80,10 @@ export async function PagamentosTela({ sb, modo, f }: { sb: Sb; modo: 'loja' | '
           <a href={modo === 'cliente' ? '/api/financeiro/extrato' : `/api/financeiro/extrato?cliente=${cliente}`} className="btn btn-primario btn-sm" download data-teste="baixar-extrato">
             <Icone nome="download" className="h-4 w-4" />Baixar PDF das placas a pagar
           </a>
-          <span className="text-sm text-text-secondary">Extrato com todas as placas em aberto e o total a pagar.</span>
+          <a href={modo === 'cliente' ? '/api/financeiro/extrato?formato=xlsx' : `/api/financeiro/extrato?cliente=${cliente}&formato=xlsx`} className="btn btn-secundario btn-sm" download data-teste="baixar-extrato-xlsx">
+            <Icone nome="download" className="h-4 w-4" />Baixar Excel
+          </a>
+          <span className="text-sm text-text-secondary">Extrato com todas as placas em aberto e o total a pagar, em PDF ou Excel.</span>
         </div>
       ) : <p className="text-sm text-text-secondary">Escolha um cliente para baixar o PDF das placas a pagar dele.</p>}
       {situacao === 'pendente' && modo === 'loja' && <p className="text-sm text-text-secondary">Todas as placas em aberto (vistoriadas, a vistoriar e frustradas), menos as canceladas. Selecione várias para dar baixa de uma vez.</p>}

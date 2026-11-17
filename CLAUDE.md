@@ -130,6 +130,7 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    (cliente: sempre; Loja: com um cliente escolhido) → `/api/financeiro/extrato` (`lib/pdf/extrato.tsx`, A4 retrato no
    layout Auto Visão: logo, faixa vermelha, cliente com CNPJ e logotipo PNG/JPG, card “Total a pagar”, tabela grafite com
    zebra, total e paginação). Mesmas placas e total do KPI (não canceladas, pagamento pendente). Cliente só baixa o próprio.
+   “Baixar Excel” (17/11): `?formato=xlsx`, abas “Placas a pagar” (valor numérico em R$, linha TOTAL) e “Resumo”.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

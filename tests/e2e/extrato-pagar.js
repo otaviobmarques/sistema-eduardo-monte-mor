@@ -51,6 +51,14 @@ const falha = (m) => { throw new Error(m); };
       if (!kpi.includes('R$ 180,00')) falha('KPI: ' + kpi);
       execFileSync('pdftoppm', ['-png', '-r', '70', '-f', '1', '-l', '1', `${S}/extrato-cliente.pdf`, `${S}/extrato-pagina`]);
       log(`cliente baixa “${nome}”: placas EXT1A11 e EXT1A22, total R$ 180,00 = KPI “Total a pagar”; sem a cancelada, a paga e as de outro cliente`);
+      const [dx] = await Promise.all([c.waitForEvent('download'), c.click('[data-teste=baixar-extrato-xlsx]')]);
+      await dx.saveAs(`${S}/extrato-cliente.xlsx`);
+      const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(`${S}/extrato-cliente.xlsx`);
+      const ws = wb.getWorksheet('Placas a pagar');
+      const placasX = []; let totalX = null;
+      ws.eachRow((r, n) => { if (n === 1) return; const v = r.values; if (/^EXT1/.test(v[2] ?? '')) placasX.push(v[2]); if (v[1] === 'TOTAL A PAGAR') totalX = v[7]; });
+      if (placasX.sort().join() !== 'EXT1A11,EXT1A22' || totalX !== 180 || !dx.suggestedFilename().endsWith('.xlsx')) falha(`Excel: ${placasX} ${totalX}`);
+      log(`“Baixar Excel”: ${dx.suggestedFilename()} com as mesmas 2 placas e TOTAL A PAGAR = 180 (número, formatado em R$) + aba Resumo`);
 
       const p = await (await br.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true })).newPage();
       await semPopupLeitura(p);
