@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   if (params.formato === 'pdf') {
     const colR: ColunaPdf[] = [{ titulo: def.dimensao, largura: 28 }, { titulo: 'OS', largura: 7, direita: true }, { titulo: 'Vistoriadas', largura: 9, direita: true }, { titulo: 'No prazo', largura: 9, direita: true }, { titulo: 'Tempo médio', largura: 10, direita: true }, { titulo: 'Frustradas', largura: 9, direita: true }, { titulo: 'Canceladas', largura: 9, direita: true }, { titulo: 'Valor', largura: 10, direita: true }, { titulo: 'Pendente', largura: 9, direita: true }];
-    const colD: ColunaPdf[] = [{ titulo: 'OS', largura: 6 }, { titulo: 'Placa', largura: 9 }, { titulo: 'Modelo', largura: 17 }, ...(loja ? [{ titulo: 'Cliente', largura: 13 }] : []), { titulo: 'Abertura', largura: 9 }, { titulo: 'Status', largura: 9 }, { titulo: 'Prazo', largura: 13 }, { titulo: 'Motivo', largura: loja ? 15 : 28 }, { titulo: 'Valor', largura: 9, direita: true }];
+    const colD: ColunaPdf[] = [{ titulo: 'OS', largura: 5 }, { titulo: 'Placa', largura: 8 }, { titulo: 'Renavam', largura: 10 }, { titulo: 'Modelo', largura: 14 }, ...(loja ? [{ titulo: 'Cliente', largura: 12 }] : []), { titulo: 'Abertura', largura: 8 }, { titulo: 'Status', largura: 8 }, { titulo: 'Prazo', largura: 12 }, { titulo: 'Motivo', largura: loja ? 14 : 26 }, { titulo: 'Valor', largura: 9, direita: true }];
     const pdf = await gerarPdfRelatorio({
       titulo: `Relatório · ${def.titulo}`, filtros, geradoEm, logo: await logo(req.nextUrl.origin),
       kpis: [{ rotulo: 'Vistorias', valor: String(k.total) }, { rotulo: '% no prazo', valor: formatarPct(k.pctNoPrazo) }, { rotulo: 'Tempo médio', valor: formatarHoras(k.tempoMedioHoras) }, { rotulo: 'Frustração', valor: formatarPct(k.pctFrustradas) }, { rotulo: 'Cancelamento', valor: formatarPct(k.pctCanceladas) }],
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       },
       detalhe: {
         titulo: `Placas (${rel.linhas.length})`, colunas: colD,
-        linhas: rel.linhas.map((l) => [String(l.numero), l.placa, l.marca_modelo ?? '', ...(loja ? [l.cliente ?? ''] : []), fmtData(l.aberta_em), STATUS_LABEL[l.status], situacaoSla(l) + (l.horas_atraso ? ` (+${formatarHoras(Number(l.horas_atraso))})` : ''), motivo(l), moeda(l.valor)]),
+        linhas: rel.linhas.map((l) => [String(l.numero), l.placa, l.renavam ?? '', l.marca_modelo ?? '', ...(loja ? [l.cliente ?? ''] : []), fmtData(l.aberta_em), STATUS_LABEL[l.status], situacaoSla(l) + (l.horas_atraso ? ` (+${formatarHoras(Number(l.horas_atraso))})` : ''), motivo(l), moeda(l.valor)]),
       },
     });
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nomeArq}.pdf"`, 'Cache-Control': 'no-store' } });
@@ -63,14 +63,14 @@ export async function GET(req: NextRequest) {
     {
       nome: 'Dados',
       colunas: [
-        { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'MODELO', largura: 30 }, ...(loja ? [{ titulo: 'CLIENTE', largura: 22 }] : []), { titulo: 'UNIDADE', largura: 30 },
+        { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'RENAVAM', largura: 14 }, { titulo: 'MODELO', largura: 30 }, ...(loja ? [{ titulo: 'CLIENTE', largura: 22 }] : []), { titulo: 'UNIDADE', largura: 30 },
         { titulo: 'ABERTURA', largura: 17 }, { titulo: 'CONCLUSÃO', largura: 17 }, { titulo: 'PRAZO', largura: 17 }, { titulo: 'STATUS', largura: 12 }, { titulo: 'SITUAÇÃO DO PRAZO', largura: 22 },
         { titulo: 'HORAS ATÉ O LAUDO', largura: 12 }, { titulo: 'HORAS DE ATRASO', largura: 12 }, { titulo: 'CIDADE', largura: 20 }, { titulo: 'UF', largura: 5 }, { titulo: 'PÁTIO', largura: 24 },
         ...(loja ? [{ titulo: 'VISTORIADOR', largura: 20 }] : []), { titulo: 'FRUSTRADA', largura: 10 }, { titulo: 'MOTIVOS', largura: 40 },
         { titulo: 'VALOR', largura: 13, formato: REAIS }, { titulo: 'PAGAMENTO', largura: 11 },
       ],
       linhas: rel.linhas.map((l) => [
-        l.numero, l.placa, l.marca_modelo ?? '', ...(loja ? [l.cliente ?? ''] : []), l.unidade ?? '', dataHora(l.aberta_em), l.concluida_em ? dataHora(l.concluida_em) : '', l.prazo_em ? dataHora(l.prazo_em) : '',
+        l.numero, l.placa, l.renavam ?? '', l.marca_modelo ?? '', ...(loja ? [l.cliente ?? ''] : []), l.unidade ?? '', dataHora(l.aberta_em), l.concluida_em ? dataHora(l.concluida_em) : '', l.prazo_em ? dataHora(l.prazo_em) : '',
         STATUS_LABEL[l.status], situacaoSla(l), l.horas_conclusao === null ? null : Number(l.horas_conclusao), l.horas_atraso === null ? null : Number(l.horas_atraso),
         l.cidade ?? '', l.uf ?? '', l.patio ?? '', ...(loja ? [l.vistoriador ?? ''] : []), l.foi_frustrada ? 'Sim' : 'Não', motivo(l), Number(l.valor ?? 0), PAG[l.pagamento_status],
       ]),

@@ -56,7 +56,7 @@ const falha = (m) => { throw new Error(m); };
       const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(`${S}/extrato-cliente.xlsx`);
       const ws = wb.getWorksheet('Placas a pagar');
       const placasX = []; let totalX = null;
-      ws.eachRow((r, n) => { if (n === 1) return; const v = r.values; if (/^EXT1/.test(v[2] ?? '')) placasX.push(v[2]); if (v[1] === 'TOTAL A PAGAR') totalX = v[7]; });
+      ws.eachRow((r, n) => { if (n === 1) return; const v = r.values; if (/^EXT1/.test(v[2] ?? '')) placasX.push(v[2]); if (v[1] === 'TOTAL A PAGAR') totalX = v[8]; });
       if (placasX.sort().join() !== 'EXT1A11,EXT1A22' || totalX !== 180 || !dx.suggestedFilename().endsWith('.xlsx')) falha(`Excel: ${placasX} ${totalX}`);
       log(`“Baixar Excel”: ${dx.suggestedFilename()} com as mesmas 2 placas e TOTAL A PAGAR = 180 (número, formatado em R$) + aba Resumo`);
 

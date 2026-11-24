@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
       titulo: 'Fila de OS', filtros, geradoEm: dataHora(new Date()), logo,
       kpis: [{ rotulo: 'Em andamento', valor: String(dados.length) }, { rotulo: 'Vencidas', valor: String(dados.filter((d) => n(d) === 'vermelho').length) }, { rotulo: 'Vencendo', valor: String(dados.filter((d) => n(d) === 'amarelo').length) }, { rotulo: 'No prazo', valor: String(dados.filter((d) => n(d) === 'verde').length) }, { rotulo: 'Pausadas', valor: String(dados.filter((d) => n(d) === 'cinza').length) }],
       resumo: {
-        titulo: 'Ordenada por urgência', colunas: [{ titulo: 'OS', largura: 6 }, { titulo: 'Placa', largura: 9 }, { titulo: 'Veículo', largura: 13 }, { titulo: 'Cliente', largura: 13 }, { titulo: 'Local', largura: 12 }, { titulo: 'Abertura', largura: 9 }, { titulo: 'Status', largura: 13 }, { titulo: 'Prazo', largura: 12 }, { titulo: 'SLA', largura: 13 }],
-        linhas: dados.map((d) => [String(d.o.numero), d.o.placa, d.o.marca_modelo ?? '', d.o.cliente ?? '', [d.o.local, d.o.cidade].filter(Boolean).join(' · '), fmtData(d.o.aberta_em), `${STATUS_LABEL[d.o.status as keyof typeof STATUS_LABEL]}${d.etapa ? ` · ${d.etapa}` : ''}`, d.prazo, d.sla]),
+        titulo: 'Ordenada por urgência', colunas: [{ titulo: 'OS', largura: 5 }, { titulo: 'Placa', largura: 8 }, { titulo: 'Renavam', largura: 10 }, { titulo: 'Veículo', largura: 11 }, { titulo: 'Cliente', largura: 13 }, { titulo: 'Local', largura: 12 }, { titulo: 'Abertura', largura: 9 }, { titulo: 'Status', largura: 13 }, { titulo: 'Prazo', largura: 12 }, { titulo: 'SLA', largura: 13 }],
+        linhas: dados.map((d) => [String(d.o.numero), d.o.placa, d.o.renavam ?? '', d.o.marca_modelo ?? '', d.o.cliente ?? '', [d.o.local, d.o.cidade].filter(Boolean).join(' · '), fmtData(d.o.aberta_em), `${STATUS_LABEL[d.o.status as keyof typeof STATUS_LABEL]}${d.etapa ? ` · ${d.etapa}` : ''}`, d.prazo, d.sla]),
       },
     });
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="fila-de-os-${fmtData(new Date()).split('/').reverse().join('-')}.pdf"`, 'Cache-Control': 'no-store' } });
@@ -45,8 +45,8 @@ export async function GET(req: NextRequest) {
   const buf = await gerarXlsx([
     {
       nome: 'Fila',
-      colunas: [{ titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'VEÍCULO', largura: 30 }, { titulo: 'CLIENTE', largura: 22 }, { titulo: 'SOLICITANTE', largura: 20 }, { titulo: 'LOCAL', largura: 26 }, { titulo: 'CIDADE', largura: 18 }, { titulo: 'STATUS', largura: 12 }, { titulo: 'ETAPA', largura: 20 }, { titulo: 'ABERTURA', largura: 17 }, { titulo: 'PRAZO', largura: 17 }, { titulo: 'SLA', largura: 26 }],
-      linhas: dados.map((d) => [d.o.numero, d.o.placa, d.o.marca_modelo ?? '', d.o.cliente ?? '', d.o.nome_solicitante ?? '', d.o.local ?? '', d.o.cidade ?? '', STATUS_LABEL[d.o.status as keyof typeof STATUS_LABEL], d.etapa, dataHora(d.o.aberta_em), d.prazo, d.sla]),
+      colunas: [{ titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'RENAVAM', largura: 14 }, { titulo: 'VEÍCULO', largura: 30 }, { titulo: 'CLIENTE', largura: 22 }, { titulo: 'SOLICITANTE', largura: 20 }, { titulo: 'LOCAL', largura: 26 }, { titulo: 'CIDADE', largura: 18 }, { titulo: 'STATUS', largura: 12 }, { titulo: 'ETAPA', largura: 20 }, { titulo: 'ABERTURA', largura: 17 }, { titulo: 'PRAZO', largura: 17 }, { titulo: 'SLA', largura: 26 }],
+      linhas: dados.map((d) => [d.o.numero, d.o.placa, d.o.renavam ?? '', d.o.marca_modelo ?? '', d.o.cliente ?? '', d.o.nome_solicitante ?? '', d.o.local ?? '', d.o.cidade ?? '', STATUS_LABEL[d.o.status as keyof typeof STATUS_LABEL], d.etapa, dataHora(d.o.aberta_em), d.prazo, d.sla]),
     },
     {
       nome: 'Resumo',

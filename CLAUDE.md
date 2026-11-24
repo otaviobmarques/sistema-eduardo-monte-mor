@@ -136,6 +136,9 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
    layout Auto Visão: logo, faixa vermelha, cliente com CNPJ e logotipo PNG/JPG, card “Total a pagar”, tabela grafite com
    zebra, total e paginação). Mesmas placas e total do KPI (não canceladas, pagamento pendente). Cliente só baixa o próprio.
    “Baixar Excel” (17/11): `?formato=xlsx`, abas “Placas a pagar” (valor numérico em R$, linha TOTAL) e “Resumo”.
+31. **Renavam nos relatórios (24/11/2026)**: coluna **Renavam logo após a Placa** em Relatórios (tela, Excel, PDF), Relatório
+   da agenda (tela, Excel, PDF), exportação da Fila (Excel, PDF), Fechamento mensal (Excel) e Extrato de placas a pagar (PDF,
+   Excel). `vw_os_sla` ganhou `renavam` (última coluna).
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

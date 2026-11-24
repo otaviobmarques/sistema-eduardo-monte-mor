@@ -25,10 +25,10 @@ export type FiltrosAgendaNorm = ReturnType<typeof normalizarFiltrosAgenda>;
 export async function montarRelatorioAgenda(sb: Sb, f: FiltrosAgendaNorm) {
   const { inicio, fim } = limitesPeriodo(f.de, f.ate);
   type Bruta = { data_hora: string; local_texto: string | null; vistoriador_id: string | null; vistoriadores: { nome: string } | null;
-    ordens_servico: { numero: number; placa: string; status: LinhaAgenda['status']; patio_id: string | null; empresa_cliente_id: string; patios: { nome: string } | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null } };
+    ordens_servico: { numero: number; placa: string; renavam: string | null; status: LinhaAgenda['status']; patio_id: string | null; empresa_cliente_id: string; patios: { nome: string } | null; empresas_clientes: { nome_fantasia: string | null; razao_social: string } | null } };
   const brutas = await todasAsLinhas<Bruta>((a, b) => {
     let q = sb.from('os_agendamentos')
-      .select('data_hora, local_texto, vistoriador_id, vistoriadores(nome), ordens_servico!inner(numero, placa, status, patio_id, empresa_cliente_id, patios(nome), empresas_clientes(nome_fantasia, razao_social))')
+      .select('data_hora, local_texto, vistoriador_id, vistoriadores(nome), ordens_servico!inner(numero, placa, renavam, status, patio_id, empresa_cliente_id, patios(nome), empresas_clientes(nome_fantasia, razao_social))')
       .eq('atual', true).gte('data_hora', inicio).lt('data_hora', fim).order('data_hora').range(a, b);
     if (f.vistoriador) q = q.eq('vistoriador_id', f.vistoriador);
     if (f.patio) q = q.eq('ordens_servico.patio_id', f.patio);
@@ -39,7 +39,7 @@ export async function montarRelatorioAgenda(sb: Sb, f: FiltrosAgendaNorm) {
   let linhas: (LinhaAgenda & { situacao: SituacaoAgenda })[] = brutas.map((r) => {
     const o = r.ordens_servico;
     const l: LinhaAgenda = {
-      numero: o.numero, placa: o.placa, cliente: o.empresas_clientes?.nome_fantasia || o.empresas_clientes?.razao_social || null,
+      numero: o.numero, placa: o.placa, renavam: o.renavam, cliente: o.empresas_clientes?.nome_fantasia || o.empresas_clientes?.razao_social || null,
       patio: o.patios?.nome ?? null, local: r.local_texto, data_hora: r.data_hora, vistoriador: r.vistoriadores?.nome ?? null, status: o.status,
     };
     return { ...l, situacao: situacaoAgenda(l, agora) };

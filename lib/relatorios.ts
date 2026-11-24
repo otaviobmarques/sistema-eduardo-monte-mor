@@ -9,7 +9,7 @@ export interface FiltrosRel { tipo?: string; de?: string; ate?: string; cliente?
 export const STATUS_REL = { a_vistoriar: 'A vistoriar', frustrado: 'Frustrado', vistoriado: 'Vistoriado', cancelado: 'Cancelado' } as const;
 export const PAGAMENTO_REL = { pendente: 'Pendente', pago: 'Pago', faturado: 'Faturado' } as const;
 
-const COLUNAS = 'unidade, numero, placa, marca_modelo, cliente, status, aberta_em, concluida_em, prazo_em, cidade, uf, local_tipo, patio, patio_id, vistoriador, vistoriador_id, empresa_cliente_id, valor, pagamento_status, mes_abertura, no_prazo, horas_conclusao, horas_atraso, vencida_aberta, pausada, foi_frustrada, motivo_frustracao, motivo_atraso, motivo_cancelamento';
+const COLUNAS = 'unidade, numero, placa, renavam, marca_modelo, cliente, status, aberta_em, concluida_em, prazo_em, cidade, uf, local_tipo, patio, patio_id, vistoriador, vistoriador_id, empresa_cliente_id, valor, pagamento_status, mes_abertura, no_prazo, horas_conclusao, horas_atraso, vencida_aberta, pausada, foi_frustrada, motivo_frustracao, motivo_atraso, motivo_cancelamento';
 const uuid = (v?: string) => (v && /^[0-9a-f-]{36}$/.test(v) ? v : undefined);
 
 /** Normaliza os filtros vindos da URL (o que não for válido é ignorado). */

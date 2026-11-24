@@ -31,11 +31,11 @@ const s = StyleSheet.create({
 });
 
 const COLS = [
-  { t: 'OS', w: 8 }, { t: 'PLACA', w: 11 }, { t: 'VEÍCULO', w: 27 }, { t: 'ABERTURA', w: 11 },
-  { t: 'SITUAÇÃO', w: 15 }, { t: 'CONCLUSÃO', w: 12 }, { t: 'VALOR', w: 16, d: true },
+  { t: 'OS', w: 7 }, { t: 'PLACA', w: 11 }, { t: 'RENAVAM', w: 14 }, { t: 'VEÍCULO', w: 21 }, { t: 'ABERTURA', w: 10 },
+  { t: 'SITUAÇÃO', w: 12 }, { t: 'CONCLUSÃO', w: 11 }, { t: 'VALOR', w: 14, d: true },
 ];
 
-export interface LinhaExtrato { numero: number; placa: string; veiculo: string; abertura: string; situacao: string; conclusao: string; valor: string }
+export interface LinhaExtrato { numero: number; placa: string; renavam: string; veiculo: string; abertura: string; situacao: string; conclusao: string; valor: string }
 
 export async function gerarExtratoPdf(d: {
   logo: Buffer | null; logoCliente: { data: Buffer; format: 'png' | 'jpg' } | null;
@@ -71,7 +71,7 @@ export async function gerarExtratoPdf(d: {
         </View>
         {d.linhas.length === 0 && <Text style={[s.cel, { color: C.texto2 }]}>Nenhuma placa em aberto.</Text>}
         {d.linhas.map((l, i) => {
-          const v = [String(l.numero), l.placa, l.veiculo, l.abertura, l.situacao, l.conclusao, l.valor];
+          const v = [String(l.numero), l.placa, l.renavam, l.veiculo, l.abertura, l.situacao, l.conclusao, l.valor];
           return (
             <View key={l.numero} style={[s.linha, i % 2 ? s.zebra : {}]} wrap={false}>
               {v.map((x, j) => <Text key={j} style={[s.cel, { width: `${COLS[j].w}%`, textAlign: COLS[j].d ? 'right' : 'left' }, j === 1 ? s.placa : {}]}>{x}</Text>)}
@@ -79,8 +79,8 @@ export async function gerarExtratoPdf(d: {
           );
         })}
         <View style={s.somatorio} wrap={false}>
-          <Text style={[s.cel, { width: '84%' }]}>TOTAL A PAGAR · {d.qtd} {d.qtd === 1 ? 'placa' : 'placas'}</Text>
-          <Text style={[s.cel, { width: '16%', textAlign: 'right' }]}>{d.total}</Text>
+          <Text style={[s.cel, { width: '86%' }]}>TOTAL A PAGAR · {d.qtd} {d.qtd === 1 ? 'placa' : 'placas'}</Text>
+          <Text style={[s.cel, { width: '14%', textAlign: 'right' }]}>{d.total}</Text>
         </View>
         <Text style={s.nota}>
           Placas com pagamento em aberto (vistoriadas, a vistoriar e frustradas), exceto as canceladas. Valores das placas ainda

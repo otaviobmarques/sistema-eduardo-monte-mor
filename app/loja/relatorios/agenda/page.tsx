@@ -128,13 +128,14 @@ export default async function RelatorioAgenda({ searchParams }: { searchParams: 
             </div>
             <div className="overflow-x-auto">
               <table className="tabela tabela-cartoes">
-                <thead><tr><th scope="col">Dia e hora</th><th scope="col">Vistoriador</th><th scope="col">Placa</th><th scope="col">Cliente</th><th scope="col">Local</th><th scope="col">Situação</th></tr></thead>
+                <thead><tr><th scope="col">Dia e hora</th><th scope="col">Vistoriador</th><th scope="col">Placa</th><th scope="col">Renavam</th><th scope="col">Cliente</th><th scope="col">Local</th><th scope="col">Situação</th></tr></thead>
                 <tbody>
                   {detalhe.map((l) => (
                     <tr key={`${l.numero}-${l.data_hora}`}>
                       <td data-rotulo="Dia e hora" className="whitespace-nowrap">{dataHora(l.data_hora)}</td>
                       <td data-rotulo="Vistoriador">{l.vistoriador ?? '—'}</td>
                       <td data-rotulo="Placa"><Link href={`/loja/os/${l.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={l.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {l.numero}</span></Link></td>
+                      <td data-rotulo="Renavam" className="whitespace-nowrap tabular-nums">{l.renavam || '—'}</td>
                       <td data-rotulo="Cliente">{l.cliente ?? '—'}</td>
                       <td data-rotulo="Local" className="max-w-[220px]">{l.local ?? l.patio ?? '—'}</td>
                       <td data-rotulo="Situação" className={TOM[l.situacao]}>{l.situacao}</td>

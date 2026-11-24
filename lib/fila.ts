@@ -60,7 +60,7 @@ export async function buscarOs(supabase: Sb, opts: { status?: string[]; q?: stri
   const linhas: LinhaOs[] = (data ?? []).map((o) => {
     const emp = o.empresas_clientes as unknown as { razao_social: string; nome_fantasia: string | null } | null;
     return {
-      id: o.id, numero: o.numero, placa: o.placa, marca_modelo: o.marca_modelo, status: o.status, etapa: o.etapa, aberta_em: o.aberta_em,
+      id: o.id, numero: o.numero, placa: o.placa, renavam: o.renavam, marca_modelo: o.marca_modelo, status: o.status, etapa: o.etapa, aberta_em: o.aberta_em,
       nome_solicitante: o.nome_solicitante, cidade: o.cidade,
       local: o.local_tipo === 'patio' ? (o.patios as unknown as { nome: string } | null)?.nome ?? null : o.endereco,
       cliente: emp?.nome_fantasia || emp?.razao_social, pagamento_status: o.pagamento_status,

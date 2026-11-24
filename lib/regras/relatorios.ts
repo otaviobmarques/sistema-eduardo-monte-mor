@@ -1,7 +1,7 @@
 /** Relatórios: agregação pura das linhas de vw_os_sla por dimensão (testada em tests/relatorios.test.ts). */
 
 export interface LinhaRel {
-  numero: number; placa: string; marca_modelo: string | null; cliente: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
+  numero: number; placa: string; renavam?: string | null; marca_modelo: string | null; cliente: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
   aberta_em: string; concluida_em: string | null; prazo_em: string | null; cidade: string | null; uf: string | null; local_tipo: string | null;
   patio: string | null; vistoriador: string | null; valor: number | string | null; pagamento_status: 'pendente' | 'pago' | 'faturado';
   mes_abertura: string | null; no_prazo: boolean | null; horas_conclusao: number | string | null; horas_atraso: number | string | null;

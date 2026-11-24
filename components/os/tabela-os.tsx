@@ -9,7 +9,7 @@ import { corBarraSla, StatusSelo } from './status';
 import { SlaAoVivo } from './sla-ao-vivo';
 
 export interface LinhaOs {
-  id: string; numero: number; placa: string; marca_modelo: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
+  id: string; numero: number; placa: string; renavam?: string | null; marca_modelo: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
   etapa: 'aberta' | 'agendada' | 'em_execucao' | 'laudo_em_elaboracao' | null; aberta_em: string; nome_solicitante: string;
   cidade: string | null; local: string | null; cliente?: string | null; pagamento_status: 'pendente' | 'pago' | 'faturado';
   sla: SlaResultado; entrada: SlaEntrada; laudo?: { id: string; nome: string } | null;

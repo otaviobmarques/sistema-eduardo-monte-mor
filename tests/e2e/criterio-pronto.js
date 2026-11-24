@@ -126,8 +126,10 @@ const CONTA_SOM = `(() => { window.__bipes = 0; const O = window.AudioContext;
       // 7. Loja marca os pagamentos (faturamento mensal da Creditas)
       await loja.goto(B + '/loja/financeiro/pagamentos');
       await loja.waitForSelector('tbody tr');
-      if ((await loja.locator('tbody tr').count()) !== 36) falha('pendentes de pagamento ≠ 36');
-      await temTexto(loja, 'main', 'R$ 6.480,00');
+      // Pendentes = todas as placas em aberto não canceladas (16/11/2026), em qualquer status
+      const { count: emAberto } = await adm.from('ordens_servico').select('id', { count: 'exact', head: true }).eq('empresa_cliente_id', emp.id).eq('pagamento_status', 'pendente').neq('status', 'cancelado');
+      if ((await loja.locator('tbody tr').count()) !== emAberto) falha(`pendentes de pagamento ≠ ${emAberto}`);
+      await temTexto(loja, 'main', new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(emAberto * 180).replace(/\u00a0/g, ' '));
       await loja.check('input[aria-label="Selecionar todas"]');
       await loja.click('button:has-text("Dar baixa nas selecionadas")');
       await loja.check('dialog input[value=faturado]');
@@ -135,10 +137,10 @@ const CONTA_SOM = `(() => { window.__bipes = 0; const O = window.AudioContext;
       await loja.click('dialog button:has-text("Marcar como faturado")');
       await loja.waitForSelector('dialog[open]', { state: 'detached', timeout: 20000 });
       const { count: faturadas } = await adm.from('ordens_servico').select('id', { count: 'exact', head: true }).eq('empresa_cliente_id', emp.id).eq('pagamento_status', 'faturado');
-      if (faturadas !== 36) falha(`faturadas: ${faturadas}`);
+      if (faturadas !== emAberto) falha(`faturadas: ${faturadas}`);
       const { data: formas } = await adm.from('ordens_servico').select('pagamento_forma').eq('empresa_cliente_id', emp.id).eq('pagamento_status', 'faturado');
       if (formas.some((f) => f.pagamento_forma !== 'faturamento')) falha('forma de pagamento do faturado: ' + [...new Set(formas.map((f) => f.pagamento_forma))]);
-      log('Loja deu baixa nas 36 placas de uma vez (Faturado · R$ 6.480,00)');
+      log(`Loja deu baixa nas ${emAberto} placas em aberto de uma vez (36 vistoriadas + a que segue em andamento), como Faturado`);
       await cli.goto(B + '/app/financeiro/pagamentos?situacao=faturado');
       const cliTxt = norm(await cli.textContent('main')).replace(/-/g, '');
       const faltando = demais.filter((o) => !cliTxt.includes(o.placa)).map((o) => o.placa);

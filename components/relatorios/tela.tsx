@@ -153,11 +153,12 @@ export async function TelaRelatorios({ sb, modo, params }: { sb: Sb; modo: 'loja
             </div>
             <div className="overflow-x-auto">
               <table className="tabela tabela-cartoes">
-                <thead><tr><th scope="col">Placa</th>{modo === 'loja' && <th scope="col">Cliente</th>}<th scope="col">Abertura</th><th scope="col">Status</th><th scope="col">Prazo</th><th scope="col">Motivo</th><th scope="col" className="!text-right">Valor</th></tr></thead>
+                <thead><tr><th scope="col">Placa</th><th scope="col">Renavam</th>{modo === 'loja' && <th scope="col">Cliente</th>}<th scope="col">Abertura</th><th scope="col">Status</th><th scope="col">Prazo</th><th scope="col">Motivo</th><th scope="col" className="!text-right">Valor</th></tr></thead>
                 <tbody>
                   {detalhe.map((l) => (
                     <tr key={l.numero}>
                       <td data-rotulo="Placa"><Link href={`${base}/os/${l.numero}`} className="inline-flex flex-col items-end gap-1 md:items-start"><Placa placa={l.placa} tamanho="sm" /><span className="text-xs text-text-secondary">OS {l.numero}</span></Link></td>
+                      <td data-rotulo="Renavam" className="whitespace-nowrap tabular-nums">{l.renavam || '—'}</td>
                       {modo === 'loja' && <td data-rotulo="Cliente">{l.cliente}</td>}
                       <td data-rotulo="Abertura" className="whitespace-nowrap">{fmtData(l.aberta_em)}</td>
                       <td data-rotulo="Status">{STATUS_LABEL[l.status]}</td>

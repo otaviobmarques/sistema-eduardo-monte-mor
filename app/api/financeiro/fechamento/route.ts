@@ -22,12 +22,12 @@ export async function GET(req: NextRequest) {
     {
       nome: 'Placas',
       colunas: [
-        { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'MODELO', largura: 34 }, ...(loja ? [{ titulo: 'CLIENTE', largura: 26 }] : []),
+        { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'RENAVAM', largura: 14 }, { titulo: 'MODELO', largura: 34 }, ...(loja ? [{ titulo: 'CLIENTE', largura: 26 }] : []),
         { titulo: 'CONCLUÍDA EM', largura: 14 }, { titulo: 'VALOR', largura: 14, formato: REAIS }, { titulo: 'PAGAMENTO', largura: 12 },
         { titulo: 'FORMA', largura: 18 }, { titulo: 'DATA DO PAGAMENTO', largura: 18 }, { titulo: 'OBSERVAÇÃO', largura: 36 },
       ],
       linhas: linhas.map((l) => [
-        l.numero, l.placa, l.marca_modelo ?? '', ...(loja ? [l.cliente] : []), fmtData(l.concluida_em), l.valor, PAGAMENTO_LABEL[l.pagamento_status],
+        l.numero, l.placa, l.renavam ?? '', l.marca_modelo ?? '', ...(loja ? [l.cliente] : []), fmtData(l.concluida_em), l.valor, PAGAMENTO_LABEL[l.pagamento_status],
         l.pagamento_status === 'pendente' ? '' : rotuloForma(l.pagamento_forma), l.pagamento_data ? fmtData(l.pagamento_data) : '', l.pagamento_obs ?? '',
       ]),
     },

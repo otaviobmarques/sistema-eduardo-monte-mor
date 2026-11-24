@@ -48,12 +48,12 @@ export async function GET(req: NextRequest) {
       {
         nome: 'Placas a pagar',
         colunas: [
-          { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'VEÍCULO', largura: 34 }, { titulo: 'ABERTURA', largura: 12 },
+          { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'RENAVAM', largura: 14 }, { titulo: 'VEÍCULO', largura: 34 }, { titulo: 'ABERTURA', largura: 12 },
           { titulo: 'SITUAÇÃO', largura: 14 }, { titulo: 'CONCLUSÃO', largura: 12 }, { titulo: 'VALOR', largura: 14, formato: REAIS },
         ],
         linhas: [
-          ...pend.map((l) => [l.numero, l.placa, l.marca_modelo ?? '', fmtData(l.aberta_em), situacao(l.status), l.concluida_em ? fmtData(l.concluida_em) : '', l.valor]),
-          [], ['TOTAL A PAGAR', `${pend.length} ${pend.length === 1 ? 'placa' : 'placas'}`, '', '', '', '', total],
+          ...pend.map((l) => [l.numero, l.placa, l.renavam ?? '', l.marca_modelo ?? '', fmtData(l.aberta_em), situacao(l.status), l.concluida_em ? fmtData(l.concluida_em) : '', l.valor]),
+          [], ['TOTAL A PAGAR', `${pend.length} ${pend.length === 1 ? 'placa' : 'placas'}`, '', '', '', '', '', total],
         ],
       },
       {
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     geradoEm: new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date()),
     total: moeda(total), qtd: pend.length,
     linhas: pend.map((l) => ({
-      numero: l.numero, placa: l.placa, veiculo: l.marca_modelo ?? '—', abertura: fmtData(l.aberta_em),
+      numero: l.numero, placa: l.placa, renavam: l.renavam ?? '—', veiculo: l.marca_modelo ?? '—', abertura: fmtData(l.aberta_em),
       situacao: STATUS_LABEL[l.status as keyof typeof STATUS_LABEL] ?? l.status, conclusao: l.concluida_em ? fmtData(l.concluida_em) : '—', valor: moeda(l.valor),
     })),
   });

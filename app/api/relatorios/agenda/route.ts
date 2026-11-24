@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   if (params.formato === 'pdf') {
     const colR: ColunaPdf[] = [{ titulo: dim, largura: 30 }, { titulo: 'Agendadas', largura: 10, direita: true }, { titulo: 'Realizadas', largura: 10, direita: true }, { titulo: 'A realizar', largura: 10, direita: true }, { titulo: 'Não realizadas', largura: 11, direita: true }, { titulo: 'Frustradas', largura: 10, direita: true }, { titulo: 'Canceladas', largura: 9, direita: true }, { titulo: '% realizadas', largura: 10, direita: true }];
-    const colD: ColunaPdf[] = [{ titulo: 'Dia e hora', largura: 15 }, { titulo: 'Vistoriador', largura: 16 }, { titulo: 'OS', largura: 6 }, { titulo: 'Placa', largura: 9 }, { titulo: 'Cliente', largura: 16 }, { titulo: 'Local', largura: 24 }, { titulo: 'Situação', largura: 14 }];
+    const colD: ColunaPdf[] = [{ titulo: 'Dia e hora', largura: 13 }, { titulo: 'Vistoriador', largura: 14 }, { titulo: 'OS', largura: 6 }, { titulo: 'Placa', largura: 9 }, { titulo: 'Renavam', largura: 11 }, { titulo: 'Cliente', largura: 14 }, { titulo: 'Local', largura: 20 }, { titulo: 'Situação', largura: 13 }];
     const pdf = await gerarPdfRelatorio({
       titulo: 'Relatório da agenda', filtros, geradoEm, logo: await logo(req.nextUrl.origin),
       kpis: [{ rotulo: 'Agendadas', valor: String(t.total) }, { rotulo: 'Realizadas', valor: String(t.realizadas) }, { rotulo: 'A realizar', valor: String(t.agendadas) }, { rotulo: 'Não realizadas', valor: String(t.naoRealizadas) }, { rotulo: '% realizadas', valor: formatarPct(t.pctRealizadas) }],
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       },
       detalhe: {
         titulo: `Agendamentos (${rel.linhas.length})`, colunas: colD,
-        linhas: rel.linhas.map((l) => [dataHora(l.data_hora), l.vistoriador ?? '', String(l.numero), l.placa, l.cliente ?? '', l.local ?? l.patio ?? '', l.situacao]),
+        linhas: rel.linhas.map((l) => [dataHora(l.data_hora), l.vistoriador ?? '', String(l.numero), l.placa, l.renavam ?? '', l.cliente ?? '', l.local ?? l.patio ?? '', l.situacao]),
       },
     });
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nome}.pdf"`, 'Cache-Control': 'no-store' } });
@@ -54,8 +54,8 @@ export async function GET(req: NextRequest) {
   const buf = await gerarXlsx([
     {
       nome: 'Agendamentos',
-      colunas: [{ titulo: 'DIA E HORA', largura: 18 }, { titulo: 'VISTORIADOR', largura: 22 }, { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'CLIENTE', largura: 24 }, { titulo: 'PÁTIO', largura: 24 }, { titulo: 'LOCAL', largura: 30 }, { titulo: 'SITUAÇÃO', largura: 16 }],
-      linhas: rel.linhas.map((l) => [dataHora(l.data_hora), l.vistoriador ?? '', l.numero, l.placa, l.cliente ?? '', l.patio ?? '', l.local ?? '', l.situacao]),
+      colunas: [{ titulo: 'DIA E HORA', largura: 18 }, { titulo: 'VISTORIADOR', largura: 22 }, { titulo: 'OS', largura: 8 }, { titulo: 'PLACA', largura: 11 }, { titulo: 'RENAVAM', largura: 14 }, { titulo: 'CLIENTE', largura: 24 }, { titulo: 'PÁTIO', largura: 24 }, { titulo: 'LOCAL', largura: 30 }, { titulo: 'SITUAÇÃO', largura: 16 }],
+      linhas: rel.linhas.map((l) => [dataHora(l.data_hora), l.vistoriador ?? '', l.numero, l.placa, l.renavam ?? '', l.cliente ?? '', l.patio ?? '', l.local ?? '', l.situacao]),
     },
     {
       nome: 'Resumo',

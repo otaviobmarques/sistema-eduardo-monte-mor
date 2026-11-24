@@ -1,7 +1,7 @@
 /** Relatório da agenda: agregação pura dos agendamentos atuais por vistoriador, dia ou pátio (testada em tests/agenda-relatorio.test.ts). */
 
 export interface LinhaAgenda {
-  numero: number; placa: string; cliente: string | null; patio: string | null; local: string | null;
+  numero: number; placa: string; renavam?: string | null; cliente: string | null; patio: string | null; local: string | null;
   data_hora: string; vistoriador: string | null; status: 'a_vistoriar' | 'frustrado' | 'vistoriado' | 'cancelado';
 }
 

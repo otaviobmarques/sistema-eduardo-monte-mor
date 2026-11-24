@@ -7,18 +7,18 @@ import { todasAsLinhas } from '@/lib/supabase/paginar';
 type Sb = Awaited<ReturnType<typeof createClient>>;
 
 export interface LinhaFinanceira {
-  id: string; numero: number; placa: string; marca_modelo: string | null; status: string;
+  id: string; numero: number; placa: string; renavam: string | null; marca_modelo: string | null; status: string;
   aberta_em: string; concluida_em: string | null; valor: number; valor_congelado: boolean;
   pagamento_status: StatusPagamento; pagamento_forma: string | null; pagamento_data: string | null; pagamento_obs: string | null;
   empresa_id: string; cliente: string; forma_cobranca: 'faturado' | 'avulso' | null;
 }
 
-const SELECT = 'id, numero, placa, marca_modelo, status, aberta_em, concluida_em, valor_base, valor_deslocamento, valor_ajuste, valor_final, pagamento_status, pagamento_forma, pagamento_data, pagamento_obs, empresa_cliente_id, empresas_clientes(nome_fantasia, razao_social, forma_cobranca)';
+const SELECT = 'id, numero, placa, renavam, marca_modelo, status, aberta_em, concluida_em, valor_base, valor_deslocamento, valor_ajuste, valor_final, pagamento_status, pagamento_forma, pagamento_data, pagamento_obs, empresa_cliente_id, empresas_clientes(nome_fantasia, razao_social, forma_cobranca)';
 
 function mapear(o: Record<string, unknown>): LinhaFinanceira {
   const e = o.empresas_clientes as { nome_fantasia: string | null; razao_social: string; forma_cobranca: 'faturado' | 'avulso' } | null;
   return {
-    id: o.id as string, numero: o.numero as number, placa: o.placa as string, marca_modelo: o.marca_modelo as string | null,
+    id: o.id as string, numero: o.numero as number, placa: o.placa as string, renavam: (o.renavam as string | null) ?? null, marca_modelo: o.marca_modelo as string | null,
     status: o.status as string, aberta_em: o.aberta_em as string, concluida_em: o.concluida_em as string | null,
     valor: valorDaOs(o as never), valor_congelado: o.valor_final !== null,
     pagamento_status: o.pagamento_status as StatusPagamento, pagamento_forma: o.pagamento_forma as string | null,
