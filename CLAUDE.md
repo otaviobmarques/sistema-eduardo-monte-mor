@@ -139,6 +139,11 @@ Este arquivo contém o briefing de desenvolvimento V1 (abaixo, transcrito do PDF
 31. **Renavam nos relatórios (24/11/2026)**: coluna **Renavam logo após a Placa** em Relatórios (tela, Excel, PDF), Relatório
    da agenda (tela, Excel, PDF), exportação da Fila (Excel, PDF), Fechamento mensal (Excel) e Extrato de placas a pagar (PDF,
    Excel). `vw_os_sla` ganhou `renavam` (última coluna).
+32. **Alterar motivo e reabrir frustrada (24/11/2026, placa FZZ3F95)**: na ficha, cada pendência tem **“Alterar motivo”**
+   (`alterar_motivo_pendencia()`, qualquer Gestor; aberta ou resolvida): pendência de frustração troca o motivo (lista de
+   frustração) e a descrição em `os_frustracoes` e na pendência; avulsa troca tipo e descrição. Linha do tempo “Motivo da
+   pendência alterado” (de → para). **“Reabrir OS”** do Gestor com `conclusao_livre` vale também para **frustrada**:
+   `reabrir_os()` resolve as pendências da frustração (“OS reaberta: …”), fecha a pausa e volta para A vistoriar.
 
 ## Multi-Loja e Administrador (decidido em 05/11/2026 — substitui “multiempresa fora da V1”)
 - **3 perfis**: `admin` (dono da plataforma, sem Loja: cadastra Lojas franqueadas, gera o Gestor e cobra),

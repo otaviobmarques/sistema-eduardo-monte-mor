@@ -134,6 +134,26 @@ export async function resolverPendencia(pendenciaId: string, numero: number, tex
   return { ok: true };
 }
 
+/** Corrige o motivo de uma pendência/frustração já registrada (aberta ou resolvida). Fica na linha do tempo. */
+export async function alterarMotivoPendencia(pendenciaId: string, numero: number, d: { motivo_id?: string; tipo?: string; descricao: string }): Promise<Resultado> {
+  await sessao('loja');
+  if (!uuid.safeParse(pendenciaId).success) return { ok: false, erro: 'Pendência não encontrada.' };
+  const descricao = d.descricao.trim();
+  if (descricao.length < 3) return { ok: false, erro: 'Descreva o motivo.', campos: { descricao: 'Descreva o motivo.' } };
+  const motivo = d.motivo_id && uuid.safeParse(d.motivo_id).success ? d.motivo_id : null;
+  const tipos = ['documental', 'falta_autorizacao', 'nao_localizado', 'agendamento', 'outra'];
+  const tipo = d.tipo && tipos.includes(d.tipo) ? d.tipo : null;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('alterar_motivo_pendencia', { p_pendencia: pendenciaId, p_motivo: motivo, p_tipo: tipo, p_descricao: descricao.slice(0, 1000) });
+  if (error) {
+    if (error.message.includes('MOTIVO_INVALIDO')) return { ok: false, erro: 'Escolha o motivo.', campos: { motivo_id: 'Escolha o motivo.' } };
+    if (error.message.includes('TIPO_OBRIGATORIO')) return { ok: false, erro: 'Escolha o tipo.', campos: { tipo: 'Escolha o tipo.' } };
+    return { ok: false, erro: mensagemOperacao(error) };
+  }
+  atualizar(numero);
+  return { ok: true };
+}
+
 export async function responderPendencia(pendenciaId: string, numero: number, texto: string): Promise<Resultado> {
   await sessao();
   if (texto.trim().length < 2) return { ok: false, erro: 'Escreva a resposta.', campos: { texto: 'Escreva a resposta.' } };

@@ -42,7 +42,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
   ]);
   const [{ data: agendamentos }, { data: pendencias }, { data: motivos }, { data: vistoriadores }, { data: cancelamento }] = await Promise.all([
     supabase.from('os_agendamentos').select('id, versao, data_hora, local_texto, vistoriador_id, atual, motivo_texto, created_at, vistoriadores(nome), motivos(descricao)').eq('os_id', os.id).order('versao', { ascending: false }),
-    supabase.from('pendencias').select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, respondida_em').eq('os_id', os.id).order('created_at', { ascending: false }),
+    supabase.from('pendencias').select('id, tipo, descricao, responsavel, previsao, created_at, resolvida_em, resolucao_texto, resposta_cliente, respondida_em, os_frustracoes(motivo_id, descricao)').eq('os_id', os.id).order('created_at', { ascending: false }),
     supabase.from('motivos').select('id, tipo, descricao').in('tipo', ['frustracao', 'cancelamento', 'reagendamento']).eq('ativo', true).order('ordem'),
     modo === 'loja' ? supabase.from('vistoriadores').select('id, nome').eq('ativo', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
     supabase.from('os_cancelamentos').select('solicitado_por_nome, descricao, data, motivos(descricao)').eq('os_id', os.id).maybeSingle(),
@@ -150,7 +150,7 @@ export async function FichaOs({ numero, modo, nova }: { numero: string; modo: 'l
         </Aviso>
       )}
 
-      <Pendencias pendencias={(pendencias ?? []) as PendenciaVista[]} modo={modo} numero={os.numero} />
+      <Pendencias pendencias={(pendencias ?? []) as unknown as PendenciaVista[]} modo={modo} numero={os.numero} motivosFrustracao={porTipo('frustracao')} />
 
       {os.observacao && (
         <Aviso tipo="info" titulo="Observação do cliente"><p className="whitespace-pre-line">{os.observacao}</p></Aviso>

@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
-import { abrirPendencia, agendar, alterarAbertura, definirVistoriador, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
+import { abrirPendencia, agendar, alterarAbertura, alterarMotivoPendencia, definirVistoriador, cancelar, concluirSemLaudo, enviarLaudo, frustrar, mudarEtapa, pausarOs, reabrirOs, resolverPendencia, responderPendencia, retomarOs } from '@/app/os/operacao';
 import { ArquivoInput } from '@/components/arquivo-input';
 import { Icone } from '@/components/icone';
 import { Aviso, Modal } from '@/components/ui';
@@ -257,9 +257,11 @@ export function AcoesLoja({ d }: { d: DadosAcoes }) {
           </ModalForm>
         )}
 
-        {encerrada && d.conclusaoLivre && (
+        {(encerrada || os.status === 'frustrado') && d.conclusaoLivre && (
           <ModalForm titulo="Reabrir OS" rotulo="Reabrir OS"
-            descricao={`OS ${os.numero} volta para “A vistoriar” (etapa Aberta). O tempo em que ficou encerrada não conta no prazo e o cliente é avisado.`}
+            descricao={os.status === 'frustrado'
+              ? `OS ${os.numero} volta para “A vistoriar”: a pendência da frustração é encerrada e o prazo volta a correr. Para trocar o motivo, use “Alterar motivo” na pendência.`
+              : `OS ${os.numero} volta para “A vistoriar” (etapa Aberta). O tempo em que ficou encerrada não conta no prazo e o cliente é avisado.`}
             abrir={(f) => <button type="button" className="btn btn-secundario" onClick={f}><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" /></svg>Reabrir OS</button>}
             enviar={(fd) => reabrirOs(os.id, os.numero, String(fd.get('motivo') ?? ''))}>
             {() => (<>
@@ -358,9 +360,11 @@ export function CancelarOs({ osId, numero, motivos, cliente }: { osId: string; n
 export interface PendenciaVista {
   id: string; tipo: keyof typeof TIPO_PENDENCIA_LABEL; descricao: string; responsavel: 'cliente' | 'loja'; previsao: string | null;
   created_at: string; resolvida_em: string | null; resolucao_texto: string | null; resposta_cliente: string | null; respondida_em: string | null;
+  /** Pendência que nasceu de uma frustração (motivo da frustração). */
+  os_frustracoes?: { motivo_id: string | null; descricao: string | null }[] | { motivo_id: string | null; descricao: string | null } | null;
 }
 
-export function Pendencias({ pendencias, modo, numero }: { pendencias: PendenciaVista[]; modo: 'loja' | 'cliente'; numero: number }) {
+export function Pendencias({ pendencias, modo, numero, motivosFrustracao = [] }: { pendencias: PendenciaVista[]; modo: 'loja' | 'cliente'; numero: number; motivosFrustracao?: { id: string; descricao: string }[] }) {
   if (!pendencias.length) return null;
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   return (
@@ -383,13 +387,49 @@ export function Pendencias({ pendencias, modo, numero }: { pendencias: Pendencia
               <p className="legenda mt-2">Aberta em {dataHora(p.created_at)}{p.previsao ? ` · previsão ${fmtData(p.previsao)}` : ''}{p.resolvida_em ? ` · resolvida em ${dataHora(p.resolvida_em)}` : ''}</p>
               {p.resposta_cliente && <p className="mt-2 rounded-campo bg-info-bg p-3 text-sm text-info"><strong>Resposta do cliente</strong> ({dataHora(p.respondida_em)}): {p.resposta_cliente}</p>}
               {p.resolucao_texto && <p className="mt-2 rounded-campo bg-ok-bg p-3 text-sm text-ok"><strong>Resolução:</strong> {p.resolucao_texto}</p>}
-              {!p.resolvida_em && modo === 'loja' && <ResolverPendencia id={p.id} numero={numero} />}
+              {modo === 'loja' && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {!p.resolvida_em && <ResolverPendencia id={p.id} numero={numero} compacto />}
+                  <AlterarMotivo p={p} numero={numero} motivos={motivosFrustracao} />
+                </div>
+              )}
               {!p.resolvida_em && modo === 'cliente' && p.responsavel === 'cliente' && <ResponderPendencia id={p.id} numero={numero} />}
             </li>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+function AlterarMotivo({ p, numero, motivos }: { p: PendenciaVista; numero: number; motivos: { id: string; descricao: string }[] }) {
+  const fr = Array.isArray(p.os_frustracoes) ? p.os_frustracoes[0] : p.os_frustracoes;
+  const deFrustracao = !!fr;
+  const descAtual = deFrustracao ? fr?.descricao ?? '' : p.descricao;
+  return (
+    <ModalForm titulo={deFrustracao ? 'Alterar motivo da frustração' : 'Alterar motivo da pendência'} rotulo="Salvar motivo"
+      descricao="Corrige o motivo registrado. O anterior fica na linha do tempo e os relatórios passam a mostrar o novo."
+      abrir={(f) => <button type="button" className="btn btn-secundario btn-sm" onClick={f} data-teste="alterar-motivo">Alterar motivo</button>}
+      enviar={(fd) => alterarMotivoPendencia(p.id, numero, { motivo_id: String(fd.get('motivo_id') ?? ''), tipo: String(fd.get('tipo') ?? ''), descricao: String(fd.get('descricao') ?? '') })}>
+      {(e) => (<>
+        {deFrustracao ? (
+          <Campo id={`am-motivo-${p.id}`} rotulo="Motivo da frustração" erro={e.motivo_id}>
+            <select id={`am-motivo-${p.id}`} name="motivo_id" className="campo" defaultValue={fr?.motivo_id ?? ''} {...inv(e.motivo_id)}>
+              <option value="">Selecione</option>{motivos.map((m) => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+            </select>
+          </Campo>
+        ) : (
+          <Campo id={`am-tipo-${p.id}`} rotulo="Tipo da pendência" erro={e.tipo}>
+            <select id={`am-tipo-${p.id}`} name="tipo" className="campo" defaultValue={p.tipo} {...inv(e.tipo)}>
+              {Object.entries(TIPO_PENDENCIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </Campo>
+        )}
+        <Campo id={`am-desc-${p.id}`} rotulo="Descrição" erro={e.descricao}>
+          <textarea id={`am-desc-${p.id}`} name="descricao" className="campo" rows={3} defaultValue={descAtual} {...inv(e.descricao)} />
+        </Campo>
+      </>)}
+    </ModalForm>
   );
 }
 
